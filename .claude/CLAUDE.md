@@ -13,7 +13,7 @@ Interactive math canvas service for the MathTrail platform. Students solve probl
 
 | Layer | Library |
 |-------|---------|
-| HTTP | `github.com/go-chi/chi/v5` |
+| HTTP | `github.com/gin-gonic/gin` |
 | Kafka | `github.com/twmb/franz-go` — SASL/SCRAM-SHA-512, AutoMQ |
 | Protobuf | `google.golang.org/protobuf` — contracts from `../contracts` |
 | Auth | Ory Kratos session validation (`GET /sessions/whoami`) |
@@ -26,7 +26,7 @@ Interactive math canvas service for the MathTrail platform. Students solve probl
 
 | File | Purpose |
 |------|---------|
-| `cmd/server/main.go` | Entry point — chi router, errgroup (HTTP + hint consumer + shutdown) |
+| `cmd/server/main.go` | Entry point — gin engine, errgroup (HTTP + hint consumer + shutdown) |
 | `internal/config/config.go` | Config (Viper) — all settings loaded from env |
 | `internal/handlers/token.go` | `GET /api/canvas/token` — Centrifugo connection + channel JWT |
 | `internal/handlers/stroke.go` | `POST /api/canvas/strokes` — validate session, publish to Kafka |
@@ -78,7 +78,7 @@ Consumes `canvas.hints` → deserializes `HintEvent` → POST Centrifugo HTTP AP
 - **Kafka:** franz-go with SASL/SCRAM-SHA-512. Partition key `[]byte(sessionID)` guarantees per-student stroke ordering — franz-go requires `[]byte`, not `string`.
 - **Centrifugo channel namespace:** `canvas` — protected (subscription tokens required).
   Channel format: `canvas:{sessionId}`.
-- **CORS:** `AllowCredentials: true` required — Ory session cookie travels cross-origin from shell at `localhost:3000`.
+- **CORS:** Native Gin middleware (no `rs/cors`). `AllowCredentials: true` required — Ory session cookie travels cross-origin from shell at `localhost:3000`.
 - Helm chart uses `mathtrail-service-lib` library chart from `https://MathTrail.github.io/charts/charts`
 
 ## Service-Lib Contract (MUST follow)
@@ -134,7 +134,7 @@ cd ui && npm run dev
 
 - Handle errors explicitly — never ignore error returns
 - All comments in English
-- Middleware order: `RequestID` → `Recoverer` → `CORS` → route-level `Auth`
+- Middleware order: `gin.Recovery()` → `CORS` → route-group `Auth`
 - Commit convention: `feat(canvas):`, `fix(canvas):`, `test(canvas):`, `docs(canvas):`
 
 ## External Dependencies

@@ -1,13 +1,14 @@
 package handlers
 
 import (
-	"io"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
 	canvasv1 "github.com/mathtrail/contracts/gen/go/canvas/v1"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/mathtrail/canvas-api/internal/kafka"
 	"github.com/mathtrail/canvas-api/internal/middleware"
-	"google.golang.org/protobuf/proto"
 )
 
 // Strokes receives a Protobuf-encoded CanvasStrokeEvent from the canvas UI,
@@ -16,35 +17,37 @@ import (
 // POST /api/canvas/strokes
 // Content-Type: application/octet-stream
 // Body: Protobuf-encoded CanvasStrokeEvent
-func Strokes(producer *kafka.Producer) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20)) // 1 MB limit
+func Strokes(producer *kafka.Producer) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1<<20) // 1 MB limit
+
+		body, err := c.GetRawData()
 		if err != nil {
-			http.Error(w, "read body failed", http.StatusBadRequest)
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "read body failed"})
 			return
 		}
 
 		var event canvasv1.CanvasStrokeEvent
 		if err := proto.Unmarshal(body, &event); err != nil {
-			http.Error(w, "invalid protobuf payload", http.StatusBadRequest)
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid protobuf payload"})
 			return
 		}
 
 		// Stamp user_id from the validated session so the client cannot spoof it.
-		session := middleware.SessionFromContext(r.Context())
+		session := middleware.SessionFromContext(c)
 		event.UserId = session.Identity.ID
 
 		data, err := proto.Marshal(&event)
 		if err != nil {
-			http.Error(w, "marshal failed", http.StatusInternalServerError)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "marshal failed"})
 			return
 		}
 
-		if err := producer.Publish(r.Context(), event.SessionId, data); err != nil {
-			http.Error(w, "publish failed", http.StatusInternalServerError)
+		if err := producer.Publish(c.Request.Context(), event.SessionId, data); err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "publish failed"})
 			return
 		}
 
-		w.WriteHeader(http.StatusAccepted)
+		c.Status(http.StatusAccepted)
 	}
 }

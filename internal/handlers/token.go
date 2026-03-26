@@ -1,10 +1,10 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/mathtrail/canvas-api/internal/middleware"
 )
@@ -19,20 +19,19 @@ type tokenResponse struct {
 // token for the authenticated user. The UI passes these to centrifuge-js.
 //
 // GET /api/canvas/token?session_id={sessionId}
-func Token(hmacKey string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		sessionID := r.URL.Query().Get("session_id")
+func Token(hmacKey string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessionID := c.Query("session_id")
 		if sessionID == "" {
-			http.Error(w, "session_id is required", http.StatusBadRequest)
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "session_id is required"})
 			return
 		}
 
-		session := middleware.SessionFromContext(r.Context())
+		session := middleware.SessionFromContext(c)
 		userID := session.Identity.ID
 
 		key := []byte(hmacKey)
-		now := time.Now()
-		exp := now.Add(time.Hour)
+		exp := time.Now().Add(time.Hour)
 
 		// Connection token: identifies the user to Centrifugo.
 		connToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -40,7 +39,7 @@ func Token(hmacKey string) http.HandlerFunc {
 			"exp": exp.Unix(),
 		}).SignedString(key)
 		if err != nil {
-			http.Error(w, "token generation failed", http.StatusInternalServerError)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "token generation failed"})
 			return
 		}
 
@@ -53,12 +52,11 @@ func Token(hmacKey string) http.HandlerFunc {
 			"exp":     exp.Unix(),
 		}).SignedString(key)
 		if err != nil {
-			http.Error(w, "token generation failed", http.StatusInternalServerError)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "token generation failed"})
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(tokenResponse{
+		c.JSON(http.StatusOK, tokenResponse{
 			Token:        connToken,
 			Channel:      channel,
 			ChannelToken: chanToken,

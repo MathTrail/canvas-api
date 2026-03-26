@@ -8,16 +8,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/mathtrail/canvas-api/internal/config"
 	centrifugoclient "github.com/mathtrail/canvas-api/internal/infra/centrifugo"
-	"github.com/mathtrail/canvas-api/internal/handlers"
 	"github.com/mathtrail/canvas-api/internal/kafka"
-	"github.com/mathtrail/canvas-api/internal/middleware"
+	httpserver "github.com/mathtrail/canvas-api/internal/transport/http"
 )
 
 func main() {
@@ -55,23 +52,9 @@ func main() {
 	}
 	defer consumer.Close()
 
-	// Router
-	r := chi.NewRouter()
-	r.Use(chimiddleware.RequestID)
-	r.Use(chimiddleware.Recoverer)
-	r.Use(middleware.CORS(cfg.AllowedOrigins))
-
-	r.Get("/health", handlers.Health)
-
-	r.Group(func(r chi.Router) {
-		r.Use(middleware.Auth(cfg.OryKratosURL))
-		r.Get("/api/canvas/token", handlers.Token(cfg.CentrifugoHMACKey))
-		r.Post("/api/canvas/strokes", handlers.Strokes(producer))
-	})
-
 	srv := &http.Server{
 		Addr:         cfg.Port,
-		Handler:      r,
+		Handler:      httpserver.NewRouter(cfg, producer, cClient),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
