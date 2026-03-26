@@ -26,7 +26,7 @@ Interactive math canvas service for the MathTrail platform. Students solve probl
 
 | File | Purpose |
 |------|---------|
-| `cmd/canvas-api/main.go` | Entry point — chi router, errgroup (HTTP + hint consumer + shutdown) |
+| `cmd/server/main.go` | Entry point — chi router, errgroup (HTTP + hint consumer + shutdown) |
 | `internal/config/config.go` | Config (Viper) — all settings loaded from env |
 | `internal/handlers/token.go` | `GET /api/canvas/token` — Centrifugo connection + channel JWT |
 | `internal/handlers/stroke.go` | `POST /api/canvas/strokes` — validate session, publish to Kafka |
@@ -122,7 +122,7 @@ just first-build     # seed image in k3d registry (required before first skaffol
 just dev             # skaffold dev -m canvas-api --port-forward
 
 just tp-intercept    # Telepresence intercept (--mapped-namespaces all)
-                     # then: go run ./cmd/canvas-api
+                     # then: go run ./cmd/server
 just tp-stop         # leave intercept + quit telepresence
 just tp-status       # show current intercept state
 

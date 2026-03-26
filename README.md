@@ -118,7 +118,7 @@ cd ui && npm run dev  # MFE dev server on :3001
 
 ```bash
 just tp-intercept
-go run ./cmd/canvas-api
+go run ./cmd/server
 
 just tp-stop
 ```

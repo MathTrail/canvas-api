@@ -7,7 +7,7 @@ NAMESPACE := env_var_or_default("NAMESPACE", "mathtrail")
 
 # Build the binary locally
 build:
-    go build -o bin/canvas-api ./cmd/canvas-api
+    go build -o bin/canvas-api ./cmd/server
 
 # Build and push image to k3d registry via buildah
 build-push-image tag=env("IMAGE", ""):
@@ -40,7 +40,7 @@ first-build:
 tp-intercept:
     telepresence connect -n {{ NAMESPACE }} --mapped-namespaces all
     telepresence intercept {{ SERVICE }} --port 8080:8080
-    @echo "Intercepting {{ SERVICE }}. Start the service with: go run ./cmd/canvas-api"
+    @echo "Intercepting {{ SERVICE }}. Start the service with: go run ./cmd/server"
 
 # Stop Telepresence intercept
 tp-stop:
