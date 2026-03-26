@@ -1,0 +1,39 @@
+env:
+  - name: AUTOMQ_BROKERS
+    value: "automq.streaming.svc:9092"
+  - name: STROKE_TOPIC
+    value: "canvas.strokes"
+  - name: HINT_TOPIC
+    value: "canvas.hints"
+  - name: KAFKA_CONSUMER_GROUP
+    value: "canvas-api"
+  - name: CENTRIFUGO_URL
+    value: "http://centrifugo-local.streaming.svc:8000"
+  - name: ORY_KRATOS_URL
+    value: "http://kratos.identity.svc"
+  - name: ALLOWED_ORIGINS
+    value: "http://localhost:3000,http://localhost:3001"
+  - name: LOG_LEVEL
+    value: "debug"
+  # Centrifugo secrets (VSO creates canvas-api-secrets K8s Secret from Vault)
+  - name: CENTRIFUGO_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: canvas-api-secrets
+        key: centrifugo_api_key
+  - name: CENTRIFUGO_HMAC_KEY
+    valueFrom:
+      secretKeyRef:
+        name: canvas-api-secrets
+        key: centrifugo_hmac_key
+  # AutoMQ SCRAM credentials (VSO creates automq-canvas-api-scram K8s Secret)
+  - name: KAFKA_SASL_USERNAME
+    valueFrom:
+      secretKeyRef:
+        name: automq-canvas-api-scram
+        key: username
+  - name: KAFKA_SASL_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: automq-canvas-api-scram
+        key: password

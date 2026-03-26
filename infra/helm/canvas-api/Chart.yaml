@@ -1,0 +1,10 @@
+apiVersion: v2
+name: canvas-api
+description: MathTrail Canvas API — WebSocket canvas event ingestion and hint delivery
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: mathtrail-service-lib
+    version: "~0"
+    repository: "https://MathTrail.github.io/charts/charts"

@@ -1,0 +1,9 @@
+{{ include "mathtrail-service-lib.deployment" . }}
+---
+{{ include "mathtrail-service-lib.service" . }}
+---
+{{ include "mathtrail-service-lib.serviceaccount" . }}
+---
+{{ include "mathtrail-service-lib.rbac" . }}
+---
+{{ include "mathtrail-service-lib.configmap" . }}

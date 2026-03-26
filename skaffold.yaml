@@ -1,0 +1,57 @@
+apiVersion: skaffold/v4beta13
+kind: Config
+metadata:
+  name: canvas-api
+
+build:
+  local:
+    push: true
+    tryImportMissing: true
+  tagPolicy:
+    inputDigest: {}   # requires existing image in registry; on first run: just build-push-image
+  insecureRegistries:
+    - ${REGISTRY_CLUSTER}
+  artifacts:
+    - image: canvas-api
+      custom:
+        buildCommand: just build-push-image
+        dependencies:
+          dockerfile:
+            path: Dockerfile
+
+manifests:
+  rawYaml:
+    - manifests/network-policies.yaml
+
+deploy:
+  kubectl:
+    defaultNamespace: "{{.NAMESPACE}}"
+  statusCheck: true
+  statusCheckDeadlineSeconds: 120
+  helm:
+    releases:
+      - name: canvas-api
+        namespace: "{{.NAMESPACE}}"
+        chartPath: infra/helm/canvas-api
+        createNamespace: true
+        wait: true
+        skipBuildDependencies: true
+        valuesFiles:
+          - infra/helm/canvas-api/values.yaml
+          - infra/helm/values-dev.yaml
+        setValueTemplates:
+          image.repository: "{{.IMAGE_REPO_canvas_api}}"
+          image.tag: "{{.IMAGE_TAG_canvas_api}}"
+
+portForward:
+  - resourceType: service
+    resourceName: canvas-api
+    port: 8080
+    localPort: 8080
+
+profiles:
+  - name: observability
+    patches:
+      - op: add
+        path: /deploy/helm/releases/0/valuesFiles/-
+        value: infra/helm/values-observability.yaml

@@ -1,0 +1,8 @@
+# Network policies for canvas-api.
+# canvas-api needs egress to:
+#   - automq.streaming.svc:9092  (Kafka producer/consumer)
+#   - centrifugo-local.streaming.svc:8000  (Centrifugo HTTP API)
+#   - kratos.identity.svc  (Ory session validation)
+# canvas-api accepts ingress from:
+#   - Traefik ingress controller (port 8080)
+# TODO: add NetworkPolicy resources when cluster-level network policy is enforced.
