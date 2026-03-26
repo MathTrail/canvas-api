@@ -4,7 +4,7 @@
 
 Interactive math canvas service for the MathTrail platform. Students solve problems (e.g. "1 + 1 =") by drawing with a stylus on a Konva canvas. Strokes are published to AutoMQ; hints are returned in real-time via Centrifugo WebSocket.
 
-**Language:** Go 1.23
+**Language:** Go 1.26.0
 **Port:** 8080
 **Cluster:** k3d `mathtrail-dev`, namespace `mathtrail`
 **KUBECONFIG:** `/home/vscode/.kube/k3d-mathtrail-dev.yaml`
