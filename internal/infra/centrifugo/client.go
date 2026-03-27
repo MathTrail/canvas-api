@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 // Client publishes events to Centrifugo via its HTTP API.
@@ -57,6 +58,29 @@ func (c *Client) Publish(ctx context.Context, channel string, data []byte) error
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("centrifugo publish: unexpected status %d", resp.StatusCode)
+	}
+	return nil
+}
+
+// Ping checks that Centrifugo is reachable by calling the channels API.
+// Used by the readiness health probe.
+func (c *Client) Ping(ctx context.Context) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/channels",
+		strings.NewReader("{}"))
+	if err != nil {
+		return fmt.Errorf("build ping request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-Key", c.apiKey)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("centrifugo ping: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("centrifugo ping: unexpected status %d", resp.StatusCode)
 	}
 	return nil
 }

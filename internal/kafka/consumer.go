@@ -14,6 +14,7 @@ import (
 
 // HintConsumer consumes HintEvent messages from AutoMQ and pushes them to the
 // corresponding student's Centrifugo channel (canvas:{session_id}).
+// It implements runner.Worker.
 type HintConsumer struct {
 	client     *kgo.Client
 	centrifugo *centrifugo.Client
@@ -39,12 +40,13 @@ func NewHintConsumer(
 	return &HintConsumer{client: client, centrifugo: cClient, log: log}, nil
 }
 
-// Run starts the consume loop. It blocks until ctx is cancelled.
-func (c *HintConsumer) Run(ctx context.Context) error {
+// Start implements runner.Worker. It blocks until ctx is cancelled.
+func (c *HintConsumer) Start(ctx context.Context) error {
+	c.log.Info("hint consumer starting")
 	for {
 		fetches := c.client.PollFetches(ctx)
 		if ctx.Err() != nil {
-			return nil
+			break
 		}
 		if errs := fetches.Errors(); len(errs) > 0 {
 			c.log.Error("kafka fetch error", zap.Any("errors", errs))
@@ -60,6 +62,10 @@ func (c *HintConsumer) Run(ctx context.Context) error {
 			}
 		})
 	}
+
+	c.log.Info("hint consumer stopping, leaving group")
+	c.client.LeaveGroup()
+	return nil
 }
 
 func (c *HintConsumer) handle(ctx context.Context, r *kgo.Record) error {
@@ -84,7 +90,7 @@ func (c *HintConsumer) handle(ctx context.Context, r *kgo.Record) error {
 	return nil
 }
 
+// Close releases the Kafka client.
 func (c *HintConsumer) Close() {
-	c.client.LeaveGroup()
 	c.client.Close()
 }

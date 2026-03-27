@@ -4,6 +4,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/mathtrail/canvas-api/internal/apierror"
 	"github.com/mathtrail/canvas-api/internal/ory"
 )
 
@@ -15,7 +17,10 @@ func Auth(kratosURL string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		session, err := ory.WhoAmI(c.Request.Context(), kratosURL, c.Request.Cookies())
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, apierror.Response{
+				Code:    "UNAUTHORIZED",
+				Message: "unauthorized",
+			})
 			return
 		}
 		c.Set(sessionKey, session)

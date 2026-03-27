@@ -2,88 +2,72 @@ package main
 
 import (
 	"context"
-	"net/http"
-	"os"
+	"errors"
+	"log"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/mathtrail/canvas-api/internal/app"
 	"github.com/mathtrail/canvas-api/internal/config"
-	centrifugoclient "github.com/mathtrail/canvas-api/internal/infra/centrifugo"
-	"github.com/mathtrail/canvas-api/internal/kafka"
-	httpserver "github.com/mathtrail/canvas-api/internal/transport/http"
+	applogger "github.com/mathtrail/canvas-api/internal/logger"
+	"github.com/mathtrail/canvas-api/internal/observability"
+	"github.com/mathtrail/canvas-api/internal/runner"
 )
 
 func main() {
-	log, _ := zap.NewProduction()
-	defer log.Sync()
-
+	// 1. Single point of config and logger creation.
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatal("load config", zap.Error(err))
+		log.Fatalf("failed to load config: %v", err)
 	}
+	logger := applogger.NewLogger(cfg.LogLevel, cfg.LogFormat)
 
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
+	// 2. Root context: cancelled on SIGINT or SIGTERM.
+	// Created first so it can be passed into every subsystem.
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
-	// Infrastructure
-	cClient := centrifugoclient.NewClient(cfg.CentrifugoURL, cfg.CentrifugoAPIKey)
+	// 3. Observability stack (tracing, metrics, profiling).
+	obs := observability.New(cfg, logger)
+	if err := obs.Init(ctx); err != nil {
+		logger.Fatal("failed to initialize observability", zap.Error(err))
+	}
+	// Shutdown context is created at exit time so the deadline starts
+	// only when the process is actually terminating.
+	defer func() {
+		shutCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+		defer cancel()
+		obs.Shutdown(shutCtx)
+	}()
 
-	producer, err := kafka.NewProducer(cfg.AutoMQBrokers, cfg.StrokeTopic, cfg.KafkaSASLUsername, cfg.KafkaSASLPassword)
+	// 4. DI container (Kafka, Centrifugo, handlers, router).
+	container, err := app.NewContainer(ctx, cfg, logger)
 	if err != nil {
-		log.Fatal("kafka producer", zap.Error(err))
+		logger.Fatal("failed to initialize application", zap.Error(err))
 	}
-	defer producer.Close()
+	defer container.Close()
 
-	consumer, err := kafka.NewHintConsumer(
-		cfg.AutoMQBrokers,
-		cfg.HintTopic,
-		cfg.KafkaConsumerGroup,
-		cfg.KafkaSASLUsername,
-		cfg.KafkaSASLPassword,
-		cClient,
-		log,
-	)
-	if err != nil {
-		log.Fatal("hint consumer", zap.Error(err))
-	}
-	defer consumer.Close()
+	logger.Info("starting canvas-api", zap.String("port", cfg.ServerPort))
 
-	srv := &http.Server{
-		Addr:         cfg.Port,
-		Handler:      httpserver.NewRouter(cfg, producer, cClient),
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-	}
+	// 5. Run background workers and HTTP server under a shared errgroup so that:
+	//    - container.Close() (deferred above) only runs after both have exited;
+	//    - if any component fails, gCtx is cancelled and the others begin graceful shutdown.
+	g, gCtx := errgroup.WithContext(ctx)
 
-	g, ctx := errgroup.WithContext(ctx)
-
-	// HTTP server
 	g.Go(func() error {
-		log.Info("canvas-api starting", zap.String("addr", cfg.Port))
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			return err
-		}
-		return nil
+		return runner.RunGroup(gCtx, container.Workers...)
 	})
 
-	// Hint consumer
+	srv := app.NewServer(container)
 	g.Go(func() error {
-		return consumer.Run(ctx)
+		return srv.Run(gCtx)
 	})
 
-	// Graceful shutdown
-	g.Go(func() error {
-		<-ctx.Done()
-		shutCtx, shutCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer shutCancel()
-		return srv.Shutdown(shutCtx)
-	})
-
-	if err := g.Wait(); err != nil {
-		log.Error("canvas-api exited with error", zap.Error(err))
+	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
+		logger.Error("application stopped with error", zap.Error(err))
 	}
+	logger.Info("canvas-api stopped gracefully")
 }

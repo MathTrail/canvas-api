@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -11,7 +12,7 @@ import (
 // Secrets (CentrifugoAPIKey, CentrifugoHMACKey, KafkaSASLUsername,
 // KafkaSASLPassword) are injected from K8s Secrets created by VSO.
 type Config struct {
-	Port string
+	ServerPort string
 
 	// AutoMQ / Kafka
 	AutoMQBrokers      []string
@@ -33,22 +34,43 @@ type Config struct {
 	// Must include the ui-web shell origin and localhost:3001 for local dev.
 	AllowedOrigins []string
 
-	LogLevel string
+	// Logging
+	LogLevel  string
+	LogFormat string // "json" or "console"
+
+	// HTTP server timeouts
+	ReadTimeout     time.Duration
+	WriteTimeout    time.Duration
+	IdleTimeout     time.Duration
+	ShutdownTimeout time.Duration
+
+	// Observability
+	ServiceName       string
+	OTelEndpoint      string
+	OTelSampleRate    float64
+	PyroscopeEndpoint string
 }
 
 func Load() (*Config, error) {
 	v := viper.New()
 	v.AutomaticEnv()
 
-	v.SetDefault("PORT", ":8080")
+	v.SetDefault("SERVER_PORT", "8080")
 	v.SetDefault("STROKE_TOPIC", "canvas.strokes")
 	v.SetDefault("HINT_TOPIC", "canvas.hints")
 	v.SetDefault("KAFKA_CONSUMER_GROUP", "canvas-api")
 	v.SetDefault("LOG_LEVEL", "info")
+	v.SetDefault("LOG_FORMAT", "json")
 	v.SetDefault("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001")
+	v.SetDefault("READ_TIMEOUT", "5s")
+	v.SetDefault("WRITE_TIMEOUT", "10s")
+	v.SetDefault("IDLE_TIMEOUT", "120s")
+	v.SetDefault("SHUTDOWN_TIMEOUT", "10s")
+	v.SetDefault("SERVICE_NAME", "canvas-api")
+	v.SetDefault("OTEL_SAMPLE_RATE", 1.0)
 
 	cfg := &Config{
-		Port:               v.GetString("PORT"),
+		ServerPort:         v.GetString("SERVER_PORT"),
 		StrokeTopic:        v.GetString("STROKE_TOPIC"),
 		HintTopic:          v.GetString("HINT_TOPIC"),
 		KafkaConsumerGroup: v.GetString("KAFKA_CONSUMER_GROUP"),
@@ -59,6 +81,15 @@ func Load() (*Config, error) {
 		CentrifugoHMACKey:  v.GetString("CENTRIFUGO_HMAC_KEY"),
 		OryKratosURL:       v.GetString("ORY_KRATOS_URL"),
 		LogLevel:           v.GetString("LOG_LEVEL"),
+		LogFormat:          v.GetString("LOG_FORMAT"),
+		ReadTimeout:        v.GetDuration("READ_TIMEOUT"),
+		WriteTimeout:       v.GetDuration("WRITE_TIMEOUT"),
+		IdleTimeout:        v.GetDuration("IDLE_TIMEOUT"),
+		ShutdownTimeout:    v.GetDuration("SHUTDOWN_TIMEOUT"),
+		ServiceName:        v.GetString("SERVICE_NAME"),
+		OTelEndpoint:       v.GetString("OTEL_ENDPOINT"),
+		OTelSampleRate:     v.GetFloat64("OTEL_SAMPLE_RATE"),
+		PyroscopeEndpoint:  v.GetString("PYROSCOPE_ENDPOINT"),
 	}
 
 	// CSV-split slice fields
