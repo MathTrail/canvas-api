@@ -37,20 +37,20 @@ func (h *StrokeHandler) Handle(c *gin.Context) {
 	body, err := c.GetRawData()
 	if err != nil {
 		h.logger.Warn("failed to read stroke body", zap.Error(err))
-		c.AbortWithStatusJSON(http.StatusBadRequest, apierror.Response{
-			Code:    "INVALID_REQUEST",
-			Message: "failed to read request body",
-		})
+		apierror.Abort(c, http.StatusBadRequest, "INVALID_REQUEST", "failed to read request body")
 		return
 	}
 
 	var event canvasv1.CanvasStrokeEvent
 	if err := proto.Unmarshal(body, &event); err != nil {
 		h.logger.Warn("invalid protobuf payload", zap.Error(err))
-		c.AbortWithStatusJSON(http.StatusBadRequest, apierror.Response{
-			Code:    "INVALID_REQUEST",
-			Message: "invalid protobuf payload",
-		})
+		apierror.Abort(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid protobuf payload")
+		return
+	}
+
+	if event.SessionId == "" {
+		h.logger.Warn("missing session_id in stroke event")
+		apierror.Abort(c, http.StatusBadRequest, "INVALID_REQUEST", "session_id is required")
 		return
 	}
 
@@ -61,10 +61,7 @@ func (h *StrokeHandler) Handle(c *gin.Context) {
 	data, err := proto.Marshal(&event)
 	if err != nil {
 		h.logger.Error("failed to marshal stroke event", zap.Error(err))
-		c.AbortWithStatusJSON(http.StatusInternalServerError, apierror.Response{
-			Code:    "INTERNAL_ERROR",
-			Message: "failed to process stroke event",
-		})
+		apierror.Abort(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to process stroke event")
 		return
 	}
 
@@ -73,10 +70,7 @@ func (h *StrokeHandler) Handle(c *gin.Context) {
 			zap.Error(err),
 			zap.String("session_id", event.SessionId),
 		)
-		c.AbortWithStatusJSON(http.StatusInternalServerError, apierror.Response{
-			Code:    "INTERNAL_ERROR",
-			Message: "failed to publish stroke event",
-		})
+		apierror.Abort(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to publish stroke event")
 		return
 	}
 

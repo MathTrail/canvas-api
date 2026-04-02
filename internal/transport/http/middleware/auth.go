@@ -17,10 +17,7 @@ func Auth(kratosURL string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		session, err := ory.WhoAmI(c.Request.Context(), kratosURL, c.Request.Cookies())
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, apierror.Response{
-				Code:    "UNAUTHORIZED",
-				Message: "unauthorized",
-			})
+			apierror.Abort(c, http.StatusUnauthorized, "UNAUTHORIZED", "unauthorized")
 			return
 		}
 		c.Set(sessionKey, session)

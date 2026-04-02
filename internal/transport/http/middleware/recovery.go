@@ -33,9 +33,6 @@ func ZapRecovery(logger *zap.Logger) gin.HandlerFunc {
 			zap.String("client_ip", c.ClientIP()),
 			zap.StackSkip("stack", panicStackSkip),
 		)
-		c.AbortWithStatusJSON(http.StatusInternalServerError, apierror.Response{
-			Code:    "INTERNAL_ERROR",
-			Message: "an unexpected error occurred",
-		})
+		apierror.Abort(c, http.StatusInternalServerError, "INTERNAL_ERROR", "an unexpected error occurred")
 	})
 }

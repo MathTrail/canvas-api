@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // Client publishes events to Centrifugo via its HTTP API.
@@ -21,7 +22,7 @@ func NewClient(baseURL, apiKey string) *Client {
 	return &Client{
 		baseURL:    baseURL,
 		apiKey:     apiKey,
-		httpClient: &http.Client{},
+		httpClient: &http.Client{Timeout: 5 * time.Second},
 	}
 }
 

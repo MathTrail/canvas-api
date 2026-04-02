@@ -37,10 +37,7 @@ func NewTokenHandler(hmacKey string, logger *zap.Logger) *TokenHandler {
 func (h *TokenHandler) Handle(c *gin.Context) {
 	sessionID := c.Query("session_id")
 	if sessionID == "" {
-		c.AbortWithStatusJSON(http.StatusBadRequest, apierror.Response{
-			Code:    "INVALID_REQUEST",
-			Message: "session_id is required",
-		})
+		apierror.Abort(c, http.StatusBadRequest, "INVALID_REQUEST", "session_id is required")
 		return
 	}
 
@@ -55,10 +52,7 @@ func (h *TokenHandler) Handle(c *gin.Context) {
 	}).SignedString(h.hmacKey)
 	if err != nil {
 		h.logger.Error("failed to sign connection token", zap.Error(err))
-		c.AbortWithStatusJSON(http.StatusInternalServerError, apierror.Response{
-			Code:    "INTERNAL_ERROR",
-			Message: "token generation failed",
-		})
+		apierror.Abort(c, http.StatusInternalServerError, "INTERNAL_ERROR", "token generation failed")
 		return
 	}
 
@@ -72,10 +66,7 @@ func (h *TokenHandler) Handle(c *gin.Context) {
 	}).SignedString(h.hmacKey)
 	if err != nil {
 		h.logger.Error("failed to sign channel token", zap.Error(err))
-		c.AbortWithStatusJSON(http.StatusInternalServerError, apierror.Response{
-			Code:    "INTERNAL_ERROR",
-			Message: "token generation failed",
-		})
+		apierror.Abort(c, http.StatusInternalServerError, "INTERNAL_ERROR", "token generation failed")
 		return
 	}
 
