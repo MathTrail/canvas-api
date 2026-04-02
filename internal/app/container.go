@@ -75,6 +75,17 @@ func NewContainer(ctx context.Context, cfg *config.Config, logger *zap.Logger) (
 
 // Close releases resources held by the container.
 // Call once after RunWorkers and the HTTP server have both stopped.
-func (c *Container) Close() {
-	c.stop()
+// ctx is used as a deadline for the shutdown: if resources take too long to
+// close, the method returns and logs a warning rather than blocking forever.
+func (c *Container) Close(ctx context.Context) {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		c.stop()
+	}()
+	select {
+	case <-done:
+	case <-ctx.Done():
+		c.Logger.Warn("container close timed out", zap.Error(ctx.Err()))
+	}
 }

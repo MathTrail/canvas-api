@@ -48,7 +48,11 @@ func main() {
 	if err != nil {
 		logger.Fatal("failed to initialize application", zap.Error(err))
 	}
-	defer container.Close()
+	defer func() {
+		closeCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout) // NOSONAR: intentional fresh context — parent ctx is already cancelled at this point
+		defer cancel()
+		container.Close(closeCtx)
+	}()
 
 	logger.Info("starting canvas-api", zap.String("port", cfg.ServerPort))
 
@@ -67,7 +71,8 @@ func main() {
 	})
 
 	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
-		logger.Error("application stopped with error", zap.Error(err))
+		logger.Error("canvas-api stopped with error", zap.Error(err))
+	} else {
+		logger.Info("canvas-api stopped gracefully")
 	}
-	logger.Info("canvas-api stopped gracefully")
 }
