@@ -21,6 +21,9 @@ const (
 func RequestID() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.GetHeader(RequestIDHeader)
+		if len(id) > 64 {
+			id = ""
+		}
 		if id == "" {
 			span := trace.SpanFromContext(c.Request.Context())
 			if sc := span.SpanContext(); sc.HasTraceID() {

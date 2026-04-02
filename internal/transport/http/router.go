@@ -8,6 +8,7 @@ import (
 
 	"github.com/mathtrail/canvas-api/internal/config"
 	"github.com/mathtrail/canvas-api/internal/handlers"
+	"github.com/mathtrail/canvas-api/internal/ory"
 	"github.com/mathtrail/canvas-api/internal/transport/http/middleware"
 )
 
@@ -42,7 +43,7 @@ func NewRouter(
 
 	// API routes — protected by Ory Kratos session auth
 	api := router.Group("/api/canvas")
-	api.Use(middleware.Auth(cfg.OryKratosURL))
+	api.Use(middleware.Auth(ory.NewClient(cfg.OryKratosURL)))
 	{
 		api.GET("/token", tokenHandler.Handle)
 		api.POST("/strokes", strokeHandler.Handle)

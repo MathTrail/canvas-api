@@ -22,7 +22,9 @@ func CORS(allowedOrigins []string) gin.HandlerFunc {
 			c.Header("Access-Control-Allow-Origin", origin)
 			c.Header("Access-Control-Allow-Credentials", "true")
 			c.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-			c.Header("Access-Control-Allow-Headers", "Content-Type, Cookie")
+			c.Header("Access-Control-Allow-Headers", "Content-Type, Cookie, traceparent, baggage")
+			c.Header("Access-Control-Max-Age", "86400")
+			c.Header("Vary", "Origin")
 		}
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusNoContent)

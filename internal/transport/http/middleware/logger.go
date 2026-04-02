@@ -7,6 +7,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+
+	"github.com/mathtrail/canvas-api/internal/ory"
 )
 
 // sensitiveKeys is the deny-list of query parameter names whose values are
@@ -55,8 +57,18 @@ func ZapLogger(logger *zap.Logger) gin.HandlerFunc {
 			fields = append(fields, zap.String("request_id", id.(string)))
 		}
 
-		if len(c.Errors) > 0 {
-			fields = append(fields, zap.String("errors", c.Errors.ByType(gin.ErrorTypePrivate).String()))
+		if val, exists := c.Get(sessionKey); exists {
+			if s, ok := val.(*ory.Session); ok {
+				fields = append(fields, zap.String("user_id", s.Identity.ID))
+			}
+		}
+
+		if errs := c.Errors.ByType(gin.ErrorTypePrivate); len(errs) > 0 {
+			msgs := make([]string, len(errs))
+			for i, e := range errs {
+				msgs[i] = e.Error()
+			}
+			fields = append(fields, zap.Strings("errors", msgs))
 		}
 
 		switch {
