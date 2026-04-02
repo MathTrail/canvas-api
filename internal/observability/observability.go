@@ -3,7 +3,6 @@ package observability
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/grafana/pyroscope-go"
 	"go.opentelemetry.io/otel"
@@ -68,12 +67,9 @@ func (o *Observability) Init(ctx context.Context) error {
 
 // Shutdown gracefully stops all observability components.
 // The caller owns the context and its deadline.
+// Order: metrics → profiler → tracer (tracer last so final spans from other
+// components are still flushed).
 func (o *Observability) Shutdown(ctx context.Context) {
-	if o.tracerShutdown != nil {
-		if err := o.tracerShutdown(ctx); err != nil {
-			o.logger.Warn("tracer shutdown error", zap.Error(err))
-		}
-	}
 	if o.metricsShutdown != nil {
 		if err := o.metricsShutdown(ctx); err != nil {
 			o.logger.Warn("metrics shutdown error", zap.Error(err))
@@ -82,6 +78,11 @@ func (o *Observability) Shutdown(ctx context.Context) {
 	if o.profiler != nil {
 		if err := o.profiler.Stop(); err != nil {
 			o.logger.Warn("profiler stop error", zap.Error(err))
+		}
+	}
+	if o.tracerShutdown != nil {
+		if err := o.tracerShutdown(ctx); err != nil {
+			o.logger.Warn("tracer shutdown error", zap.Error(err))
 		}
 	}
 
@@ -103,19 +104,23 @@ func initTracer(ctx context.Context, cfg *config.Config) (shutdown func(context.
 
 	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(conn))
 	if err != nil {
+		_ = conn.Close()
 		return nil, err
 	}
 
+	// Use a fresh context so that early cancellation of the application root
+	// context does not abort resource detection during startup.
 	res, err := resource.New(
-		ctx,
+		context.Background(),
 		resource.WithAttributes(
 			semconv.ServiceName(cfg.ServiceName),
-			semconv.K8SPodName(os.Getenv("POD_NAME")),
-			semconv.K8SNamespaceName(os.Getenv("NAMESPACE")),
+			semconv.K8SPodName(cfg.PodName),
+			semconv.K8SNamespaceName(cfg.Namespace),
 		),
 		resource.WithFromEnv(), // picks up OTEL_RESOURCE_ATTRIBUTES if set
 	)
 	if err != nil {
+		_ = conn.Close()
 		return nil, err
 	}
 
@@ -138,7 +143,14 @@ func initTracer(ctx context.Context, cfg *config.Config) (shutdown func(context.
 		propagation.Baggage{},
 	))
 
-	return tp.Shutdown, nil
+	return func(ctx context.Context) error {
+		errTP := tp.Shutdown(ctx)
+		errConn := conn.Close()
+		if errTP != nil {
+			return errTP
+		}
+		return errConn
+	}, nil
 }
 
 // initMetrics initialises the global Prometheus MeterProvider.

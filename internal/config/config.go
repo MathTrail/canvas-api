@@ -48,6 +48,8 @@ type Config struct {
 
 	// Observability
 	ServiceName       string  `mapstructure:"SERVICE_NAME"`
+	PodName           string  `mapstructure:"POD_NAME"`
+	Namespace         string  `mapstructure:"NAMESPACE"`
 	OTelEndpoint      string  `mapstructure:"OTEL_ENDPOINT"`
 	OTelSampleRate    float64 `mapstructure:"OTEL_SAMPLE_RATE"`
 	PyroscopeEndpoint string  `mapstructure:"PYROSCOPE_ENDPOINT"`
