@@ -74,19 +74,13 @@ func (c *HintConsumer) handle(ctx context.Context, r *kgo.Record) error {
 		return fmt.Errorf("unmarshal HintEvent: %w", err)
 	}
 
-	// Re-encode for the Centrifugo publish payload so the client receives
-	// binary Protobuf data which centrifuge-js decodes with HintEvent.fromBinary().
-	data, err := proto.Marshal(&hint)
-	if err != nil {
-		return fmt.Errorf("re-marshal HintEvent: %w", err)
-	}
-
 	channel := "canvas:" + hint.SessionId
-	if err := c.centrifugo.Publish(ctx, channel, data); err != nil {
+	// r.Value is already the canonical Protobuf bytes — no need to re-marshal.
+	if err := c.centrifugo.Publish(ctx, channel, r.Value); err != nil {
 		return fmt.Errorf("centrifugo publish hint to %s: %w", channel, err)
 	}
 
-	c.log.Info("hint pushed", zap.String("session_id", hint.SessionId), zap.String("hint_type", hint.HintType))
+	c.log.Debug("hint pushed", zap.String("session_id", hint.SessionId), zap.String("hint_type", hint.HintType))
 	return nil
 }
 
