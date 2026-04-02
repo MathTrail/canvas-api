@@ -39,10 +39,11 @@ type Config struct {
 	LogFormat string // "json" or "console"
 
 	// HTTP server timeouts
-	ReadTimeout     time.Duration
-	WriteTimeout    time.Duration
-	IdleTimeout     time.Duration
-	ShutdownTimeout time.Duration
+	ReadHeaderTimeout time.Duration
+	ReadTimeout       time.Duration
+	WriteTimeout      time.Duration
+	IdleTimeout       time.Duration
+	ShutdownTimeout   time.Duration
 
 	// Observability
 	ServiceName       string
@@ -62,6 +63,7 @@ func Load() (*Config, error) {
 	v.SetDefault("LOG_LEVEL", "info")
 	v.SetDefault("LOG_FORMAT", "json")
 	v.SetDefault("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001")
+	v.SetDefault("READ_HEADER_TIMEOUT", "5s")
 	v.SetDefault("READ_TIMEOUT", "5s")
 	v.SetDefault("WRITE_TIMEOUT", "10s")
 	v.SetDefault("IDLE_TIMEOUT", "120s")
@@ -82,6 +84,7 @@ func Load() (*Config, error) {
 		OryKratosURL:       v.GetString("ORY_KRATOS_URL"),
 		LogLevel:           v.GetString("LOG_LEVEL"),
 		LogFormat:          v.GetString("LOG_FORMAT"),
+		ReadHeaderTimeout:  v.GetDuration("READ_HEADER_TIMEOUT"),
 		ReadTimeout:        v.GetDuration("READ_TIMEOUT"),
 		WriteTimeout:       v.GetDuration("WRITE_TIMEOUT"),
 		IdleTimeout:        v.GetDuration("IDLE_TIMEOUT"),

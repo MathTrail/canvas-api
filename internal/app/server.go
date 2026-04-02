@@ -22,11 +22,12 @@ func NewServer(container *Container) *Server {
 		logger:          container.Logger,
 		shutdownTimeout: container.Config.ShutdownTimeout,
 		httpServer: &http.Server{
-			Addr:         fmt.Sprintf(":%s", container.Config.ServerPort),
-			Handler:      container.Router,
-			ReadTimeout:  container.Config.ReadTimeout,
-			WriteTimeout: container.Config.WriteTimeout,
-			IdleTimeout:  container.Config.IdleTimeout,
+			Addr:              fmt.Sprintf(":%s", container.Config.ServerPort),
+			Handler:           container.Router,
+			ReadHeaderTimeout: container.Config.ReadHeaderTimeout,
+			ReadTimeout:       container.Config.ReadTimeout,
+			WriteTimeout:      container.Config.WriteTimeout,
+			IdleTimeout:       container.Config.IdleTimeout,
 		},
 	}
 }
@@ -46,7 +47,7 @@ func (s *Server) Run(ctx context.Context) error {
 	case err := <-errCh:
 		return fmt.Errorf("server failed: %w", err)
 	case <-ctx.Done():
-		s.logger.Info("shutdown signal received", zap.String("reason", ctx.Err().Error()))
+		s.logger.Info("shutdown signal received")
 	}
 
 	// Fresh context so the shutdown deadline starts now, not at signal time.
