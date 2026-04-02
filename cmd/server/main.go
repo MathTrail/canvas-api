@@ -23,7 +23,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
 	}
-	logger := applogger.NewLogger(cfg.LogLevel, cfg.LogFormat)
+	logger := applogger.NewLogger(cfg.ServiceName, cfg.LogLevel, cfg.LogFormat)
 
 	// 2. Root context: cancelled on SIGINT or SIGTERM.
 	// Created first so it can be passed into every subsystem.
