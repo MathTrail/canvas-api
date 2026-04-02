@@ -28,7 +28,7 @@ type Container struct {
 // NewContainer creates and wires all application dependencies.
 // It returns an error instead of panicking so that the caller can
 // handle failures gracefully.
-func NewContainer(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*Container, error) {
+func NewContainer(cfg *config.Config, logger *zap.Logger) (*Container, error) {
 	cClient := centrifugoclient.NewClient(cfg.CentrifugoURL, cfg.CentrifugoAPIKey)
 
 	producer, err := kafka.NewProducer(

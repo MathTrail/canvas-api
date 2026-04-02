@@ -17,12 +17,12 @@ resources:
 
 probes:
   startup:
-    path: /health
+    path: /health/startup
     failureThreshold: 30
     periodSeconds: 5
   liveness:
-    path: /health
+    path: /health/liveness
     periodSeconds: 10
   readiness:
-    path: /health
+    path: /health/ready
     periodSeconds: 10

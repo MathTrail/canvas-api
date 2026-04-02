@@ -44,7 +44,7 @@ func main() {
 	}()
 
 	// 4. DI container (Kafka, Centrifugo, handlers, router).
-	container, err := app.NewContainer(ctx, cfg, logger)
+	container, err := app.NewContainer(cfg, logger)
 	if err != nil {
 		logger.Fatal("failed to initialize application", zap.Error(err))
 	}
