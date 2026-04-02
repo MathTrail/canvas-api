@@ -1,10 +1,11 @@
 package config
 
 import (
+	"errors"
 	"fmt"
-	"strings"
 	"time"
 
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/viper"
 )
 
@@ -12,44 +13,44 @@ import (
 // Secrets (CentrifugoAPIKey, CentrifugoHMACKey, KafkaSASLUsername,
 // KafkaSASLPassword) are injected from K8s Secrets created by VSO.
 type Config struct {
-	ServerPort string
+	ServerPort string `mapstructure:"SERVER_PORT"`
 
 	// AutoMQ / Kafka
-	AutoMQBrokers      []string
-	StrokeTopic        string
-	HintTopic          string
-	KafkaConsumerGroup string
-	KafkaSASLUsername  string
-	KafkaSASLPassword  string
+	AutoMQBrokers      []string `mapstructure:"AUTOMQ_BROKERS"`
+	StrokeTopic        string   `mapstructure:"STROKE_TOPIC"`
+	HintTopic          string   `mapstructure:"HINT_TOPIC"`
+	KafkaConsumerGroup string   `mapstructure:"KAFKA_CONSUMER_GROUP"`
+	KafkaSASLUsername  string   `mapstructure:"KAFKA_SASL_USERNAME"`
+	KafkaSASLPassword  string   `mapstructure:"KAFKA_SASL_PASSWORD"`
 
 	// Centrifugo
-	CentrifugoURL     string
-	CentrifugoAPIKey  string
-	CentrifugoHMACKey string
+	CentrifugoURL     string `mapstructure:"CENTRIFUGO_URL"`
+	CentrifugoAPIKey  string `mapstructure:"CENTRIFUGO_API_KEY"`
+	CentrifugoHMACKey string `mapstructure:"CENTRIFUGO_HMAC_KEY"`
 
 	// Ory Kratos
-	OryKratosURL string
+	OryKratosURL string `mapstructure:"ORY_KRATOS_URL"`
 
 	// CORS: comma-separated list of allowed origins.
 	// Must include the ui-web shell origin and localhost:3001 for local dev.
-	AllowedOrigins []string
+	AllowedOrigins []string `mapstructure:"ALLOWED_ORIGINS"`
 
 	// Logging
-	LogLevel  string
-	LogFormat string // "json" or "console"
+	LogLevel  string `mapstructure:"LOG_LEVEL"`
+	LogFormat string `mapstructure:"LOG_FORMAT"` // "json" or "console"
 
 	// HTTP server timeouts
-	ReadHeaderTimeout time.Duration
-	ReadTimeout       time.Duration
-	WriteTimeout      time.Duration
-	IdleTimeout       time.Duration
-	ShutdownTimeout   time.Duration
+	ReadHeaderTimeout time.Duration `mapstructure:"READ_HEADER_TIMEOUT"`
+	ReadTimeout       time.Duration `mapstructure:"READ_TIMEOUT"`
+	WriteTimeout      time.Duration `mapstructure:"WRITE_TIMEOUT"`
+	IdleTimeout       time.Duration `mapstructure:"IDLE_TIMEOUT"`
+	ShutdownTimeout   time.Duration `mapstructure:"SHUTDOWN_TIMEOUT"`
 
 	// Observability
-	ServiceName       string
-	OTelEndpoint      string
-	OTelSampleRate    float64
-	PyroscopeEndpoint string
+	ServiceName       string  `mapstructure:"SERVICE_NAME"`
+	OTelEndpoint      string  `mapstructure:"OTEL_ENDPOINT"`
+	OTelSampleRate    float64 `mapstructure:"OTEL_SAMPLE_RATE"`
+	PyroscopeEndpoint string  `mapstructure:"PYROSCOPE_ENDPOINT"`
 }
 
 func Load() (*Config, error) {
@@ -71,36 +72,13 @@ func Load() (*Config, error) {
 	v.SetDefault("SERVICE_NAME", "canvas-api")
 	v.SetDefault("OTEL_SAMPLE_RATE", 1.0)
 
-	cfg := &Config{
-		ServerPort:         v.GetString("SERVER_PORT"),
-		StrokeTopic:        v.GetString("STROKE_TOPIC"),
-		HintTopic:          v.GetString("HINT_TOPIC"),
-		KafkaConsumerGroup: v.GetString("KAFKA_CONSUMER_GROUP"),
-		KafkaSASLUsername:  v.GetString("KAFKA_SASL_USERNAME"),
-		KafkaSASLPassword:  v.GetString("KAFKA_SASL_PASSWORD"),
-		CentrifugoURL:      v.GetString("CENTRIFUGO_URL"),
-		CentrifugoAPIKey:   v.GetString("CENTRIFUGO_API_KEY"),
-		CentrifugoHMACKey:  v.GetString("CENTRIFUGO_HMAC_KEY"),
-		OryKratosURL:       v.GetString("ORY_KRATOS_URL"),
-		LogLevel:           v.GetString("LOG_LEVEL"),
-		LogFormat:          v.GetString("LOG_FORMAT"),
-		ReadHeaderTimeout:  v.GetDuration("READ_HEADER_TIMEOUT"),
-		ReadTimeout:        v.GetDuration("READ_TIMEOUT"),
-		WriteTimeout:       v.GetDuration("WRITE_TIMEOUT"),
-		IdleTimeout:        v.GetDuration("IDLE_TIMEOUT"),
-		ShutdownTimeout:    v.GetDuration("SHUTDOWN_TIMEOUT"),
-		ServiceName:        v.GetString("SERVICE_NAME"),
-		OTelEndpoint:       v.GetString("OTEL_ENDPOINT"),
-		OTelSampleRate:     v.GetFloat64("OTEL_SAMPLE_RATE"),
-		PyroscopeEndpoint:  v.GetString("PYROSCOPE_ENDPOINT"),
-	}
-
-	// CSV-split slice fields
-	if raw := v.GetString("AUTOMQ_BROKERS"); raw != "" {
-		cfg.AutoMQBrokers = strings.Split(raw, ",")
-	}
-	if raw := v.GetString("ALLOWED_ORIGINS"); raw != "" {
-		cfg.AllowedOrigins = strings.Split(raw, ",")
+	cfg := &Config{}
+	decodeHook := viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
+		mapstructure.StringToTimeDurationHookFunc(),
+		mapstructure.StringToSliceHookFunc(","),
+	))
+	if err := v.Unmarshal(cfg, decodeHook); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
 	if err := cfg.validate(); err != nil {
@@ -110,8 +88,13 @@ func Load() (*Config, error) {
 }
 
 func (c *Config) validate() error {
+	if len(c.AutoMQBrokers) == 0 {
+		return errors.New("AUTOMQ_BROKERS must contain at least one broker")
+	}
+	if len(c.AllowedOrigins) == 0 {
+		return errors.New("ALLOWED_ORIGINS must contain at least one origin")
+	}
 	required := []struct{ name, val string }{
-		{"AUTOMQ_BROKERS", strings.Join(c.AutoMQBrokers, ",")},
 		{"CENTRIFUGO_URL", c.CentrifugoURL},
 		{"CENTRIFUGO_API_KEY", c.CentrifugoAPIKey},
 		{"CENTRIFUGO_HMAC_KEY", c.CentrifugoHMACKey},
