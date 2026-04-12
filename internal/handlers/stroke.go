@@ -17,11 +17,11 @@ import (
 // It validates the Protobuf payload, stamps the user ID from the authenticated
 // session, and publishes the event to AutoMQ.
 type StrokeHandler struct {
-	producer *kafka.Producer
+	producer kafka.StrokePublisher
 	logger   *zap.Logger
 }
 
-func NewStrokeHandler(producer *kafka.Producer, logger *zap.Logger) *StrokeHandler {
+func NewStrokeHandler(producer kafka.StrokePublisher, logger *zap.Logger) *StrokeHandler {
 	return &StrokeHandler{producer: producer, logger: logger}
 }
 

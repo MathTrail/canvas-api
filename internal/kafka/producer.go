@@ -8,6 +8,11 @@ import (
 	"github.com/twmb/franz-go/pkg/sasl/scram"
 )
 
+// StrokePublisher publishes canvas stroke events to AutoMQ.
+type StrokePublisher interface {
+	Publish(ctx context.Context, sessionID string, data []byte) error
+}
+
 // Producer publishes Protobuf-encoded canvas stroke events to AutoMQ.
 type Producer struct {
 	client *kgo.Client

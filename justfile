@@ -25,6 +25,15 @@ build-push-image tag=env("IMAGE", ""):
 test:
     go test ./...
 
+# Generate mocks for all interfaces (requires mockery v2.30+)
+mocks:
+    mockery
+
+# Check that generated mocks are up-to-date (for CI)
+ci-mocks-check:
+    mockery
+    git diff --exit-code || (echo "Mocks are outdated. Run 'just mocks' and commit." && exit 1)
+
 # Deploy to k3d via Skaffold (includes build on change)
 dev:
     skaffold dev -m canvas-api --port-forward

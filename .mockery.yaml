@@ -1,0 +1,22 @@
+with-expecter: true
+disable-version-string: true
+resolve-type-alias: false
+issue-845-fix: true
+dir: "{{.InterfaceDir}}/mocks"
+outpkg: mocks
+filename: "mock_{{.InterfaceName | snakecase}}.go"
+mockname: "Mock{{.InterfaceName}}"
+
+packages:
+  github.com/mathtrail/canvas-api/internal/runner:
+    interfaces:
+      Worker:
+  github.com/mathtrail/canvas-api/internal/ory:
+    interfaces:
+      SessionValidator:
+  github.com/mathtrail/canvas-api/internal/infra/centrifugo:
+    interfaces:
+      Publisher:
+  github.com/mathtrail/canvas-api/internal/kafka:
+    interfaces:
+      StrokePublisher:

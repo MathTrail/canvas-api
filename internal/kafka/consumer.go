@@ -17,14 +17,14 @@ import (
 // It implements runner.Worker.
 type HintConsumer struct {
 	client     *kgo.Client
-	centrifugo *centrifugo.Client
+	centrifugo centrifugo.Publisher
 	log        *zap.Logger
 }
 
 func NewHintConsumer(
 	brokers []string,
 	topic, consumerGroup, saslUser, saslPass string,
-	cClient *centrifugo.Client,
+	cClient centrifugo.Publisher,
 	log *zap.Logger,
 ) (*HintConsumer, error) {
 	auth := scram.Auth{User: saslUser, Pass: saslPass}

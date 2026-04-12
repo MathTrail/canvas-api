@@ -11,6 +11,11 @@ import (
 	"time"
 )
 
+// Publisher publishes binary payloads to a Centrifugo channel.
+type Publisher interface {
+	Publish(ctx context.Context, channel string, data []byte) error
+}
+
 // Client publishes events to Centrifugo via its HTTP API.
 type Client struct {
 	baseURL    string

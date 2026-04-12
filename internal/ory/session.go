@@ -8,6 +8,13 @@ import (
 	"time"
 )
 
+var ErrUnauthenticated = fmt.Errorf("unauthenticated")
+
+// SessionValidator validates an Ory Kratos session.
+type SessionValidator interface {
+	WhoAmI(ctx context.Context, cookies []*http.Cookie) (*Session, error)
+}
+
 type Session struct {
 	Identity struct {
 		ID string `json:"id"`
@@ -63,5 +70,3 @@ func (c *Client) WhoAmI(ctx context.Context, cookies []*http.Cookie) (*Session, 
 	}
 	return &s, nil
 }
-
-var ErrUnauthenticated = fmt.Errorf("unauthenticated")

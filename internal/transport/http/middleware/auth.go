@@ -13,7 +13,7 @@ const sessionKey = "session"
 
 // Auth validates the Ory Kratos session cookie and stores the session in the
 // Gin context. Aborts with 401 if the session is missing or invalid.
-func Auth(client *ory.Client) gin.HandlerFunc {
+func Auth(client ory.SessionValidator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		session, err := client.WhoAmI(c.Request.Context(), c.Request.Cookies())
 		if err != nil {
