@@ -15,6 +15,7 @@ type SessionValidator interface {
 	WhoAmI(ctx context.Context, cookies []*http.Cookie) (*Session, error)
 }
 
+// Session represents the relevant parts of an Ory Kratos session for our use case.
 type Session struct {
 	Identity struct {
 		ID string `json:"id"`
