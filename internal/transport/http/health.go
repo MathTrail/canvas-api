@@ -10,11 +10,11 @@ import (
 
 // HealthHandler serves Kubernetes health probe endpoints.
 type HealthHandler struct {
-	centrifugo *centrifugo.Client
+	centrifugo centrifugo.Pinger
 }
 
 // NewHealthHandler creates a HealthHandler backed by the given Centrifugo client.
-func NewHealthHandler(c *centrifugo.Client) *HealthHandler {
+func NewHealthHandler(c centrifugo.Pinger) *HealthHandler {
 	return &HealthHandler{centrifugo: c}
 }
 

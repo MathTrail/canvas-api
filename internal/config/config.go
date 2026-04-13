@@ -74,6 +74,20 @@ func Load() (*Config, error) {
 	v.SetDefault("SERVICE_NAME", "canvas-api")
 	v.SetDefault("OTEL_SAMPLE_RATE", 1.0)
 
+	// Required — no meaningful default; validate() enforces presence.
+	v.SetDefault("AUTOMQ_BROKERS", []string{})
+	v.SetDefault("KAFKA_SASL_USERNAME", "")
+	v.SetDefault("KAFKA_SASL_PASSWORD", "")
+	v.SetDefault("CENTRIFUGO_URL", "")
+	v.SetDefault("CENTRIFUGO_API_KEY", "")
+	v.SetDefault("CENTRIFUGO_HMAC_KEY", "")
+	v.SetDefault("ORY_KRATOS_URL", "")
+	// Optional observability — empty string means disabled.
+	v.SetDefault("POD_NAME", "")
+	v.SetDefault("NAMESPACE", "")
+	v.SetDefault("OTEL_ENDPOINT", "")
+	v.SetDefault("PYROSCOPE_ENDPOINT", "")
+
 	cfg := &Config{}
 	decodeHook := viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
 		mapstructure.StringToTimeDurationHookFunc(),

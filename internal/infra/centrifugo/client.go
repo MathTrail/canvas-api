@@ -16,6 +16,11 @@ type Publisher interface {
 	Publish(ctx context.Context, channel string, data []byte) error
 }
 
+// Pinger checks Centrifugo connectivity.
+type Pinger interface {
+	Ping(ctx context.Context) error
+}
+
 // Client publishes events to Centrifugo via its HTTP API.
 type Client struct {
 	baseURL    string

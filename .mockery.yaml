@@ -17,6 +17,7 @@ packages:
   github.com/mathtrail/canvas-api/internal/infra/centrifugo:
     interfaces:
       Publisher:
+      Pinger:
   github.com/mathtrail/canvas-api/internal/kafka:
     interfaces:
       StrokePublisher:
