@@ -1,0 +1,1379 @@
+<!doctype html>
+<html lang="en" data-theme="light" class="no-anim">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MathTrail Canvas mockup</title>
+<meta name="description" content="Design mockup of the MathTrail Canvas child-mode screen on an iPad in landscape: handwritten steps, the tutor's hint layer and the grown-up canvas settings.">
+<style>
+/* Tokens: MathTrail design system (tokens.json). Canvas-only values are marked "canvas". */
+@property --s { syntax: '<number>'; inherits: true; initial-value: 1; }
+@property --pvl { syntax: '<length>'; inherits: true; initial-value: 183px; }
+
+:root {
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "Noto Sans", sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+  --surface: #ffffff;
+  --band: #f8f7f4;
+  --code: #f6f5f1;
+  --border: #e3e0da;
+  --border-strong: #cfcbc3;
+  --text: #1f1e1b;
+  --text-muted: #6b6862;
+  --hover: #f1efea;
+  --accent: #2f5bd6;
+  --accent-fill: #2f5bd6;
+  --accent-tint: #eef2fc;
+  --on-accent: #ffffff;
+  --hint-tint: #fbf6e7;
+  --hint-border: #ebdfbc;
+  --hint-text: #5b4a17;
+  --badge-text: #57534b;
+  --pressed-fill: #ebe8e1;
+  --ink-strong: #3d3a35;
+  --track: #d8d4cc;
+  --avatar-fill: #ebe5da;
+  --avatar-ink: #6f685c;
+  --mark-fill: #23211d;
+  --mark-ink: #f3eee4;
+  --page: #f5f4ef;
+  --page-sunk: #ebe9e2;
+
+  /* canvas */
+  --paper: #ffffff;
+  --task-bg: #faf9f6;
+  --rule: #e2ded6;
+  --rule-soft: #f0ede7;
+  --rule-margin: #ecd9b4;
+  --ink: #1a1a1a;
+  --ink-blue: #2f5bd6;
+  --marker-warm: #c9982a;
+  --float-shadow: 0 1px 2px rgba(31,30,27,.06), 0 12px 32px rgba(31,30,27,.12);
+  --stage: #e7e4dc;
+  --bezel: #121211;
+  --scrim: rgba(31,30,27,.32);
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --surface: #1d1c1a;
+  --band: #252421;
+  --code: #272623;
+  --border: #3b3935;
+  --border-strong: #4d4a44;
+  --text: #edebe6;
+  --text-muted: #a8a49c;
+  --hover: #2d2c29;
+  --accent: #8ea8ff;
+  --accent-fill: #3d64d8;
+  --accent-tint: #1f2a47;
+  --on-accent: #ffffff;
+  --hint-tint: #2e2918;
+  --hint-border: #4d4426;
+  --hint-text: #e8d7a0;
+  --badge-text: #c4c0b8;
+  --pressed-fill: #34322e;
+  --ink-strong: #dcd8d0;
+  --track: #4d4a44;
+  --avatar-fill: #3a3731;
+  --avatar-ink: #c9c2b4;
+  --mark-fill: #f3eee4;
+  --mark-ink: #23211d;
+  --page: #141312;
+  --page-sunk: #1b1a18;
+
+  --paper: #1d1c1a;
+  --task-bg: #211f1d;
+  --rule: #34322e;
+  --rule-soft: #282624;
+  --rule-margin: #5a4a2a;
+  --ink: #ecEAE4;
+  --ink-blue: #8ea8ff;
+  --marker-warm: #d9b35c;
+  --float-shadow: 0 1px 2px rgba(0,0,0,.5), 0 12px 32px rgba(0,0,0,.45);
+  --stage: #0f0e0d;
+  --bezel: #050505;
+  --scrim: rgba(0,0,0,.5);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--stage);
+  color: var(--text);
+  font-family: var(--sans);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, [tabindex]:focus-visible, input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.no-anim *, .no-anim *::before, .no-anim *::after { transition: none !important; }
+
+/* ---------- Stage and device ---------- */
+/* Centred absolutely: a grid track would grow to 1140px in a shorter window and push the device down */
+.stage { position: fixed; inset: 0; overflow: hidden; }
+.device-wrap {
+  position: absolute; left: 50%; top: 50%;
+  width: 1482px; height: 1140px; margin: -570px 0 0 -741px;
+  display: grid; place-items: center;
+  transform-origin: center;
+}
+.device {
+  position: relative;
+  width: 1402px; height: 1060px;
+  padding: 18px;
+  border-radius: 54px;
+  background: var(--bezel);
+  box-shadow: inset 0 0 0 2px #2c2b29, 0 2px 4px rgba(0,0,0,.12), 0 40px 80px rgba(0,0,0,.18);
+}
+.device::before {
+  content: ""; position: absolute; top: 7px; left: 50%;
+  width: 6px; height: 6px; margin-left: -3px; border-radius: 50%;
+  background: #1f2226; box-shadow: inset 0 0 0 1.5px #2a2f36;
+}
+.screen {
+  --s: 1; --pvl: 183px;
+  position: relative;
+  width: 1366px; height: 1024px;
+  border-radius: 36px;
+  overflow: hidden;
+  background: var(--page);
+  transition: --s .45s cubic-bezier(.2,.7,.2,1), --pvl .45s cubic-bezier(.2,.7,.2,1);
+}
+.screen.settings-open { --s: .8; --pvl: 112px; }
+
+/* ---------- Status bar ---------- */
+.statusbar {
+  position: absolute; top: 0; left: 0; right: 0; height: 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 2px 30px 0;
+  font: 600 14px/18px var(--sans);
+}
+.statusbar .left { display: flex; gap: 8px; }
+.statusbar .left span + span { font-weight: 500; }
+.statusbar .right { display: flex; align-items: center; gap: 7px; font-weight: 500; }
+
+/* ---------- Top bar ---------- */
+.topbar {
+  position: absolute; top: 24px; left: 0; right: 0; height: 64px;
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 24px;
+}
+.brand { display: flex; align-items: center; gap: 10px; font: 600 17px/22px var(--sans); }
+.mark { width: 32px; height: 32px; flex: none; }
+#i-mark .disc { fill: var(--mark-fill); }
+#i-mark .trail { fill: none; stroke: var(--mark-ink); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+#i-mark .dot { fill: var(--mark-ink); }
+.vr { width: 1px; height: 28px; background: var(--border); }
+.task-title { font: 600 16px/22px var(--sans); }
+.badge {
+  font: 500 13px/18px var(--sans);
+  padding: 4px 11px; border-radius: 999px;
+  background: var(--band); color: var(--badge-text);
+  border: 1px solid var(--border-strong);
+}
+.spacer { flex: 1; }
+
+.status-chip {
+  position: absolute; left: 50%; top: 14px; transform: translate(-50%, -4px);
+  height: 36px; padding: 0 14px 0 10px; border-radius: 999px;
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface); border: 1px solid var(--border);
+  font: 500 14px/20px var(--sans); color: var(--accent);
+  opacity: 0; transition: opacity .2s, transform .2s;
+  pointer-events: none;
+}
+.status-chip.on { opacity: 1; transform: translate(-50%, 0); }
+.spinner { width: 18px; height: 18px; animation: spin .9s linear infinite; }
+.spinner circle { fill: none; stroke-width: 2.5; }
+.spinner .trk { stroke: var(--track); }
+.spinner .arc { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 14 60; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.child-chip {
+  display: flex; align-items: center; gap: 10px;
+  height: 44px; padding: 0 16px 0 6px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--border);
+}
+.avatar { width: 32px; height: 32px; flex: none; }
+#i-avatar .bg { fill: var(--avatar-fill); }
+#i-avatar .fg { fill: var(--avatar-ink); }
+.child-chip .who { display: flex; flex-direction: column; line-height: 1; }
+.child-chip .nm { font: 600 14px/18px var(--sans); }
+.child-chip .gr { font: 400 12px/16px var(--sans); color: var(--text-muted); }
+
+.btn {
+  height: 44px; padding: 0 16px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--band); color: var(--text);
+  font: 500 15px/20px var(--sans);
+  white-space: nowrap;
+}
+.btn:hover { background: var(--hover); }
+.btn svg { width: 20px; height: 20px; flex: none; }
+.btn-primary { background: var(--accent-fill); color: var(--on-accent); border-color: transparent; font-weight: 600; }
+.btn-primary:hover { background: var(--accent-fill); filter: brightness(1.06); }
+
+/* ---------- Workspace ---------- */
+.workspace { position: absolute; top: 88px; left: 0; right: 0; bottom: 0; }
+
+.tools {
+  position: absolute; left: 24px; top: 50%; transform: translateY(-50%);
+  width: 68px; padding: 7px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  border-radius: 20px;
+  background: var(--surface); border: 1px solid var(--border);
+  z-index: 4;
+}
+.left-handed .tools { left: auto; right: 24px; }
+.tool {
+  position: relative;
+  width: 52px; height: 52px; border-radius: 14px;
+  display: grid; place-items: center;
+  background: transparent; border: 1.5px solid transparent;
+  color: var(--text);
+}
+.tool:hover { background: var(--hover); }
+.tool[aria-pressed="true"] { background: var(--accent-tint); border-color: var(--accent); }
+.tool svg { width: 26px; height: 26px; }
+.tool .sw {
+  position: absolute; right: 6px; bottom: 6px;
+  width: 13px; height: 13px; border-radius: 50%;
+  border: 2px solid var(--surface);
+}
+.tool .sw.k { background: var(--ink); }
+.tool .sw.b { background: var(--ink-blue); }
+.tools hr { width: 32px; border: 0; border-top: 1px solid var(--border); margin: 3px 0; }
+.tool:disabled { color: var(--text-muted); opacity: .5; cursor: default; }
+.tool:disabled:hover { background: transparent; }
+
+/* ---------- Page viewport and logical page (1000 units wide) ---------- */
+.pv {
+  position: absolute; top: 14px; bottom: 0;
+  left: var(--pvl);
+  width: calc(1000px * var(--s) + 2px);
+  overflow-x: hidden; overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  border: 1px solid var(--border); border-bottom: 0;
+  border-radius: 16px 16px 0 0;
+  background: var(--paper);
+}
+.pv::-webkit-scrollbar { display: none; }
+.pv:focus-visible { outline-offset: -2px; }
+/* Holds the scaled page's real height so the viewport scrolls through all 14 lines */
+.page-sizer {
+  position: relative;
+  width: calc(1000px * var(--s)); height: calc(1600px * var(--s));
+  overflow: clip;
+}
+.scroll-ind {
+  position: absolute; width: 5px; border-radius: 3px;
+  background: var(--text-muted);
+  opacity: 0; transition: opacity .35s;
+  pointer-events: none; z-index: 4;
+}
+.scroll-ind.on { opacity: .55; transition-duration: .1s; }
+.page {
+  position: absolute; left: 0; top: 0;
+  width: 1000px; height: 1600px;
+  transform: scale(var(--s)); transform-origin: 0 0;
+}
+.paper {
+  position: absolute; left: 0; right: 0; top: 200px; bottom: 0;
+  background-image: linear-gradient(to bottom, transparent 99px, var(--rule) 99px);
+  background-size: 100% 100px;
+}
+.paper-grid .paper {
+  background-image:
+    linear-gradient(to bottom, transparent 99px, var(--rule) 99px),
+    linear-gradient(to bottom, transparent 24px, var(--rule-soft) 24px),
+    linear-gradient(to right, transparent 24px, var(--rule-soft) 24px);
+  background-size: 100% 100px, 100% 25px, 25px 100%;
+}
+.paper-dots .paper {
+  background-image:
+    linear-gradient(to bottom, transparent 99px, var(--rule-soft) 99px),
+    radial-gradient(circle at 12.5px 12.5px, var(--rule) 1.6px, transparent 2px);
+  background-size: 100% 100px, 25px 25px;
+}
+.margin-rule { position: absolute; left: 64px; top: 200px; bottom: 0; width: 1.5px; background: var(--rule-margin); }
+.linenos span {
+  position: absolute; left: 0; width: 64px;
+  text-align: center;
+  font: 500 15px/20px var(--sans); color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.no-linenos .linenos { display: none; }
+
+.task-layer {
+  position: absolute; left: 0; top: 0; width: 1000px; height: 200px;
+  background: var(--task-bg);
+  border-bottom: 1px solid var(--border);
+}
+.task-text { position: absolute; left: 88px; top: 30px; width: 600px; }
+.task-kicker { font: 600 13px/18px var(--sans); color: var(--text-muted); }
+.task-q { margin-top: 8px; font: 400 23px/32px var(--sans); }
+.task-note { margin-top: 8px; font: 400 16px/22px var(--sans); color: var(--text-muted); }
+.diagram { position: absolute; left: 0; top: 0; overflow: visible; }
+.diagram .tri { fill: none; stroke: var(--text); stroke-width: 2; stroke-linejoin: round; }
+.diagram .arc { fill: none; stroke: var(--text-muted); stroke-width: 1.5; }
+.diagram text { font: 500 17px var(--sans); fill: var(--text); }
+.diagram text.q { font-weight: 700; }
+
+.layer { position: absolute; left: 0; top: 0; width: 1000px; height: 1600px; overflow: visible; }
+.hint-under, .hint-over { pointer-events: none; }
+.pencil { pointer-events: none; transition: opacity .25s; }
+.pencil.away { opacity: 0; }
+.drawing { touch-action: none; cursor: crosshair; }
+.drawing .catch { fill: transparent; }
+.stroke .vis {
+  fill: none; stroke-linecap: round; stroke-linejoin: round;
+  stroke-width: calc(var(--pen-w, 3) * 1px / var(--gs, 1));
+}
+.stroke .hit { fill: none; stroke: transparent; stroke-width: calc(18px / var(--gs, 1)); pointer-events: stroke; }
+.ink-k .vis { stroke: var(--ink); }
+.ink-b .vis { stroke: var(--ink-blue); }
+.screen { --pen-w: 3; }
+.pen-thin { --pen-w: 2.2; }
+.pen-thick { --pen-w: 4.2; }
+.tool-eraser .drawing { cursor: cell; }
+.stroke.gone { opacity: 0; transition: opacity .15s; }
+
+/* Hint layer: marker colour and strength are chosen by the client (spec: "style: attention") */
+.screen {
+  --strength: .7;
+  --mk-ring: var(--marker-warm);
+  --mk-fill: var(--hint-tint);
+  --mk-w: 2.5px;
+}
+.marker-blue { --mk-ring: var(--accent); --mk-fill: var(--accent-tint); }
+.marker-contrast { --mk-ring: var(--text); --mk-fill: var(--hint-tint); --mk-w: 3.5px; }
+.mk-fill { fill: var(--mk-fill); fill-opacity: calc(.35 + .65 * var(--strength)); }
+.mk-ring { fill: none; stroke: var(--mk-ring); stroke-width: var(--mk-w); stroke-opacity: calc(.4 + .6 * var(--strength)); }
+.mk-pointer { fill: var(--mk-ring); fill-opacity: calc(.5 + .5 * var(--strength)); }
+.mk-link { fill: none; stroke: var(--mk-ring); stroke-width: 2px; stroke-dasharray: 2 6; stroke-linecap: round; stroke-opacity: calc(.4 + .6 * var(--strength)); }
+.hint-part { transition: opacity .3s; }
+.no-highlight .mk-fill, .no-highlight .mk-ring { opacity: 0; }
+.no-pointer .mk-pointer { opacity: 0; }
+.hint-bottom .mk-link { opacity: 0; }
+.hint-cleared .hint-part, .hint-cleared .bubble, .hint-cleared .hint-bar { opacity: 0 !important; pointer-events: none; }
+
+/* Question bubble on the hint layer, placed next to the marked line */
+.bubble {
+  position: absolute; width: 392px;
+  padding: 14px 18px 18px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1.5px solid var(--hint-border);
+  box-shadow: var(--float-shadow);
+  transition: opacity .3s, transform .3s;
+  z-index: 5;
+}
+.bubble::before {
+  content: ""; position: absolute; left: -9px; top: 27px;
+  width: 16px; height: 16px;
+  background: var(--surface);
+  border-left: 1.5px solid var(--hint-border);
+  border-bottom: 1.5px solid var(--hint-border);
+  transform: rotate(45deg);
+}
+.hint-bottom .bubble { opacity: 0; pointer-events: none; transform: translateY(6px); }
+.b-head { display: flex; align-items: center; gap: 10px; }
+/* The AI tutor's avatar: a mortarboard (teacher) and a spark (AI) on a disc in the hint's warm colours.
+   No mascot: the design system keeps the brand mark for the app and a neutral figure for the child. */
+.tutor-av { width: 40px; height: 40px; flex: none; }
+#i-tutor .t-disc { fill: var(--hint-tint); stroke: var(--hint-border); stroke-width: 1.5; }
+#i-tutor .t-ink { fill: var(--hint-text); }
+#i-tutor .t-line { fill: none; stroke: var(--hint-text); stroke-width: 1.5; stroke-linecap: round; }
+#i-tutor .t-spark { fill: var(--marker-warm); }
+.b-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.b-name { font: 600 15px/20px var(--sans); color: var(--text); }
+.b-title { font: 500 13px/18px var(--sans); color: var(--hint-text); }
+.ladder { align-self: flex-start; margin-top: 2px; display: flex; align-items: center; gap: 8px; font: 400 13px/18px var(--sans); color: var(--text-muted); }
+.dots { display: flex; gap: 4px; }
+.dots i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--border-strong); }
+.dots i.on { background: var(--ink-strong); border-color: var(--ink-strong); }
+.b-text { margin-top: 8px; font: 400 20px/29px var(--sans); }
+.larger-text .b-text { font-size: 24px; line-height: 34px; }
+.b-actions { display: flex; gap: 8px; margin-top: 14px; }
+.b-actions[hidden] { display: none; }
+
+/* Alternative placement: a bar at the bottom of the page */
+.hint-bar {
+  position: absolute; bottom: 24px;
+  left: calc(var(--pvl) + 500px * var(--s));
+  transform: translate(-50%, 8px);
+  width: min(640px, calc(1000px * var(--s) - 48px));
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 14px 18px;
+  border-radius: 16px; background: var(--surface);
+  border: 1.5px solid var(--hint-border);
+  box-shadow: var(--float-shadow);
+  opacity: 0; pointer-events: none;
+  transition: opacity .3s, transform .3s;
+  z-index: 5;
+}
+.hint-bottom .hint-bar { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+.hint-bar .bar-body { flex: 1; min-width: 0; }
+.hint-bar .b-text { margin-top: 2px; font-size: 18px; line-height: 26px; }
+.hint-bar .b-actions { margin-top: 10px; }
+.larger-text .hint-bar .b-text { font-size: 22px; line-height: 31px; }
+
+/* Right-hand column: page map and Check */
+.rdock {
+  position: absolute; right: 0; top: 14px; bottom: 24px; width: 183px;
+  display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  transition: opacity .3s;
+  z-index: 3;
+}
+.left-handed .rdock { right: auto; left: 0; }
+.settings-open .rdock { opacity: 0; pointer-events: none; }
+.pagemap { display: flex; flex-direction: column; align-items: center; gap: 8px; padding-top: 6px; }
+.pm-label { font: 600 13px/18px var(--sans); color: var(--text-muted); }
+.pm-sheet {
+  position: relative; width: 58px; height: 93px;
+  border: 1px solid var(--border-strong); border-radius: 6px;
+  background:
+    linear-gradient(var(--task-bg), var(--task-bg)) top / 100% 11.6px no-repeat,
+    repeating-linear-gradient(to bottom, transparent 0 5.3px, var(--rule) 5.3px 5.8px) 0 11.6px / 100% 100% no-repeat,
+    var(--paper);
+  overflow: hidden;
+  cursor: pointer; touch-action: none;
+}
+.pm-view { position: absolute; left: 0; right: 0; top: 0; height: 57.6%; border: 2px solid var(--accent); border-radius: 5px; }
+.pm-dot { position: absolute; left: 12px; top: 18px; width: 9px; height: 9px; border-radius: 50%; background: var(--mk-ring); transition: opacity .3s; }
+.hint-cleared .pm-dot { opacity: 0; }
+.pm-meta { font: 400 13px/18px var(--sans); color: var(--text-muted); text-align: center; }
+.check-block { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.check-cap { width: 140px; text-align: center; font: 400 13px/18px var(--sans); color: var(--text-muted); }
+.btn-check { width: 143px; height: 60px; border-radius: 14px; font-size: 19px; line-height: 24px; }
+.btn-check svg { width: 24px; height: 24px; }
+
+/* Developer inspector: the CanvasEvent behind what the child sees */
+.inspector {
+  position: absolute; right: 199px; bottom: 16px; width: 520px;
+  border-radius: 12px; overflow: hidden;
+  background: var(--code); border: 1px solid var(--border);
+  box-shadow: var(--float-shadow);
+  z-index: 6;
+  display: none;
+}
+.dev .inspector { display: block; }
+.dev .pencil { opacity: 0; }
+.left-handed .inspector { right: auto; left: 199px; }
+.settings-open .inspector { opacity: 0; pointer-events: none; }
+.insp-head {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 10px 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font: 600 12px/16px var(--sans);
+}
+.insp-head .t { flex: 1; }
+.insp-head .t span { font-weight: 400; color: var(--text-muted); }
+.insp-head button {
+  min-width: 30px; height: 28px; padding: 0 8px;
+  border-radius: 6px; border: 1px solid var(--border-strong); background: var(--surface);
+  font: 500 12px/16px var(--sans);
+}
+.insp-head button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-tint); }
+.insp-verdict { padding: 8px 12px 0; font: 500 12px/17px var(--mono); color: var(--text-muted); }
+.insp-verdict b { color: var(--text); font-weight: 600; }
+.inspector pre {
+  margin: 0; padding: 6px 12px 12px;
+  font: 400 12px/17px var(--mono);
+  white-space: pre-wrap; word-break: break-word;
+  max-height: 340px; overflow: auto; scrollbar-width: thin;
+}
+.j-k { color: var(--text-muted); }
+.j-n { color: var(--accent); }
+.j-s { color: var(--text); }
+
+/* ---------- Grown-up settings sheet ---------- */
+.sheet {
+  position: absolute; top: 24px; right: 0; bottom: 0; width: 440px;
+  display: flex; flex-direction: column;
+  background: var(--band);
+  border-left: 1px solid var(--border);
+  transform: translateX(101%);
+  transition: transform .45s cubic-bezier(.2,.7,.2,1);
+  z-index: 8;
+}
+.settings-open .sheet { transform: none; }
+.sheet-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 20px 14px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.sheet-head .ic {
+  width: 40px; height: 40px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--band); border: 1px solid var(--border);
+}
+.sheet-head .ic svg { width: 20px; height: 20px; }
+.sheet-head .tt { flex: 1; min-width: 0; }
+.sheet-head h2 { font: 600 19px/24px var(--sans); }
+.sheet-head p { font: 400 13px/18px var(--sans); color: var(--text-muted); }
+.sheet-body { flex: 1; overflow-y: auto; padding: 4px 20px 28px; scrollbar-width: none; }
+.sec-label { margin: 18px 4px 6px; font: 600 13px/18px var(--sans); color: var(--text-muted); }
+.sec-note { margin: -2px 4px 10px; font: 400 13px/18px var(--sans); color: var(--text-muted); }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.row {
+  display: flex; align-items: center; gap: 14px;
+  min-height: 56px; padding: 10px 16px;
+  border-top: 1px solid var(--border);
+}
+.row:first-child { border-top: 0; }
+.row.stack { flex-direction: column; align-items: stretch; gap: 10px; padding: 12px 16px 14px; }
+.row.click { cursor: pointer; }
+.row-text { flex: 1; min-width: 0; }
+.row-title { font: 500 15px/20px var(--sans); }
+.row-desc { font: 400 13px/18px var(--sans); color: var(--text-muted); }
+.row-head { display: flex; align-items: baseline; justify-content: space-between; }
+.row-val { font: 400 13px/18px var(--sans); color: var(--text-muted); }
+
+.switch {
+  position: relative; flex: none;
+  width: 51px; height: 31px; border-radius: 999px; border: 0;
+  background: var(--track);
+  transition: background .2s;
+}
+.switch::after {
+  content: ""; position: absolute; top: 3px; left: 3px;
+  width: 25px; height: 25px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25);
+  transition: transform .2s;
+}
+.switch[aria-checked="true"] { background: var(--accent-fill); }
+.switch[aria-checked="true"]::after { transform: translateX(20px); }
+
+.seg {
+  display: flex; gap: 4px; padding: 4px;
+  background: var(--band); border: 1px solid var(--border); border-radius: 10px;
+}
+.seg button {
+  flex: 1; min-height: 40px; padding: 6px 4px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  border-radius: 7px; border: 1.5px solid transparent; background: transparent;
+  font: 500 14px/18px var(--sans);
+}
+.seg button:hover { background: var(--hover); }
+.seg button[aria-checked="true"] { background: var(--surface); border-color: var(--accent); }
+.seg.row-seg button { flex-direction: row; gap: 8px; }
+.pp { width: 58px; height: 36px; border-radius: 4px; border: 1px solid var(--border-strong); background-color: var(--paper); }
+.pp.ruled { background-image: linear-gradient(to bottom, transparent 8px, var(--rule) 8px, var(--rule) 9px, transparent 9px); background-size: 100% 9px; }
+.pp.grid {
+  background-image: linear-gradient(to bottom, transparent 8px, var(--rule) 8px), linear-gradient(to right, transparent 8px, var(--rule-soft) 8px);
+  background-size: 100% 9px, 9px 100%;
+}
+.pp.dots { background-image: radial-gradient(circle at 4.5px 4.5px, var(--text-muted) .9px, transparent 1.3px); background-size: 9px 9px; }
+.swatch { width: 14px; height: 14px; border-radius: 4px; flex: none; }
+.swatch.warm { background: var(--hint-tint); box-shadow: inset 0 0 0 2px var(--marker-warm); }
+.swatch.blue { background: var(--accent-tint); box-shadow: inset 0 0 0 2px var(--accent); }
+.swatch.contrast { background: var(--hint-tint); box-shadow: inset 0 0 0 2.5px var(--text); }
+input[type="range"] { width: 100%; accent-color: var(--accent-fill); height: 28px; margin: 0; }
+.range-ends { display: flex; justify-content: space-between; font: 400 12px/16px var(--sans); color: var(--text-muted); margin-top: -4px; }
+
+.sheet-foot {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.sheet-foot .who { flex: 1; min-width: 0; }
+.sheet-foot .nm { font: 600 14px/20px var(--sans); }
+.sheet-foot .gr { font: 400 13px/18px var(--sans); color: var(--text-muted); }
+
+/* ---------- PIN pad ---------- */
+.pin-back {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  background: var(--scrim);
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s;
+  z-index: 20;
+}
+.pin-open .pin-back { opacity: 1; pointer-events: auto; }
+.pin {
+  width: 380px; padding: 28px 28px 18px;
+  border-radius: 22px;
+  background: var(--surface); border: 1px solid var(--border);
+  box-shadow: var(--float-shadow);
+  text-align: center;
+}
+.pin .lock { width: 48px; height: 48px; margin: 0 auto 12px; border-radius: 50%; display: grid; place-items: center; background: var(--band); border: 1px solid var(--border); }
+.pin .lock svg { width: 22px; height: 22px; }
+.pin h2 { font: 600 20px/26px var(--sans); }
+.pin p { margin-top: 4px; font: 400 15px/22px var(--sans); color: var(--text-muted); }
+.pin-dots { display: flex; justify-content: center; gap: 16px; margin: 20px 0 22px; }
+.pin-dots i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border-strong); }
+.pin-dots i.on { background: var(--text); border-color: var(--text); }
+.keys { display: grid; grid-template-columns: repeat(3, 84px); gap: 12px; justify-content: center; }
+.key {
+  height: 64px; border-radius: 16px;
+  border: 1px solid var(--border); background: var(--band);
+  font: 500 26px/32px var(--sans); font-variant-numeric: tabular-nums;
+  display: grid; place-items: center;
+}
+.key:hover { background: var(--hover); }
+.key.ghost { border-color: transparent; background: transparent; font-size: 15px; font-weight: 500; }
+.key svg { width: 26px; height: 26px; }
+.pin-note { margin-top: 14px; font: 400 13px/18px var(--sans); color: var(--text-muted); }
+
+.reduced-motion *, .reduced-motion *::before, .reduced-motion *::after { transition-duration: 0s !important; animation-duration: 0s !important; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0s !important; animation: none !important; }
+}
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-pen" viewBox="0 0 24 24"><path d="M15.2 4.8l4 4M4 20l1.1-4.6L16.6 3.9a1.9 1.9 0 0 1 2.7 0l.8.8a1.9 1.9 0 0 1 0 2.7L8.6 18.9 4 20z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-eraser" viewBox="0 0 24 24"><path d="M8.5 20h11M4.9 14.6l8.7-8.7a2 2 0 0 1 2.8 0l3.3 3.3a2 2 0 0 1 0 2.8l-7.3 7.3a2 2 0 0 1-1.4.6H9.3a2 2 0 0 1-1.4-.6l-3-3a1.9 1.9 0 0 1 0-1.7zM9.2 10.3l6.1 6.1" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4.5 9.5 9 5M4.5 9.5h9.5a5.5 5.5 0 0 1 0 11H11" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-redo" viewBox="0 0 24 24"><path d="M15 14l4.5-4.5L15 5M19.5 9.5H10a5.5 5.5 0 0 0 0 11h3" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-fit" viewBox="0 0 24 24"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><circle cx="12" cy="15.5" r="1.4" fill="currentColor"/></symbol>
+    <symbol id="i-unlock" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M8 10.5V7.5a4 4 0 0 1 7.6-1.7" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><circle cx="12" cy="15.5" r="1.4" fill="currentColor"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-tutor" viewBox="0 0 40 40"><circle class="t-disc" cx="20" cy="20" r="19.25"/><path class="t-ink" d="M20 11.2l12.6 5.6L20 22.4 7.4 16.8z"/><path class="t-ink" d="M13.2 20.6V25c0 2.1 3 3.6 6.8 3.6s6.8-1.5 6.8-3.6v-4.4L20 23.8z"/><path class="t-line" d="M31.2 17.4v6.4"/><circle class="t-ink" cx="31.2" cy="24.6" r="1.5"/><path class="t-spark" d="M29.8 4.4c.5 3 1.2 3.7 4.2 4.2-3 .5-3.7 1.2-4.2 4.2-.5-3-1.2-3.7-4.2-4.2 3-.5 3.7-1.2 4.2-4.2z"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M20 7H9.5L4 12l5.5 5H20a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1zM11.5 10l4 4M15.5 10l-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-mark" viewBox="0 0 32 32"><circle class="disc" cx="16" cy="16" r="16"/><path class="trail" d="M8 22.5l5-4.6 3.6 2.2 5.4-7.2"/><circle class="dot" cx="23.3" cy="11.6" r="2.4"/></symbol>
+    <symbol id="i-avatar" viewBox="0 0 32 32"><circle class="bg" cx="16" cy="16" r="16"/><circle class="fg" cx="16" cy="12.5" r="5"/><path class="fg" d="M6.8 26.5c1.4-4.6 5-7 9.2-7s7.8 2.4 9.2 7A15.9 15.9 0 0 1 16 32a15.9 15.9 0 0 1-9.2-5.5z"/></symbol>
+  </defs>
+</svg>
+
+<div class="stage">
+<div class="device-wrap" id="wrap">
+<div class="device">
+<div class="screen" id="screen">
+
+  <div class="statusbar" aria-hidden="true">
+    <div class="left"><span>9:41</span><span>Mon Sep 28</span></div>
+    <div class="right">
+      <svg width="18" height="13" viewBox="0 0 18 13"><path d="M9 12.2l2.3-2.6a3.3 3.3 0 0 0-4.6 0zM4.6 7.3a6.2 6.2 0 0 1 8.8 0l1.6-1.8a8.6 8.6 0 0 0-12 0zM.6 3.4l1.6 1.8a9.6 9.6 0 0 1 13.6 0l1.6-1.8a12 12 0 0 0-16.8 0z" fill="currentColor"/></svg>
+      <span>100%</span>
+      <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="20" height="9" rx="2" fill="currentColor"/><path d="M25 4.5v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2z" fill="currentColor" opacity=".4"/></svg>
+    </div>
+  </div>
+
+  <header class="topbar">
+    <div class="brand"><svg class="mark" aria-hidden="true"><use href="#i-mark"/></svg>MathTrail</div>
+    <div class="vr" aria-hidden="true"></div>
+    <div class="task-title">The third angle</div>
+    <span class="badge">Geometry · Grade 4</span>
+    <div class="spacer"></div>
+    <div class="child-chip">
+      <svg class="avatar" aria-hidden="true"><use href="#i-avatar"/></svg>
+      <div class="who"><span class="nm">Comet</span><span class="gr">Grade 4</span></div>
+    </div>
+    <button class="btn" id="lockBtn" aria-label="Grown-ups: settings and exit, needs the PIN">
+      <svg aria-hidden="true"><use href="#i-lock"/></svg>Grown-ups
+    </button>
+    <div class="status-chip" id="statusChip" role="status" aria-live="polite">
+      <svg class="spinner" viewBox="0 0 20 20" aria-hidden="true"><circle class="trk" cx="10" cy="10" r="8"/><circle class="arc" cx="10" cy="10" r="8"/></svg>
+      <span id="statusText">Checking…</span>
+    </div>
+  </header>
+
+  <main class="workspace" id="workspace">
+    <nav class="tools" aria-label="Tools">
+      <button class="tool" data-tool="pen-k" aria-pressed="true" aria-label="Pen, black"><svg aria-hidden="true"><use href="#i-pen"/></svg><i class="sw k"></i></button>
+      <button class="tool" data-tool="pen-b" aria-pressed="false" aria-label="Pen, blue"><svg aria-hidden="true"><use href="#i-pen"/></svg><i class="sw b"></i></button>
+      <button class="tool" data-tool="eraser" aria-pressed="false" aria-label="Eraser: removes a whole stroke"><svg aria-hidden="true"><use href="#i-eraser"/></svg></button>
+      <hr>
+      <button class="tool" id="undoBtn" aria-label="Undo"><svg aria-hidden="true"><use href="#i-undo"/></svg></button>
+      <button class="tool" id="redoBtn" aria-label="Redo" disabled><svg aria-hidden="true"><use href="#i-redo"/></svg></button>
+      <hr>
+      <button class="tool" id="fitBtn" aria-label="Back to the top of the page"><svg aria-hidden="true"><use href="#i-fit"/></svg></button>
+    </nav>
+
+    <div class="pv" id="pv" tabindex="0" aria-label="Page with 14 lines; scrolls">
+      <div class="page-sizer">
+      <div class="page" id="page">
+        <div class="paper"></div>
+        <div class="margin-rule"></div>
+        <div class="linenos" id="linenos" aria-hidden="true"></div>
+
+        <!-- TaskLayer: the fixed condition -->
+        <div class="task-layer">
+          <div class="task-text">
+            <div class="task-kicker">Task · Geometry</div>
+            <p class="task-q">Two angles of a triangle are 47° and 68°.<br>Find the third angle.</p>
+            <p class="task-note">Write each step on a new line.</p>
+          </div>
+          <svg class="diagram" width="1000" height="200" viewBox="0 0 1000 200" role="img" aria-label="Triangle with angles 47 degrees, 68 degrees and an unknown angle">
+            <path class="arc" d="M764 176 A24 24 0 0 0 756.4 158.4"/>
+            <path class="arc" d="M918 176 A22 22 0 0 1 931.8 155.6"/>
+            <path class="arc" d="M867.3 39.6 A18 18 0 0 0 886.3 43.1"/>
+            <path class="tri" d="M740 176 L940 176 L879.6 26.4 Z"/>
+            <text x="792" y="169" text-anchor="middle">47°</text>
+            <text x="897" y="166" text-anchor="middle">68°</text>
+            <text class="q" x="875" y="72" text-anchor="middle">?</text>
+          </svg>
+        </div>
+
+        <!-- HintLayer, under the ink: a soft fill that never hides the writing -->
+        <svg class="layer hint-under" viewBox="0 0 1000 1600" aria-hidden="true">
+          <rect class="mk-fill hint-part" id="mkFill" rx="12"/>
+        </svg>
+
+        <!-- DrawingLayer: the child's strokes -->
+        <svg class="layer drawing" id="drawing" viewBox="0 0 1000 1600" aria-label="Your page">
+          <rect class="catch" width="1000" height="1600"/>
+          <g id="ink"></g>
+        </svg>
+
+        <!-- HintLayer, over the ink: frame, pointer, link to the question -->
+        <svg class="layer hint-over" viewBox="0 0 1000 1600" aria-hidden="true">
+          <rect class="mk-ring hint-part" id="mkRing" rx="12"/>
+          <path class="mk-pointer hint-part" id="mkPointer"/>
+          <path class="mk-link hint-part" id="mkLink"/>
+        </svg>
+
+        <!-- Apple Pencil resting at the start of line 3 (decoration, hides on first touch) -->
+        <svg class="layer pencil" id="pencil" viewBox="0 0 1000 1600" aria-hidden="true">
+          <defs>
+            <linearGradient id="pbody" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="#f3f3f0"/><stop offset="1" stop-color="#d2d2cc"/>
+            </linearGradient>
+            <filter id="pshadow" x="-20%" y="-40%" width="140%" height="180%"><feDropShadow dx="0" dy="12" stdDeviation="8" flood-color="#000" flood-opacity=".22"/></filter>
+          </defs>
+          <g filter="url(#pshadow)">
+            <g transform="translate(118 470) rotate(33)">
+              <path d="M0 0 L38 -9 L510 -9 Q521 -9 521 0 Q521 9 510 9 L38 9 Z" fill="url(#pbody)"/>
+              <path d="M0 0 L10 -2.4 L10 2.4 Z" fill="#8c8c87"/>
+              <path d="M38 -9 L38 9" stroke="#d9d9d4" stroke-width="1.2"/>
+              <rect x="150" y="-9" width="360" height="3.4" fill="#c4c4be" opacity=".55"/>
+            </g>
+          </g>
+        </svg>
+
+        <div class="bubble" id="bubble" role="status" aria-live="polite">
+          <div class="b-head">
+            <svg class="tutor-av" aria-hidden="true"><use href="#i-tutor"/></svg>
+            <div class="b-who">
+              <span class="b-name">AI tutor</span>
+              <span class="b-title" id="bTitle">Look at line 2</span>
+            </div>
+            <span class="ladder"><span class="dots" id="bDots"><i class="on"></i><i></i><i></i></span><span id="bLevel">Hint 1 of 3</span></span>
+          </div>
+          <p class="b-text" id="bText"></p>
+          <div class="b-actions" id="bActions" hidden>
+            <button class="btn" data-act="restart">Start again</button>
+            <button class="btn" data-act="grownup">Ask a grown-up</button>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+    <div class="scroll-ind" id="scrollInd" aria-hidden="true"></div>
+
+    <div class="hint-bar" id="hintBar" role="status" aria-live="polite">
+      <svg class="tutor-av" aria-hidden="true"><use href="#i-tutor"/></svg>
+      <div class="bar-body">
+        <span class="b-name">AI tutor</span>
+        <p class="b-text" id="barText"></p>
+        <div class="b-actions" id="barActions" hidden>
+          <button class="btn" data-act="restart">Start again</button>
+          <button class="btn" data-act="grownup">Ask a grown-up</button>
+        </div>
+      </div>
+    </div>
+
+    <aside class="rdock">
+      <div class="pagemap" title="Tap to jump; two fingers or the mouse wheel scroll the page">
+        <span class="pm-label">Page</span>
+        <div class="pm-sheet" id="pmSheet" aria-hidden="true"><div class="pm-view" id="pmView"></div><i class="pm-dot"></i></div>
+        <span class="pm-meta" id="pmMeta">Lines 1–7<br>of 14</span>
+      </div>
+      <div class="check-block">
+        <p class="check-cap" id="checkCap">I check each line when you pause</p>
+        <button class="btn btn-primary btn-check" id="checkBtn"><svg aria-hidden="true"><use href="#i-check"/></svg>Check</button>
+      </div>
+    </aside>
+
+    <section class="inspector" id="inspector" aria-label="Developer inspector">
+      <div class="insp-head">
+        <div class="t">CanvasEvent <span>· canvas:7b3e…0a1b</span></div>
+        <button data-level="1" aria-pressed="true">1</button>
+        <button data-level="2" aria-pressed="false">2</button>
+        <button data-level="3" aria-pressed="false">3</button>
+        <button data-level="help" aria-pressed="false">help</button>
+        <button id="themeBtn">Theme</button>
+      </div>
+      <div class="insp-verdict" id="inspVerdict"></div>
+      <pre id="inspJson"></pre>
+    </section>
+
+  </main>
+
+  <!-- Grown-up area: canvas and hint settings, opened with the PIN -->
+  <aside class="sheet" id="sheet" aria-label="Canvas and hints settings">
+    <div class="sheet-head">
+      <div class="ic" aria-hidden="true"><svg><use href="#i-unlock"/></svg></div>
+      <div class="tt">
+        <h2>Canvas &amp; hints</h2>
+        <p>For grown-ups · applies right away</p>
+      </div>
+      <button class="btn btn-primary" id="doneBtn">Done</button>
+    </div>
+    <div class="sheet-body">
+      <div class="sec-label">Hint layer</div>
+      <p class="sec-note">What the tutor draws over the page. It never covers or changes the child's writing.</p>
+      <div class="card">
+        <div class="row click" data-switch="highlight">
+          <div class="row-text"><div class="row-title">Highlight the step</div><div class="row-desc">A soft frame around the line to look at</div></div>
+          <button class="switch" role="switch" aria-checked="true" aria-label="Highlight the step"></button>
+        </div>
+        <div class="row click" data-switch="pointer">
+          <div class="row-text"><div class="row-title">Pointer in the margin</div><div class="row-desc">Next to the line number</div></div>
+          <button class="switch" role="switch" aria-checked="true" aria-label="Pointer in the margin"></button>
+        </div>
+        <div class="row click" data-switch="bubble">
+          <div class="row-text"><div class="row-title">Question next to the line</div><div class="row-desc">Off: the question sits at the bottom of the page</div></div>
+          <button class="switch" role="switch" aria-checked="true" aria-label="Question next to the line"></button>
+        </div>
+        <div class="row stack">
+          <div class="row-head"><span class="row-title">Overlay strength</span><span class="row-val" id="strengthVal">70%</span></div>
+          <input type="range" id="strength" min="20" max="100" step="5" value="70" aria-label="Overlay strength">
+          <div class="range-ends"><span>Soft</span><span>Strong</span></div>
+        </div>
+        <div class="row stack">
+          <span class="row-title">Marker colour</span>
+          <div class="seg row-seg" role="radiogroup" aria-label="Marker colour" data-group="marker">
+            <button role="radio" aria-checked="true" data-value="warm"><i class="swatch warm"></i>Warm</button>
+            <button role="radio" aria-checked="false" data-value="blue"><i class="swatch blue"></i>Blue</button>
+            <button role="radio" aria-checked="false" data-value="contrast"><i class="swatch contrast"></i>Contrast</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec-label">Checking</div>
+      <div class="card">
+        <div class="row click" data-switch="autoCheck">
+          <div class="row-text"><div class="row-title">Check after a pause</div><div class="row-desc">1.5 s after the last stroke. The Check button always works.</div></div>
+          <button class="switch" role="switch" aria-checked="true" aria-label="Check after a pause"></button>
+        </div>
+      </div>
+
+      <div class="sec-label">Paper</div>
+      <div class="card">
+        <div class="row stack">
+          <div class="seg" role="radiogroup" aria-label="Paper" data-group="paper">
+            <button role="radio" aria-checked="false" data-value="ruled"><i class="pp ruled"></i>Ruled</button>
+            <button role="radio" aria-checked="true" data-value="grid"><i class="pp grid"></i>Grid</button>
+            <button role="radio" aria-checked="false" data-value="dots"><i class="pp dots"></i>Dots</button>
+          </div>
+        </div>
+        <div class="row click" data-switch="lineNumbers">
+          <div class="row-text"><div class="row-title">Line numbers</div><div class="row-desc">The tutor names lines by number</div></div>
+          <button class="switch" role="switch" aria-checked="true" aria-label="Line numbers"></button>
+        </div>
+      </div>
+
+      <div class="sec-label">Writing</div>
+      <div class="card">
+        <div class="row click" data-switch="pencilOnly">
+          <div class="row-text"><div class="row-title">Pencil only after the first touch</div><div class="row-desc">Palm and fingers stop drawing; two fingers scroll</div></div>
+          <button class="switch" role="switch" aria-checked="true" aria-label="Pencil only after the first touch"></button>
+        </div>
+        <div class="row click" data-switch="leftHanded">
+          <div class="row-text"><div class="row-title">Left-handed</div><div class="row-desc">Tools move to the right side</div></div>
+          <button class="switch" role="switch" aria-checked="false" aria-label="Left-handed"></button>
+        </div>
+        <div class="row stack">
+          <span class="row-title">Pen</span>
+          <div class="seg row-seg" role="radiogroup" aria-label="Pen thickness" data-group="pen">
+            <button role="radio" aria-checked="false" data-value="thin">Thin</button>
+            <button role="radio" aria-checked="true" data-value="medium">Medium</button>
+            <button role="radio" aria-checked="false" data-value="thick">Thick</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec-label">Comfort</div>
+      <div class="card">
+        <div class="row click" data-switch="largerText">
+          <div class="row-text"><div class="row-title">Larger question text</div></div>
+          <button class="switch" role="switch" aria-checked="false" aria-label="Larger question text"></button>
+        </div>
+        <div class="row click" data-switch="reducedMotion">
+          <div class="row-text"><div class="row-title">Reduced motion</div></div>
+          <button class="switch" role="switch" aria-checked="false" aria-label="Reduced motion"></button>
+        </div>
+      </div>
+    </div>
+    <div class="sheet-foot">
+      <svg class="avatar" aria-hidden="true"><use href="#i-avatar"/></svg>
+      <div class="who"><div class="nm">Comet</div><div class="gr">Grade 4 · nickname only</div></div>
+      <button class="btn" id="exitBtn">Exit child mode</button>
+    </div>
+  </aside>
+
+  <div class="pin-back" id="pinBack">
+    <div class="pin" role="dialog" aria-modal="true" aria-labelledby="pinTitle">
+      <div class="lock" aria-hidden="true"><svg><use href="#i-lock"/></svg></div>
+      <h2 id="pinTitle">For grown-ups</h2>
+      <p>Enter your PIN to open settings.</p>
+      <div class="pin-dots" id="pinDots" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <div class="keys" id="keys"></div>
+      <p class="pin-note">Any 4 digits open this mockup.</p>
+    </div>
+  </div>
+
+</div>
+</div>
+</div>
+</div>
+
+<script>
+(() => {
+  const NS = 'http://www.w3.org/2000/svg';
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const q = new URLSearchParams(location.search);
+  const root = document.documentElement;
+  const screen = $('#screen');
+
+  // ---------- Theme and fit ----------
+  const theme = q.get('theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  root.dataset.theme = theme;
+  const wrap = $('#wrap');
+  let stageK = 1;
+  const fit = () => {
+    stageK = Math.min(innerWidth / 1482, innerHeight / 1140);
+    wrap.style.transform = `scale(${stageK})`;
+  };
+  addEventListener('resize', fit);
+  fit();
+
+  // ---------- Line numbers (14 lines, 100 units each, from y = 200) ----------
+  const linenos = $('#linenos');
+  for (let n = 1; n <= 14; n++) {
+    const s = document.createElement('span');
+    s.textContent = n;
+    s.style.top = (200 + (n - 1) * 100 + 40) + 'px';
+    linenos.append(s);
+  }
+
+  // ---------- Handwriting: single-stroke glyphs in a 10 × 16 box ----------
+  const GLYPHS = {
+    '0': { w: 10, d: ['M5.3 0.4 C2.1 0.3 0.4 4 0.5 8.3 C0.6 12.6 2.4 15.8 5.1 15.7 C8.1 15.6 9.8 12 9.6 7.7 C9.4 3.5 7.8 0.3 5.3 0.4 C4.7 0.4 4.2 0.7 3.8 1.2'] },
+    '1': { w: 6.5, d: ['M0.6 3.9 C2.2 2.8 3.7 1.5 5 0.2 C4.9 5.5 4.9 10.8 5.1 16'] },
+    '2': { w: 10, d: ['M0.9 4.3 C1.4 1.3 4 -0.1 6.4 0.4 C9.1 1.1 9.6 4.2 8 6.9 C6.3 9.7 3.1 12.8 0.4 15.8 C3.6 15.5 6.8 15.6 10 15.9'] },
+    '4': { w: 10, d: ['M6.3 0.3 C4.3 3.9 2.2 7.6 0.2 10.9 C3.4 10.8 6.8 10.7 10 10.8', 'M7.4 5.4 C7.3 9 7.4 12.5 7.6 16'] },
+    '5': { w: 10, d: ['M9.4 0.5 C7 0.3 4.4 0.3 2.1 0.5 C1.7 2.7 1.3 4.9 1 7.1 C3.4 5.5 7.4 5.7 9 8.5 C10.4 11.1 9 15.2 5.2 15.8 C3.2 16.1 1.4 15.3 0.3 14.1'] },
+    '6': { w: 10, d: ['M8.6 0.7 C5 1.1 1 4.5 0.5 9.7 C0.2 13.5 2.2 15.9 5 15.8 C7.9 15.7 9.8 13.6 9.7 10.9 C9.6 8.2 7.4 6.9 5.1 7.1 C3 7.3 1.2 8.7 0.6 10.9'] },
+    '7': { w: 10, d: ['M0.4 0.9 C3.6 0.6 6.8 0.5 9.8 0.5 C7.6 5.5 5.4 10.7 3.4 16'] },
+    '8': { w: 10, d: ['M5.3 7.6 C1.8 6.8 1.2 4.4 1.6 2.8 C2.2 0.6 7.6 -0.4 8.6 2.4 C9.4 4.8 7.4 6.8 5.3 7.6 C2 8.8 0.2 10.8 0.6 13.2 C1.2 16.4 8.8 16.6 9.6 13 C10 10.6 8 8.6 5.3 7.6'] },
+    '9': { w: 10, d: ['M9.2 4.3 C8.6 0.9 3.6 -0.1 1.4 2.3 C-0.2 4.1 0.8 7.7 4.2 7.7 C6.6 7.7 8.6 6.1 9.2 4.3 C9.4 8.1 9.2 12.1 8.8 16'] },
+    '+': { w: 10, d: ['M5 4.8 C5.1 8 5 11.1 4.9 14.2', 'M0.6 9.7 C3.6 9.5 6.6 9.4 9.6 9.5'] },
+    '=': { w: 10, d: ['M0.6 7.4 C3.6 7.2 6.6 7.1 9.6 7.2', 'M0.8 12.2 C3.8 12 6.8 12 9.8 12.1'] },
+  };
+  const mulberry32 = (a) => () => {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+
+  const ink = $('#ink');
+  let sid = 0;
+  const nextId = () => 's-' + String(++sid).padStart(4, '0');
+
+  function makeStroke(d, { transform, color = 'k', line, gs = 1 } = {}) {
+    const g = document.createElementNS(NS, 'g');
+    g.setAttribute('class', 'stroke ink-' + color);
+    g.dataset.id = nextId();
+    if (line) g.dataset.line = line;
+    if (transform) g.setAttribute('transform', transform);
+    g.style.setProperty('--gs', gs);
+    for (const cls of ['hit', 'vis']) {
+      const p = document.createElementNS(NS, 'path');
+      p.setAttribute('d', d);
+      p.setAttribute('class', cls);
+      g.append(p);
+    }
+    return g;
+  }
+
+  function writeLine(text, x0, baseline, line, seed) {
+    const rnd = mulberry32(seed);
+    let x = x0;
+    for (const ch of text) {
+      if (ch === ' ') { x += 13 * (0.85 + 0.3 * rnd()); continue; }
+      const g = GLYPHS[ch];
+      const sc = 2.5 * (0.94 + 0.12 * rnd());
+      const rot = (rnd() - 0.5) * 5;
+      const dy = (rnd() - 0.5) * 3 - (x - x0) * 0.01;
+      const top = baseline - 16 * sc + dy;
+      const tf = `translate(${x.toFixed(1)} ${top.toFixed(1)}) rotate(${rot.toFixed(2)} ${(g.w * sc / 2).toFixed(1)} ${(8 * sc).toFixed(1)}) skewX(-7) scale(${sc.toFixed(3)})`;
+      for (const d of g.d) ink.append(makeStroke(d, { transform: tf, line, gs: sc }));
+      x += (g.w + 3.6) * sc * (0.95 + 0.1 * rnd());
+    }
+  }
+
+  writeLine('47 + 68 = 115', 100, 280, '1', 7);
+  // A note the child made on the task: circled the unknown angle (stays on the page, not a step)
+  ink.append(makeStroke('M891 49 C886 38 864 37 857 51 C850 66 859 82 875 83 C891 84 897 68 893 56 C891 48 885 44 877 43', { color: 'b' }));
+  writeLine('180 + 115 = 295', 100, 380, '2', 23);
+  const LINE2 = $$('.stroke[data-line="2"]', ink).length;
+
+  // ---------- Marker for line:2 (frame of the line's strokes + 10 units, spec 4.4) ----------
+  function lineRect(line) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const g of $$(`.stroke[data-line="${line}"]`, ink)) {
+      const m = g.transform.baseVal.consolidate()?.matrix;
+      const p = $('.vis', g);
+      const L = p.getTotalLength();
+      for (let i = 0; i <= 30; i++) {
+        let pt = p.getPointAtLength(L * i / 30);
+        if (m) pt = pt.matrixTransform(m);
+        x0 = Math.min(x0, pt.x); y0 = Math.min(y0, pt.y);
+        x1 = Math.max(x1, pt.x); y1 = Math.max(y1, pt.y);
+      }
+    }
+    const pad = 10;
+    return { x: Math.round(x0 - pad), y: Math.round(y0 - pad), w: Math.round(x1 - x0 + 2 * pad), h: Math.round(y1 - y0 + 2 * pad) };
+  }
+  const R = lineRect('2');
+  const midY = R.y + R.h / 2;
+  const setAttrs = (el, a) => { for (const k in a) el.setAttribute(k, a[k]); };
+  setAttrs($('#mkFill'), { x: R.x, y: R.y, width: R.w, height: R.h });
+  setAttrs($('#mkRing'), { x: R.x, y: R.y, width: R.w, height: R.h });
+  $('#mkPointer').setAttribute('d', `M${R.x - 26} ${midY - 11} Q${R.x - 26} ${midY - 14} ${R.x - 23} ${midY - 12} L${R.x - 8} ${midY - 2} Q${R.x - 5} ${midY} ${R.x - 8} ${midY + 2} L${R.x - 23} ${midY + 12} Q${R.x - 26} ${midY + 14} ${R.x - 26} ${midY + 11} Z`);
+  const bubble = $('#bubble');
+  const bLeft = R.x + R.w + 46;
+  bubble.style.left = bLeft + 'px';
+  bubble.style.top = (midY - 35) + 'px';
+  $('#mkLink').setAttribute('d', `M${R.x + R.w + 6} ${midY} L${bLeft - 14} ${midY}`);
+
+  // ---------- Hint ladder (spec 5.4 / 7): level 1–3, then offer_help ----------
+  const HINTS = {
+    1: { title: 'Look at line 2', text: 'Nice start — 47 + 68 = 115 is right. Look at the + on line 2: can one angle of a triangle be bigger than 180?', source: 'llm', kind: 'hint' },
+    2: { title: 'Look at line 2', text: 'All three angles of a triangle add up to 180. Two of them make 115 — how can you find what is left?', source: 'llm', kind: 'hint' },
+    3: { title: 'Try a similar one', text: "Let's try a similar one first: two angles are 30 and 50. How much of 180 is left for the third?", source: 'llm', kind: 'hint' },
+    help: { title: "Let's get help", text: "Let's ask a grown-up to look at this together, or start this task again.", source: 'template', kind: 'offer_help' },
+  };
+  let level = 1;
+  let cleared = false;
+
+  function renderHint() {
+    const h = HINTS[level];
+    const n = level === 'help' ? 3 : level;
+    $('#bTitle').textContent = h.title;
+    $('#bText').textContent = h.text;
+    $('#barText').textContent = h.text;
+    $('#bLevel').textContent = `Hint ${n} of 3`;
+    $$('#bDots i').forEach((d, i) => d.classList.toggle('on', i < n));
+    $('#bActions').hidden = level !== 'help';
+    $('#barActions').hidden = level !== 'help';
+    $$('.insp-head [data-level]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.level == level)));
+    renderInspector();
+  }
+
+  // ---------- Developer inspector: the event the client received ----------
+  function renderInspector() {
+    const h = HINTS[level];
+    const lv = level === 'help' ? 3 : level;
+    const ev = {
+      canvasId: '7b3e2f4a-1c5d-4e8f-9a0b-2c4d6e8f0a1b',
+      seq: String(14 + lv + (level === 'help' ? 1 : 0)),
+      hint: {
+        hintId: '3c0f6a2e-8d4b-4f1a-b9e7-5a6c7d8e9f0' + lv,
+        target: 'line:2',
+        teacherText: h.text,
+        actions: [
+          { type: 'highlight', target: 'line:2', rect: R, style: 'attention' },
+          { type: 'point', target: 'line:2', rect: R, style: 'attention' },
+        ],
+        source: h.source,
+        level: lv,
+        kind: h.kind,
+        revision: 1,
+      },
+    };
+    $('#inspVerdict').innerHTML = cleared
+      ? 'verdict <b>line:2</b> · clear: true · revision 2'
+      : 'verdict <b>line:2</b> · <b>ERROR</b> · WRONG_INVERSE_OPERATION';
+    $('#inspJson').innerHTML = cleared ? fmt({ canvasId: ev.canvasId, seq: '19', verdict: { target: 'line:2', verdict: 'VERDICT_UNSPECIFIED', clear: true, revision: 2 } }) : fmt(ev);
+  }
+  const esc = (s) => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  function fmt(v, ind = '') {
+    const pad = ind + '  ';
+    if (typeof v === 'string') return `<span class="j-s">"${esc(v)}"</span>`;
+    if (typeof v === 'number' || typeof v === 'boolean') return `<span class="j-n">${v}</span>`;
+    if (Array.isArray(v)) return '[\n' + v.map(x => pad + fmt(x, pad)).join(',\n') + '\n' + ind + ']';
+    const keys = Object.keys(v);
+    const flat = keys.every(k => typeof v[k] !== 'object') && keys.length <= 4;
+    if (flat) return '{ ' + keys.map(k => `<span class="j-k">"${k}"</span>: ${fmt(v[k])}`).join(', ') + ' }';
+    return '{\n' + keys.map(k => `${pad}<span class="j-k">"${k}"</span>: ${fmt(v[k], pad)}`).join(',\n') + '\n' + ind + '}';
+  }
+
+  function setCleared(on) {
+    cleared = on;
+    screen.classList.toggle('hint-cleared', on);
+    renderInspector();
+  }
+
+  // ---------- Settings (grown-up area) ----------
+  const S = {
+    highlight: true, pointer: true, bubble: true, strength: 0.7, marker: 'warm',
+    autoCheck: true, paper: 'grid', lineNumbers: true,
+    pencilOnly: true, leftHanded: false, pen: 'medium',
+    largerText: false, reducedMotion: false,
+  };
+  function applySettings() {
+    const c = screen.classList;
+    c.toggle('no-highlight', !S.highlight);
+    c.toggle('no-pointer', !S.pointer);
+    c.toggle('hint-bottom', !S.bubble);
+    c.toggle('marker-blue', S.marker === 'blue');
+    c.toggle('marker-contrast', S.marker === 'contrast');
+    c.toggle('paper-grid', S.paper === 'grid');
+    c.toggle('paper-dots', S.paper === 'dots');
+    c.toggle('no-linenos', !S.lineNumbers);
+    c.toggle('left-handed', S.leftHanded);
+    c.toggle('pen-thin', S.pen === 'thin');
+    c.toggle('pen-thick', S.pen === 'thick');
+    c.toggle('larger-text', S.largerText);
+    c.toggle('reduced-motion', S.reducedMotion);
+    screen.style.setProperty('--strength', S.strength);
+    $('#strengthVal').textContent = Math.round(S.strength * 100) + '%';
+    $('#checkCap').textContent = S.autoCheck ? 'I check each line when you pause' : 'Tap Check when a line is done';
+    $$('[data-switch]').forEach(r => $('.switch', r).setAttribute('aria-checked', String(!!S[r.dataset.switch])));
+    $$('[data-group]').forEach(g => $$('button', g).forEach(b => b.setAttribute('aria-checked', String(S[g.dataset.group] === b.dataset.value))));
+  }
+  $$('[data-switch]').forEach(r => r.addEventListener('click', () => { S[r.dataset.switch] = !S[r.dataset.switch]; applySettings(); }));
+  $$('[data-group]').forEach(g => g.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    S[g.dataset.group] = b.dataset.value; applySettings();
+  }));
+  $('#strength').addEventListener('input', (e) => { S.strength = e.target.value / 100; applySettings(); });
+
+  // ---------- Scenes ----------
+  function openSettings(on) {
+    screen.classList.toggle('settings-open', on);
+    // The page rescales (0.8 while the sheet is open); refresh the page map once it settles
+    setTimeout(() => updateScrollUI(false), 500);
+  }
+  function openPin(on) {
+    screen.classList.toggle('pin-open', on);
+    pin = '';
+    renderPin();
+  }
+  let pin = '';
+  const keys = $('#keys');
+  ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'cancel', '0', 'del'].forEach(k => {
+    const b = document.createElement('button');
+    b.className = 'key' + (k === 'cancel' ? ' ghost' : '') + (k === 'del' ? ' ghost' : '');
+    if (k === 'del') { b.innerHTML = '<svg aria-hidden="true"><use href="#i-back"/></svg>'; b.setAttribute('aria-label', 'Delete'); }
+    else if (k === 'cancel') b.textContent = 'Cancel';
+    else b.textContent = k;
+    b.addEventListener('click', () => {
+      if (k === 'cancel') return openPin(false);
+      if (k === 'del') pin = pin.slice(0, -1);
+      else if (pin.length < 4) pin += k;
+      renderPin();
+      if (pin.length === 4) setTimeout(() => { openPin(false); openSettings(true); }, 180);
+    });
+    keys.append(b);
+  });
+  function renderPin() { $$('#pinDots i').forEach((d, i) => d.classList.toggle('on', i < pin.length)); }
+  $('#lockBtn').addEventListener('click', () => openPin(true));
+  $('#doneBtn').addEventListener('click', () => openSettings(false));
+  $('#exitBtn').addEventListener('click', () => openSettings(false));
+
+  // ---------- Tools, drawing, whole-stroke eraser, undo ----------
+  let tool = 'pen-k';
+  const done = [], undone = [];
+  const syncUndo = () => { $('#undoBtn').disabled = !done.length; $('#redoBtn').disabled = !undone.length; };
+  $$('.tool[data-tool]').forEach(b => b.addEventListener('click', () => {
+    tool = b.dataset.tool;
+    $$('.tool[data-tool]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    screen.classList.toggle('tool-eraser', tool === 'eraser');
+  }));
+
+  const svg = $('#drawing');
+  const pv = $('#pv');
+  // Screen → logical page units. The box already includes scroll, the page scale and the stage scale.
+  const toPage = (e) => {
+    const r = svg.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * 1000 / r.width, y: (e.clientY - r.top) * 1600 / r.height };
+  };
+  let cur = null, pts = [];
+  const touches = new Map();
+  let panY = null, penSeen = false;
+  const touchMidY = () => { let s = 0; touches.forEach(y => { s += y; }); return s / touches.size; };
+  const smooth = (P) => {
+    if (P.length < 3) return `M${P[0].x} ${P[0].y} L${P[P.length - 1].x + 0.1} ${P[P.length - 1].y}`;
+    let d = `M${P[0].x.toFixed(1)} ${P[0].y.toFixed(1)}`;
+    for (let i = 1; i < P.length - 1; i++) {
+      const mx = (P[i].x + P[i + 1].x) / 2, my = (P[i].y + P[i + 1].y) / 2;
+      d += ` Q${P[i].x.toFixed(1)} ${P[i].y.toFixed(1)} ${mx.toFixed(1)} ${my.toFixed(1)}`;
+    }
+    return d;
+  };
+  function eraseAt(e) {
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const g = el && el.closest && el.closest('.stroke');
+    if (!g) return;
+    const next = g.nextSibling;
+    g.remove();
+    done.push({ type: 'remove', g, next }); undone.length = 0; syncUndo();
+    if (g.dataset.line === '2') { setCleared(true); flashChecking(); }
+  }
+  svg.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    svg.setPointerCapture(e.pointerId);
+    if (e.pointerType === 'pen') penSeen = true;
+    if (e.pointerType === 'touch') {
+      touches.set(e.pointerId, e.clientY);
+      // Two fingers scroll the page; drop the stroke the first finger started
+      if (touches.size >= 2) {
+        if (cur && cur !== 'erase') cur.remove();
+        cur = null;
+        panY = touchMidY();
+        return;
+      }
+      // After the first Pencil touch, fingers and palm stop drawing (spec: pen mode)
+      if (S.pencilOnly && penSeen) return;
+    }
+    $('#pencil').classList.add('away');
+    if (tool === 'eraser') { cur = 'erase'; eraseAt(e); return; }
+    pts = [toPage(e)];
+    cur = makeStroke(smooth(pts), { color: tool === 'pen-b' ? 'b' : 'k' });
+    ink.append(cur);
+    clearTimeout(autoTimer);
+  });
+  svg.addEventListener('pointermove', (e) => {
+    if (touches.has(e.pointerId)) {
+      touches.set(e.pointerId, e.clientY);
+      if (panY !== null) {
+        const m = touchMidY();
+        pv.scrollTop -= (m - panY) / stageK;
+        panY = m;
+        return;
+      }
+    }
+    if (!cur) return;
+    if (cur === 'erase') return eraseAt(e);
+    pts.push(toPage(e));
+    const d = smooth(pts);
+    $$('path', cur).forEach(p => p.setAttribute('d', d));
+  });
+  const end = (e) => {
+    touches.delete(e.pointerId);
+    if (touches.size < 2) panY = null;
+    if (cur && cur !== 'erase') { done.push({ type: 'add', g: cur }); undone.length = 0; syncUndo(); scheduleCheck(); }
+    cur = null;
+  };
+  svg.addEventListener('pointerup', end);
+  svg.addEventListener('pointercancel', end);
+
+  // ---------- Page scrolling: page map, "Lines a–b of 14" and an iPad-style scroll indicator ----------
+  const ind = $('#scrollInd');
+  let indTimer = 0;
+  function updateScrollUI(show) {
+    const s = pv.clientWidth / 1000;
+    const top = pv.scrollTop, h = pv.clientHeight, H = pv.scrollHeight;
+    const y0 = top / s, y1 = Math.min(1600, (top + h) / s);
+    $('#pmView').style.top = (y0 / 16) + '%';
+    $('#pmView').style.height = ((y1 - y0) / 16) + '%';
+    const first = Math.max(1, Math.ceil((y0 - 200) / 100 + 1 - 1e-6));
+    const last = Math.min(14, Math.floor((y1 - 200) / 100 + 1e-6));
+    $('#pmMeta').innerHTML = first < last ? `Lines ${first}–${last}<br>of 14` : `Line ${Math.min(first, 14)}<br>of 14`;
+    if (H <= h) return;
+    const trackH = h - 16, ih = Math.max(36, trackH * h / H);
+    ind.style.height = ih + 'px';
+    ind.style.top = (pv.offsetTop + 8 + (trackH - ih) * top / (H - h)) + 'px';
+    ind.style.left = (pv.offsetLeft + pv.offsetWidth - 10) + 'px';
+    if (show) {
+      ind.classList.add('on');
+      clearTimeout(indTimer);
+      indTimer = setTimeout(() => ind.classList.remove('on'), 900);
+    }
+  }
+  pv.addEventListener('scroll', () => updateScrollUI(true), { passive: true });
+  addEventListener('resize', () => updateScrollUI(false));
+
+  const pmSheet = $('#pmSheet');
+  let pmDrag = false;
+  const pmJump = (e) => {
+    const r = pmSheet.getBoundingClientRect();
+    const f = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+    pv.scrollTop = f * pv.scrollHeight - pv.clientHeight / 2;
+  };
+  pmSheet.addEventListener('pointerdown', (e) => { pmSheet.setPointerCapture(e.pointerId); pmDrag = true; pmJump(e); });
+  pmSheet.addEventListener('pointermove', (e) => { if (pmDrag) pmJump(e); });
+  pmSheet.addEventListener('pointerup', () => { pmDrag = false; });
+  pmSheet.addEventListener('pointercancel', () => { pmDrag = false; });
+
+  function applyOp(op, reverse) {
+    const add = (op.type === 'add') !== reverse;
+    if (add) ink.insertBefore(op.g, op.type === 'remove' ? op.next : null); else op.g.remove();
+    if (op.g.dataset.line === '2') setCleared($$('.stroke[data-line="2"]', ink).length < LINE2);
+  }
+  $('#undoBtn').addEventListener('click', () => { const op = done.pop(); if (!op) return; applyOp(op, true); undone.push(op); syncUndo(); });
+  $('#redoBtn').addEventListener('click', () => { const op = undone.pop(); if (!op) return; applyOp(op, false); done.push(op); syncUndo(); });
+  $('#fitBtn').addEventListener('click', () => { pv.scrollTo({ top: 0, behavior: S.reducedMotion ? 'auto' : 'smooth' }); });
+
+  // ---------- Checking: after a 1.5 s pause or on Check; silence when right ----------
+  let autoTimer = 0, chipTimer = 0;
+  function flashChecking() {
+    const chip = $('#statusChip');
+    chip.classList.add('on');
+    clearTimeout(chipTimer);
+    chipTimer = setTimeout(() => chip.classList.remove('on'), 1100);
+  }
+  function scheduleCheck() {
+    clearTimeout(autoTimer);
+    if (S.autoCheck) autoTimer = setTimeout(flashChecking, 1500);
+  }
+  $('#checkBtn').addEventListener('click', flashChecking);
+  $$('.b-actions [data-act]').forEach(b => b.addEventListener('click', () => { level = 1; renderHint(); }));
+
+  // ---------- Dev inspector controls ----------
+  $$('.insp-head [data-level]').forEach(b => b.addEventListener('click', () => {
+    level = b.dataset.level === 'help' ? 'help' : Number(b.dataset.level);
+    setCleared(false); renderHint();
+  }));
+  $('#themeBtn').addEventListener('click', () => { root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark'; });
+  addEventListener('keydown', (e) => {
+    if (e.target.closest('input')) return;
+    if (e.key === 'd') screen.classList.toggle('dev');
+    if (e.key === 't') $('#themeBtn').click();
+    if (e.key === 'Escape') { openPin(false); openSettings(false); }
+  });
+
+  // ---------- Initial state from the URL ----------
+  const lv = q.get('level');
+  if (lv) level = lv === 'help' ? 'help' : Math.min(3, Math.max(1, Number(lv) || 1));
+  if (q.get('dev') === '1') screen.classList.add('dev');
+  const scene = q.get('scene') || 'hint';
+  if (scene === 'settings') openSettings(true);
+  if (scene === 'pin') openPin(true);
+  if (scene === 'cleared') setCleared(true);
+  if (q.get('bubble') === '0') S.bubble = false;
+  if (q.get('paper')) S.paper = q.get('paper');
+  if (q.get('marker')) S.marker = q.get('marker');
+  applySettings();
+  renderHint();
+  syncUndo();
+  if (q.get('scroll')) pv.scrollTop = Number(q.get('scroll')) * pv.clientWidth / 1000;
+  updateScrollUI(false);
+  requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove('no-anim')));
+})();
+</script>
+</body>
+</html>
