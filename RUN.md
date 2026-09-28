@@ -87,7 +87,7 @@
 | [x] | T00 | Документы и план | Claude | — | — |
 | [x] | T01 | CLAUDE.md | Claude, проверяю я | — | T00 |
 | [x] | T02 | Простейший сервер | Claude | — | T01 |
-| [ ] | T03 | Devcontainer | Claude | да | T02 |
+| [x] | T03 | Devcontainer | Claude | да | T02 |
 | [ ] | T04 | Проверки Go и образ сервиса | Claude | — | T03 |
 | [ ] | T05 | Web-тулчейн | Claude | да | T04 |
 | [ ] | T06 | CI | Claude | — | T04, T05 |

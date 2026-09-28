@@ -54,3 +54,13 @@ The documents are in Russian.
 - [docs/privacy.md](docs/privacy.md) — children's data: what is collected and kept, what the external AI services receive, parental consent, deletion and retention.
 - [docs/decisions.md](docs/decisions.md) — the decision log: what was decided, why, and what was rejected.
 - [RUN.md](RUN.md) — the implementation plan: small tasks, run and reviewed one at a time.
+
+## Development
+
+All development happens in the devcontainer; nothing but Docker and VS Code is needed on the host.
+
+1. Install Docker and VS Code with the Dev Containers extension.
+2. Open the repository — on Windows, from WSL — and choose "Reopen in Container". The first build downloads the pinned toolchain and takes a few minutes.
+3. `just --list` shows the available recipes.
+
+The environment, its pinned versions and how to change one are described in [CLAUDE.md](CLAUDE.md#environment).

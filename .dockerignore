@@ -1,0 +1,10 @@
+# Build context filter for images built from the repository root. None of them
+# needs the history, local secrets, documents or reference material, so none of
+# it is sent to the builder.
+.git
+**/.env
+.devcontainer
+reference
+docs
+draft
+*.md

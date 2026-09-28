@@ -1,0 +1,77 @@
+// Devcontainer for canvas-api: all development happens here (see CLAUDE.md).
+// Tool versions are pinned directly in this file and in .devcontainer/Dockerfile.
+{
+    "name": "canvas-api",
+    "build": {
+        "dockerfile": "Dockerfile",
+        // The full environment, not the toolchain stage on its own.
+        "target": "devcontainer",
+        // Repository root as context; .dockerignore trims it.
+        "context": ".."
+    },
+    "features": {
+        // Exact feature version, resolved by digest in devcontainer-lock.json.
+        // The feature's own buildx download is unpinned, so it is disabled; compose is installed by
+        // the Dockerfile, so the feature's standalone docker-compose is disabled too.
+        "ghcr.io/devcontainers/features/docker-in-docker:4.1.1": {
+            "version": "29.8.1",
+            "moby": true,
+            "mobyBuildxVersion": "0.37.1",
+            "installDockerBuildx": false,
+            "dockerDashComposeVersion": "none"
+        }
+    },
+    "remoteUser": "vscode",
+    // Runs on the host before the container starts: gives it a network whose MTU is the
+    // host's own, so a tunnel on the host does not silently truncate large downloads here.
+    "initializeCommand": "bash .devcontainer/host-network.sh",
+    "runArgs": [
+        "--network=canvas-api"
+    ],
+    "mounts": [
+        // Claude Code login and settings survive container rebuilds.
+        "source=canvas-api-claude,target=/home/vscode/.claude,type=volume",
+        // The Google sign-in survives them too: the credentials Terraform reads live here.
+        "source=canvas-api-gcloud,target=/home/vscode/.config/gcloud,type=volume",
+        // And the GitHub one, so that `gh auth login` is answered once rather than once
+        // per rebuild.
+        "source=canvas-api-gh,target=/home/vscode/.config/gh,type=volume"
+    ],
+    "containerEnv": {
+        // Marker checked by Claude sessions (CLAUDE.md, "Devcontainer only").
+        "MATHTRAIL_DEVCONTAINER": "1",
+        "CLAUDE_CONFIG_DIR": "/home/vscode/.claude",
+        "DISABLE_AUTOUPDATER": "1"
+    },
+    "customizations": {
+        "vscode": {
+            "settings": {
+                // gopls and dlv come pinned from the image; the Go extension must not fetch its own.
+                "go.toolsManagement.autoUpdate": false,
+                "go.toolsManagement.checkForUpdates": "off",
+                "files.eol": "\n",
+                "files.insertFinalNewline": true,
+                // SonarQube for IDE sends nothing about how it is used.
+                "sonarlint.disableTelemetry": true
+            },
+            // Exact versions; the Claude Code extension matches CLAUDE_CODE_VERSION.
+            "extensions": [
+                "anthropic.claude-code@2.1.280",
+                "golang.go@0.56.1",
+                "redhat.vscode-yaml@1.24.0",
+                "nefrob.vscode-just-syntax@0.10.2",
+                "hashicorp.terraform@2.40.0",
+                "bierner.markdown-mermaid@1.32.1",
+                "eamodio.gitlens@19.2.0",
+                "ms-azuretools.vscode-containers@2.5.1",
+                // Sonar's analysis inside the editor. Its Linux x86-64 package brings its own
+                // Java runtime. There is no such package for arm64 and the image installs no
+                // Java: there it asks to download one, and analyses nothing if that is declined.
+                "SonarSource.sonarlint-vscode@5.10.0"
+            ]
+        }
+    },
+    "postStartCommand": "bash .devcontainer/post-start.sh",
+    // The API, and Vite's dev server for the SPA.
+    "forwardPorts": [8080, 5173]
+}
