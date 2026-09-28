@@ -30,3 +30,6 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Reference copies of other repositories: read-only material, never committed.
+/reference/

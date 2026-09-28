@@ -11,8 +11,10 @@ Open `index.html` in a browser. The iPad frame scales to fit the window.
 - **Undo / Redo:** work for both writing and erasing.
 - **Scrolling:** the page has 14 lines. Scroll with the mouse wheel, a touchpad or two fingers, or tap the page map on the right to jump. The fit button goes back to the top.
 - **Check:** or pause for 1.5 s after a stroke. You'll see *Checking…*, then nothing, because a correct step gets no comment.
-- **Grown-ups:** opens the PIN pad (any 4 digits), then the canvas and hint settings.
+- **The tutor's help:** the bar next to the tutor's icon in the top bar fills as the day's help is used. When it is full, nothing is checked: the hint layer stays empty, the tutor says once at the bottom of the page that the child can keep going alone, and Check repeats it.
+- **Grown-ups:** opens the PIN pad (any 4 digits), then the plan and the canvas and hint settings. **Upgrade** switches the plan to Plus.
 - **`d`:** shows the event inspector. Its buttons switch the hint ladder (1, 2, 3, help) and the theme.
+- **`q`:** fills the help bar: 90%, used up, back to 40%. **`p`:** switches the plan between Free and Plus.
 - **`t`:** switches the theme. **`Esc`:** closes the panels.
 
 URL parameters, used for the screenshots:
@@ -27,22 +29,17 @@ URL parameters, used for the screenshots:
 | `scroll` | scroll the page to this y, in logical units (`700` shows lines 6–14) |
 | `marker` | `warm`, `blue`, `contrast` |
 | `bubble` | `0` moves the question to a bar at the bottom of the page |
+| `quota` | the share of today's help already used, `0`–`100` (default `40`); `100` shows the help used up |
+| `plan` | `free` (default), `plus` |
 
 ## Regenerate the screenshots
 
-The stage is 1482 × 1140 and scales to the window. A 2964 × 2280 window gives 2× images.
+Run [screens.sh](screens.sh). It needs only Docker and the host's Noto Sans, the font the committed images use; without the font it stops.
 
-```sh
-cd draft/ui
-for t in light dark; do
-  for s in "hint:scene=hint" "settings:scene=settings" "events:scene=hint&dev=1"; do
-    firefox --headless --no-remote --profile "$(mktemp -d)" --window-size=2964,2280 \
-      --screenshot "$PWD/screens/${s%%:*}-$t.png" "file://$PWD/index.html?${s#*:}&theme=$t"
-  done
-done
-```
+- Firefox from the Playwright image takes all eight screenshots with its own `--screenshot`, with overlay scrollbars as on the iPad.
+- Pillow saves them again as RGB with `optimize=True`, which makes them about 30% smaller.
 
-The committed PNGs were also saved as RGB with `optimize=True` in Pillow, which makes them about 30% smaller.
+Both images are pinned by digest. The stage is 1482 × 1140 and scales to the window, so the 2964 × 2280 window gives 2× images.
 
 ## What comes from the docs and what is proposed
 
@@ -54,6 +51,8 @@ The committed PNGs were also saved as RGB with `optimize=True` in Pillow, which 
 - **Checking:** runs after a 1.5 s pause or on Check. A correct step gets silence.
 - **Pen and eraser:** the eraser removes whole strokes. After the first Apple Pencil touch, the palm and fingers stop drawing.
 - **Child mode:** exit needs the PIN. The child appears only as a nickname and an avatar. The UI is in English.
+- **The day's help used up** ([R35](../../docs/decisions.md)): until it renews nothing is checked — no marks, questions or congratulations — and the child keeps writing. The tutor says so once, and again on Check. The inspector shows the verdict `UNCHECKED` with the reason `limit`.
+- **Plans after the MVP** ([R36](../../docs/decisions.md), product 14): free; $10 a month for bigger quotas; $20 a month for even bigger quotas and an AI tutor with a voice. The MVP itself is a free closed beta (R05).
 
 **Proposals, not yet in the docs:**
 
@@ -61,3 +60,5 @@ The committed PNGs were also saved as RGB with `optimize=True` in Pillow, which 
 - The settings panel, apart from the pause, and everything in it: paper type, highlight and pointer toggles, where the question sits, overlay strength, marker colour, left-handed layout, pen thickness, larger text, reduced motion. The spec's child mode has no settings, so the panel sits behind the PIN.
 - The blue pen, undo/redo, the page map, and the tutor bubble's position next to the line.
 - The AI tutor's avatar and the "AI tutor" name on its questions. The avatar is a mortarboard and a spark on a disc in the hint's warm colours. It is not a mascot: the design system keeps the MathTrail mark for the app and a neutral figure for the child.
+- The help meter: a bar with the tutor's icon that fills as the day's help is used. The child sees it in the top bar, with no numbers or prices; the grown-up sees it in the settings, with the share used. The docs have daily limits on recognitions, hints and drawings (spec 14.5), but no meter that shows them.
+- The plan card in the settings, with Upgrade behind the PIN and the name Plus for the $10 plan. It shows the free plan and the $10 one; the $20 plan is not in the mockup. "Five times the daily help" is a placeholder: the quotas are still open (О-18 in product 15.2).

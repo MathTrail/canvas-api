@@ -206,6 +206,21 @@ button:focus-visible, [tabindex]:focus-visible, input:focus-visible {
 .child-chip .nm { font: 600 14px/18px var(--sans); }
 .child-chip .gr { font: 400 12px/16px var(--sans); color: var(--text-muted); }
 
+/* The tutor's help for the day (a proposal): the bar fills as the help is used; full means
+   nothing is checked until the help renews. The child sees the bar and no numbers or prices. */
+.help-meter {
+  display: flex; align-items: center; gap: 10px;
+  height: 44px; padding: 0 16px 0 6px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--border);
+  transition: opacity .3s;
+}
+/* The open sheet covers the top bar's right side; the grown-up sees the same meter inside the sheet */
+.settings-open .help-meter { opacity: 0; pointer-events: none; }
+.help-meter .tutor-av, .help-line .tutor-av { width: 32px; height: 32px; transition: opacity .3s, filter .3s; }
+.help-track { position: relative; flex: none; width: 96px; height: 8px; border-radius: 4px; background: var(--track); overflow: hidden; }
+.help-fill { position: absolute; left: 0; top: 0; bottom: 0; width: var(--help, 40%); border-radius: inherit; background: var(--marker-warm); transition: width .4s; }
+.help-out .help-meter .tutor-av, .help-out .help-line .tutor-av { opacity: .5; filter: grayscale(1); }
+
 .btn {
   height: 44px; padding: 0 16px;
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -405,8 +420,9 @@ button:focus-visible, [tabindex]:focus-visible, input:focus-visible {
 .b-actions { display: flex; gap: 8px; margin-top: 14px; }
 .b-actions[hidden] { display: none; }
 
-/* Alternative placement: a bar at the bottom of the page */
-.hint-bar {
+/* Alternative placement: a bar at the bottom of the page. The tutor's note that the day's help
+   is used up takes the same place. */
+.hint-bar, .rest-note {
   position: absolute; bottom: 24px;
   left: calc(var(--pvl) + 500px * var(--s));
   transform: translate(-50%, 8px);
@@ -421,10 +437,17 @@ button:focus-visible, [tabindex]:focus-visible, input:focus-visible {
   z-index: 5;
 }
 .hint-bottom .hint-bar { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
-.hint-bar .bar-body { flex: 1; min-width: 0; }
-.hint-bar .b-text { margin-top: 2px; font-size: 18px; line-height: 26px; }
+.hint-bar .bar-body, .rest-note .bar-body { flex: 1; min-width: 0; }
+.hint-bar .b-text, .rest-note .b-text { margin-top: 2px; font-size: 18px; line-height: 26px; }
 .hint-bar .b-actions { margin-top: 10px; }
-.larger-text .hint-bar .b-text { font-size: 22px; line-height: 31px; }
+.larger-text .hint-bar .b-text, .larger-text .rest-note .b-text { font-size: 22px; line-height: 31px; }
+
+/* The day's help is used up: nothing is checked, so the hint layer stays empty and the tutor
+   says once, at the bottom, that the child can keep going alone */
+.help-out .rest-note { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+.help-out .hint-part, .help-out .bubble, .help-out .hint-bar, .help-out .pm-dot { opacity: 0 !important; pointer-events: none; }
+@keyframes nudge { 0%, 100% { transform: translate(-50%, 0); } 35% { transform: translate(-50%, -6px); } }
+.help-out .rest-note.nudge { animation: nudge .45s ease-out; }
 
 /* Right-hand column: page map and Check */
 .rdock {
@@ -531,6 +554,7 @@ button:focus-visible, [tabindex]:focus-visible, input:focus-visible {
   border-top: 1px solid var(--border);
 }
 .row:first-child { border-top: 0; }
+.row[hidden] { display: none; }
 .row.stack { flex-direction: column; align-items: stretch; gap: 10px; padding: 12px 16px 14px; }
 .row.click { cursor: pointer; }
 .row-text { flex: 1; min-width: 0; }
@@ -580,6 +604,13 @@ button:focus-visible, [tabindex]:focus-visible, input:focus-visible {
 .swatch.contrast { background: var(--hint-tint); box-shadow: inset 0 0 0 2.5px var(--text); }
 input[type="range"] { width: 100%; accent-color: var(--accent-fill); height: 28px; margin: 0; }
 .range-ends { display: flex; justify-content: space-between; font: 400 12px/16px var(--sans); color: var(--text-muted); margin-top: -4px; }
+.plan-badge {
+  flex: none; padding: 3px 10px; border-radius: 999px;
+  background: var(--accent-tint); color: var(--accent);
+  font: 500 12px/16px var(--sans);
+}
+.help-line { display: flex; align-items: center; gap: 12px; }
+.help-line .help-track { flex: 1; width: auto; height: 10px; border-radius: 5px; }
 
 .sheet-foot {
   display: flex; align-items: center; gap: 12px;
@@ -672,6 +703,10 @@ input[type="range"] { width: 100%; accent-color: var(--accent-fill); height: 28p
     <div class="task-title">The third angle</div>
     <span class="badge">Geometry · Grade 4</span>
     <div class="spacer"></div>
+    <div class="help-meter" id="helpMeter" role="meter" aria-label="The tutor's help today" aria-valuemin="0" aria-valuemax="100" title="The tutor's help today">
+      <svg class="tutor-av" aria-hidden="true"><use href="#i-tutor"/></svg>
+      <span class="help-track" aria-hidden="true"><i class="help-fill"></i></span>
+    </div>
     <div class="child-chip">
       <svg class="avatar" aria-hidden="true"><use href="#i-avatar"/></svg>
       <div class="who"><span class="nm">Comet</span><span class="gr">Grade 4</span></div>
@@ -790,6 +825,15 @@ input[type="range"] { width: 100%; accent-color: var(--accent-fill); height: 28p
       </div>
     </div>
 
+    <!-- The day's help is used up (a proposal): the text is set only then, so the region stays silent otherwise -->
+    <div class="rest-note" id="restNote" role="status" aria-live="polite">
+      <svg class="tutor-av" aria-hidden="true"><use href="#i-tutor"/></svg>
+      <div class="bar-body">
+        <span class="b-name">AI tutor</span>
+        <p class="b-text" id="restText"></p>
+      </div>
+    </div>
+
     <aside class="rdock">
       <div class="pagemap" title="Tap to jump; two fingers or the mouse wheel scroll the page">
         <span class="pm-label">Page</span>
@@ -817,17 +861,39 @@ input[type="range"] { width: 100%; accent-color: var(--accent-fill); height: 28p
 
   </main>
 
-  <!-- Grown-up area: canvas and hint settings, opened with the PIN -->
-  <aside class="sheet" id="sheet" aria-label="Canvas and hints settings">
+  <!-- Grown-up area: the plan, canvas and hint settings, opened with the PIN -->
+  <aside class="sheet" id="sheet" aria-label="Grown-up settings">
     <div class="sheet-head">
       <div class="ic" aria-hidden="true"><svg><use href="#i-unlock"/></svg></div>
       <div class="tt">
-        <h2>Canvas &amp; hints</h2>
-        <p>For grown-ups · applies right away</p>
+        <h2>Grown-ups</h2>
+        <p>Plan, canvas and hints · applies right away</p>
       </div>
       <button class="btn btn-primary" id="doneBtn">Done</button>
     </div>
     <div class="sheet-body">
+      <!-- Plans and prices are a proposal for after the free beta -->
+      <div class="sec-label">Plan</div>
+      <p class="sec-note">The tutor's help is a daily allowance. When it runs out, your child keeps solving on their own, and lines are checked again once it renews.</p>
+      <div class="card">
+        <div class="row">
+          <div class="row-text"><div class="row-title" id="planName">Free</div><div class="row-desc" id="planDesc">The tutor's help every day</div></div>
+          <span class="plan-badge">Your plan</span>
+        </div>
+        <div class="row stack">
+          <div class="row-head"><span class="row-title">Help used today</span><span class="row-val" id="helpVal">40%</span></div>
+          <div class="help-line" id="helpLine" role="meter" aria-label="Help used today" aria-valuemin="0" aria-valuemax="100">
+            <svg class="tutor-av" aria-hidden="true"><use href="#i-tutor"/></svg>
+            <span class="help-track" aria-hidden="true"><i class="help-fill"></i></span>
+          </div>
+          <div class="range-ends"><span>Plenty left</span><span>Used up</span></div>
+        </div>
+        <div class="row" id="upsell">
+          <div class="row-text"><div class="row-title">Plus · $10 a month</div><div class="row-desc">Five times more help from the tutor every day</div></div>
+          <button class="btn btn-primary" id="upgradeBtn">Upgrade</button>
+        </div>
+      </div>
+
       <div class="sec-label">Hint layer</div>
       <p class="sec-note">What the tutor draws over the page. It never covers or changes the child's writing.</p>
       <div class="card">
@@ -1084,6 +1150,11 @@ input[type="range"] { width: 100%; accent-color: var(--accent-fill); height: 28p
 
   // ---------- Developer inspector: the event the client received ----------
   function renderInspector() {
+    if (helpOut()) {
+      $('#inspVerdict').innerHTML = 'verdict <b>line:2</b> · <b>UNCHECKED</b> · limit';
+      $('#inspJson').innerHTML = fmt({ canvasId: '7b3e2f4a-1c5d-4e8f-9a0b-2c4d6e8f0a1b', seq: '15', verdict: { target: 'line:2', verdict: 'VERDICT_UNCHECKED', reason: 'limit', revision: 1 } });
+      return;
+    }
     const h = HINTS[level];
     const lv = level === 'help' ? 3 : level;
     const ev = {
@@ -1150,7 +1221,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent-fill); height: 28p
     c.toggle('reduced-motion', S.reducedMotion);
     screen.style.setProperty('--strength', S.strength);
     $('#strengthVal').textContent = Math.round(S.strength * 100) + '%';
-    $('#checkCap').textContent = S.autoCheck ? 'I check each line when you pause' : 'Tap Check when a line is done';
+    $('#checkCap').textContent = checkCaption();
     $$('[data-switch]').forEach(r => $('.switch', r).setAttribute('aria-checked', String(!!S[r.dataset.switch])));
     $$('[data-group]').forEach(g => $$('button', g).forEach(b => b.setAttribute('aria-checked', String(S[g.dataset.group] === b.dataset.value))));
   }
@@ -1160,6 +1231,60 @@ input[type="range"] { width: 100%; accent-color: var(--accent-fill); height: 28p
     S[g.dataset.group] = b.dataset.value; applySettings();
   }));
   $('#strength').addEventListener('input', (e) => { S.strength = e.target.value / 100; applySettings(); });
+
+  // ---------- The tutor's help for the day (a proposal) ----------
+  // One bar for the child and the grown-up fills as the day's help is used. When it is full,
+  // nothing is checked until the help renews (spec 5.4): the child keeps solving alone.
+  // The limits renew at midnight UTC (spec 11), which is the afternoon for a family in the US,
+  // so the tutor promises no particular time.
+  const REST = "I've helped all I can for now. Keep going on your own!";
+  // The day's help in one unit for both plans: Plus has five times the help of Free (a placeholder)
+  const ALLOWANCE = { free: 100, plus: 500 };
+  let plan = 'free';
+  let spent = 40; // help used today, in the units of ALLOWANCE
+  const usedShare = () => Math.min(100, spent / ALLOWANCE[plan] * 100);
+  const helpOut = () => spent >= ALLOWANCE[plan];
+  const checkCaption = () => {
+    if (helpOut()) return "I'll check again later";
+    return S.autoCheck ? 'I check each line when you pause' : 'Tap Check when a line is done';
+  };
+  function renderHelp() {
+    const out = helpOut();
+    const share = usedShare();
+    const pct = Math.round(share);
+    screen.style.setProperty('--help', share + '%');
+    screen.classList.toggle('help-out', out);
+    const text = out ? "Today's help is used up" : `${pct}% of today's help is used`;
+    for (const m of [$('#helpMeter'), $('#helpLine')]) {
+      m.setAttribute('aria-valuenow', String(pct));
+      m.setAttribute('aria-valuetext', text);
+    }
+    // The tutor is silent: the hidden question and its buttons leave the tab order and the screen reader
+    for (const el of [$('#bubble'), $('#hintBar')]) el.inert = out;
+    $('#helpVal').textContent = out ? 'Used up' : pct + '%';
+    $('#planName').textContent = plan === 'plus' ? 'Plus' : 'Free';
+    $('#planDesc').textContent = plan === 'plus' ? '$10 a month · five times more help every day' : "The tutor's help every day";
+    $('#upsell').hidden = plan === 'plus';
+    // The note has text only while the help is used up, so its live region stays silent otherwise
+    $('#restText').textContent = out ? REST : '';
+    $('#checkCap').textContent = checkCaption();
+    renderInspector();
+  }
+  function setPlan(p) {
+    plan = p;
+    renderHelp();
+  }
+  // Check while the help is used up: the tutor says it again. The text is set anew so that a
+  // screen reader hears it, and the note gives a small nudge.
+  function restNudge() {
+    const note = $('#restNote');
+    $('#restText').textContent = '';
+    requestAnimationFrame(() => { $('#restText').textContent = REST; });
+    note.classList.remove('nudge');
+    void note.offsetWidth;
+    note.classList.add('nudge');
+  }
+  $('#upgradeBtn').addEventListener('click', () => setPlan('plus'));
 
   // ---------- Scenes ----------
   function openSettings(on) {
@@ -1331,6 +1456,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent-fill); height: 28p
   // ---------- Checking: after a 1.5 s pause or on Check; silence when right ----------
   let autoTimer = 0, chipTimer = 0;
   function flashChecking() {
+    if (helpOut()) return; // nothing is checked until the help renews
     const chip = $('#statusChip');
     chip.classList.add('on');
     clearTimeout(chipTimer);
@@ -1340,7 +1466,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent-fill); height: 28p
     clearTimeout(autoTimer);
     if (S.autoCheck) autoTimer = setTimeout(flashChecking, 1500);
   }
-  $('#checkBtn').addEventListener('click', flashChecking);
+  $('#checkBtn').addEventListener('click', () => (helpOut() ? restNudge() : flashChecking()));
   $$('.b-actions [data-act]').forEach(b => b.addEventListener('click', () => { level = 1; renderHint(); }));
 
   // ---------- Dev inspector controls ----------
@@ -1351,8 +1477,15 @@ input[type="range"] { width: 100%; accent-color: var(--accent-fill); height: 28p
   $('#themeBtn').addEventListener('click', () => { root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark'; });
   addEventListener('keydown', (e) => {
     if (e.target.closest('input')) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return; // leave Ctrl+P, Cmd+D and the like to the browser
     if (e.key === 'd') screen.classList.toggle('dev');
     if (e.key === 't') $('#themeBtn').click();
+    if (e.key === 'q') {
+      const share = usedShare();
+      spent = ALLOWANCE[plan] * (share >= 100 ? 0.4 : share >= 90 ? 1 : 0.9);
+      renderHelp();
+    }
+    if (e.key === 'p') setPlan(plan === 'plus' ? 'free' : 'plus');
     if (e.key === 'Escape') { openPin(false); openSettings(false); }
   });
 
@@ -1367,8 +1500,11 @@ input[type="range"] { width: 100%; accent-color: var(--accent-fill); height: 28p
   if (q.get('bubble') === '0') S.bubble = false;
   if (q.get('paper')) S.paper = q.get('paper');
   if (q.get('marker')) S.marker = q.get('marker');
+  if (q.get('plan') === 'plus') plan = 'plus';
+  if (q.has('quota')) spent = ALLOWANCE[plan] * Math.min(100, Math.max(0, Math.round(Number(q.get('quota')) || 0))) / 100;
   applySettings();
   renderHint();
+  renderHelp();
   syncUndo();
   if (q.get('scroll')) pv.scrollTop = Number(q.get('scroll')) * pv.clientWidth / 1000;
   updateScrollUI(false);
