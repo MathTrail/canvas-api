@@ -276,4 +276,20 @@ Implementations of the same interface must be interchangeable, and that is worth
 
 ## Environment
 
-Written by T03, which creates the devcontainer; until then T00–T03 run on the host.
+Open the repository in VS Code and choose "Reopen in Container" (`.devcontainer/`).
+
+The host needs Docker and VS Code and nothing else: no builder plugin, no daemon settings, nothing to edit as root (R36 standalone). The image is written for any builder, and the network the container runs on, `canvas-api`, is created before it starts by `.devcontainer/host-network.sh`, with the MTU of the interface the host reaches the internet by — a tunnel on the host would otherwise cut every large download inside the container short with an error that never mentions the network. That script runs in `bash`, which Linux and macOS have; on Windows, the repository is opened from WSL. `post-start` mirrors that same value onto the docker running inside the container; that docker reads it when it starts, so after a rebuild behind a tunnel the container is restarted once.
+
+Inside the container:
+
+- **Pinned versions.** No separate versions file: each tool's exact version is an `ARG` default in `.devcontainer/Dockerfile`, repeated as a literal in `.devcontainer/devcontainer.json` where needed.
+  - The Dockerfile has two stages. `toolchain` installs Go, Node.js, just, golangci-lint and mockery — what it takes to build and check the code; `devcontainer` adds gopls, dlv, cloudflared, gh, the Docker Compose plugin, Terraform, gcloud and Claude Code on top, and is the stage the container is built from. cloudflared is the tunnel that opens the SPA served from here on a real tablet. gcloud is installed on x86_64 only, because its archive for arm carries no Python interpreter; there the same commands come from Google's own container image (R28 standalone).
+  - Everything is installed straight from the Dockerfile, and downloads refuse a protocol downgrade (R35 standalone). What is verified is verified by the source it comes from: the Go checksum database for `go install`, the registry hash for the npm package; the tarballs fetched with `curl` carry no checksum of their own. Of the npm packages only the Claude Code CLI may run its own install step, named explicitly, because that step is what puts its native binary in place.
+  - Docker (docker-in-docker, Moby engine and buildx) comes from a devcontainer feature pinned in `devcontainer.json` and `devcontainer-lock.json`.
+  - To change a version: edit the literal everywhere it appears (Dockerfile, `devcontainer.json` for Docker or the Claude Code extension), rebuild the container. The Claude Code CLI and its editor extension are one version in two files, so `just claude-update` raises both at once — with a version, or to the newest published one — and prints what it changed.
+- **Container marker.** `MATHTRAIL_DEVCONTAINER=1` is set only inside the container. A session that does not see it is on the host and must stop (see "Devcontainer only").
+- **Claude Code.** Its config lives in the `canvas-api-claude` volume, so the login survives rebuilds. Auto-update is off; the version is pinned.
+- **`gh`.** What a change looks like on github.com is otherwise invisible from in here, and two parts of it are asked for by name: the alerts of the code scan, which a task closes before the next one starts, and whether the delivery that carried the change ran. `gh auth login` is answered once: the credentials live in the `canvas-api-gh` volume, as gcloud's live in `canvas-api-gcloud`, where Terraform reads them.
+- **Ports.** 8080 (the API) and 5173 (Vite's dev server for the SPA) are forwarded to the host.
+- **Just recipes.** `just --list` shows all of them.
+- **Build context.** The devcontainer image is built with the repository root as context, though it copies nothing from it; `.dockerignore` keeps `.git`, `.env`, `.devcontainer/`, `reference/`, `docs/`, `draft/` and the Markdown files at the root out of every image built from there.

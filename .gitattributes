@@ -1,0 +1,10 @@
+# Default: let Git normalise line endings. It comes first because a later line
+# overrides an earlier one, attribute by attribute: the lines below then force
+# text for their files rather than leave it to detection.
+* text=auto
+
+# Files used inside Linux containers keep LF line endings on every host
+*.sh text eol=lf
+*.env text eol=lf
+justfile text eol=lf
+Dockerfile text eol=lf
