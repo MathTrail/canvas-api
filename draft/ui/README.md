@@ -11,7 +11,7 @@ Open `index.html` in a browser. The iPad frame scales to fit the window.
 - **Undo / Redo:** work for both writing and erasing.
 - **Scrolling:** the page has 14 lines. Scroll with the mouse wheel, a touchpad or two fingers, or tap the page map on the right to jump. The fit button goes back to the top.
 - **Check:** or pause for 1.5 s after a stroke. You'll see *Checking…*, then nothing, because a correct step gets no comment.
-- **The tutor's help:** the bar next to the tutor's icon in the top bar fills as the day's help is used. When it is full, nothing is checked: the hint layer stays empty, the tutor says once at the bottom of the page that the child can keep going alone, and Check repeats it.
+- **The tutor's help:** the bar next to the tutor's icon in the top bar fills as the day's help is used. When it is full, nothing is checked: the hint layer stays empty, the tutor says once at the bottom of the page that the child can keep going alone, and Check repeats it. The note fades after a few seconds and never takes a stroke.
 - **Grown-ups:** opens the PIN pad (any 4 digits), then the plan and the canvas and hint settings. **Upgrade** switches the plan to Plus.
 - **`d`:** shows the event inspector. Its buttons switch the hint ladder (1, 2, 3, help) and the theme.
 - **`q`:** fills the help bar: 90%, used up, back to 40%. **`p`:** switches the plan between Free and Plus.
@@ -29,7 +29,7 @@ URL parameters, used for the screenshots:
 | `scroll` | scroll the page to this y, in logical units (`700` shows lines 6–14) |
 | `marker` | `warm`, `blue`, `contrast` |
 | `bubble` | `0` moves the question to a bar at the bottom of the page |
-| `quota` | the share of today's help already used, `0`–`100` (default `40`); `100` shows the help used up |
+| `quota` | the share of today's help already used, `0`–`100` (default `40`); `100` shows the help used up, with line 2 as if written after that and so never checked |
 | `plan` | `free` (default), `plus` |
 
 ## Regenerate the screenshots

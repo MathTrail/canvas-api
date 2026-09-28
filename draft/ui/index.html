@@ -442,9 +442,10 @@ button:focus-visible, [tabindex]:focus-visible, input:focus-visible {
 .hint-bar .b-actions { margin-top: 10px; }
 .larger-text .hint-bar .b-text, .larger-text .rest-note .b-text { font-size: 22px; line-height: 31px; }
 
-/* The day's help is used up: nothing is checked, so the hint layer stays empty and the tutor
-   says once, at the bottom, that the child can keep going alone */
-.help-out .rest-note { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+/* The day's help is used up: nothing is checked, so the hint layer stays empty. The tutor says
+   at the bottom, once and again on Check, that the child can keep going alone; the note fades
+   after a few seconds and never takes a stroke, since the child keeps writing on those lines. */
+.help-out .rest-note.on { opacity: 1; transform: translate(-50%, 0); }
 .help-out .hint-part, .help-out .bubble, .help-out .hint-bar, .help-out .pm-dot { opacity: 0 !important; pointer-events: none; }
 @keyframes nudge { 0%, 100% { transform: translate(-50%, 0); } 35% { transform: translate(-50%, -6px); } }
 .help-out .rest-note.nudge { animation: nudge .45s ease-out; }
@@ -1149,16 +1150,17 @@ input[type="range"] { width: 100%; accent-color: var(--accent-fill); height: 28p
   }
 
   // ---------- Developer inspector: the event the client received ----------
+  const CANVAS_ID = '7b3e2f4a-1c5d-4e8f-9a0b-2c4d6e8f0a1b';
   function renderInspector() {
     if (helpOut()) {
       $('#inspVerdict').innerHTML = 'verdict <b>line:2</b> · <b>UNCHECKED</b> · limit';
-      $('#inspJson').innerHTML = fmt({ canvasId: '7b3e2f4a-1c5d-4e8f-9a0b-2c4d6e8f0a1b', seq: '15', verdict: { target: 'line:2', verdict: 'VERDICT_UNCHECKED', reason: 'limit', revision: 1 } });
+      $('#inspJson').innerHTML = fmt({ canvasId: CANVAS_ID, seq: '15', verdict: { target: 'line:2', verdict: 'VERDICT_UNCHECKED', reason: 'limit', revision: 1 } });
       return;
     }
     const h = HINTS[level];
     const lv = level === 'help' ? 3 : level;
     const ev = {
-      canvasId: '7b3e2f4a-1c5d-4e8f-9a0b-2c4d6e8f0a1b',
+      canvasId: CANVAS_ID,
       seq: String(14 + lv + (level === 'help' ? 1 : 0)),
       hint: {
         hintId: '3c0f6a2e-8d4b-4f1a-b9e7-5a6c7d8e9f0' + lv,
@@ -1248,25 +1250,27 @@ input[type="range"] { width: 100%; accent-color: var(--accent-fill); height: 28p
     if (helpOut()) return "I'll check again later";
     return S.autoCheck ? 'I check each line when you pause' : 'Tap Check when a line is done';
   };
+  // The child hears words, not numbers; the grown-up's meter gives the share
+  const childHelpText = (share) => (share >= 100 ? "Today's help is used up"
+    : share >= 90 ? 'A little help left' : share >= 50 ? 'Some help left' : 'Plenty of help left');
   function renderHelp() {
+    const wasOut = screen.classList.contains('help-out');
     const out = helpOut();
     const share = usedShare();
     const pct = Math.round(share);
     screen.style.setProperty('--help', share + '%');
     screen.classList.toggle('help-out', out);
-    const text = out ? "Today's help is used up" : `${pct}% of today's help is used`;
-    for (const m of [$('#helpMeter'), $('#helpLine')]) {
-      m.setAttribute('aria-valuenow', String(pct));
-      m.setAttribute('aria-valuetext', text);
-    }
+    for (const m of [$('#helpMeter'), $('#helpLine')]) m.setAttribute('aria-valuenow', String(pct));
+    $('#helpMeter').setAttribute('aria-valuetext', childHelpText(share));
+    $('#helpLine').setAttribute('aria-valuetext', out ? "Today's help is used up" : `${pct}% of today's help is used`);
     // The tutor is silent: the hidden question and its buttons leave the tab order and the screen reader
     for (const el of [$('#bubble'), $('#hintBar')]) el.inert = out;
     $('#helpVal').textContent = out ? 'Used up' : pct + '%';
     $('#planName').textContent = plan === 'plus' ? 'Plus' : 'Free';
     $('#planDesc').textContent = plan === 'plus' ? '$10 a month · five times more help every day' : "The tutor's help every day";
     $('#upsell').hidden = plan === 'plus';
-    // The note has text only while the help is used up, so its live region stays silent otherwise
-    $('#restText').textContent = out ? REST : '';
+    if (out && !wasOut) showRest(false);
+    if (!out) hideRest();
     $('#checkCap').textContent = checkCaption();
     renderInspector();
   }
@@ -1274,21 +1278,39 @@ input[type="range"] { width: 100%; accent-color: var(--accent-fill); height: 28p
     plan = p;
     renderHelp();
   }
-  // Check while the help is used up: the tutor says it again. The text is set anew so that a
-  // screen reader hears it, and the note gives a small nudge.
-  function restNudge() {
+  // The tutor's note: once when the help runs out, again on Check. It has text only while it
+  // shows, so its live region is silent otherwise and speaks each time it appears.
+  let restTimer = 0;
+  function showRest(nudge) {
     const note = $('#restNote');
+    const text = $('#restText');
+    const showing = note.classList.contains('on');
+    clearTimeout(restTimer);
+    note.classList.add('on');
+    if (nudge) {
+      note.classList.remove('nudge');
+      void note.offsetWidth;
+      note.classList.add('nudge');
+    }
+    const settle = () => { text.textContent = REST; restTimer = setTimeout(hideRest, 6000); };
+    if (!showing) return settle();
+    // Already on screen: empty the region first and refill it a moment later, so the same
+    // words are spoken again rather than merged into one unchanged text
+    text.textContent = '';
+    restTimer = setTimeout(settle, 150);
+  }
+  function hideRest() {
+    clearTimeout(restTimer);
+    $('#restNote').classList.remove('on', 'nudge');
     $('#restText').textContent = '';
-    requestAnimationFrame(() => { $('#restText').textContent = REST; });
-    note.classList.remove('nudge');
-    void note.offsetWidth;
-    note.classList.add('nudge');
   }
   $('#upgradeBtn').addEventListener('click', () => setPlan('plus'));
 
   // ---------- Scenes ----------
   function openSettings(on) {
     screen.classList.toggle('settings-open', on);
+    $('#helpMeter').inert = on; // hidden under the sheet, which has the same meter
+
     // The page rescales (0.8 while the sheet is open); refresh the page map once it settles
     setTimeout(() => updateScrollUI(false), 500);
   }
@@ -1466,7 +1488,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent-fill); height: 28p
     clearTimeout(autoTimer);
     if (S.autoCheck) autoTimer = setTimeout(flashChecking, 1500);
   }
-  $('#checkBtn').addEventListener('click', () => (helpOut() ? restNudge() : flashChecking()));
+  $('#checkBtn').addEventListener('click', () => (helpOut() ? showRest(true) : flashChecking()));
   $$('.b-actions [data-act]').forEach(b => b.addEventListener('click', () => { level = 1; renderHint(); }));
 
   // ---------- Dev inspector controls ----------
