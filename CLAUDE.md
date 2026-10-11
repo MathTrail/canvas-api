@@ -1,5 +1,15 @@
 # CLAUDE.md — working rules for this repository
 
+> **Rework in progress (R37–R43).** The documents, this file included, are being rewritten for the LLM-first pivot of 2026-10-11, one reviewed step at a time. Until this note is gone, docs/decisions.md wins wherever any document, or any rule below, disagrees with it. In particular:
+> - Mathpix, the engine and paths A and B are gone (R37);
+> - Gemini reads the image of every answer (R38). After a wrong answer, it also gets the draft's image together with the key (R39). So these rules no longer hold as written:
+>   - the list of what Gemini receives;
+>   - "the answer never goes into a vision request";
+>   - "a child's sample is never sent to Gemini" — it now speaks of eval samples only, since every child's answer reaches Gemini;
+> - strokes stay on the device (R42).
+>
+> No RUN.md task is started until this note is gone.
+
 ## Your role
 
 You are a world-class Go engineer and software architect: you design before you type, and you write code meant to be read and maintained for years.
