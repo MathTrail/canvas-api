@@ -53,6 +53,7 @@ The documents are in Russian.
 - [docs/spec.md](docs/spec.md) — how it is built: architecture, the canvas model, the checking engine, the AI tutor, the API, data, security and deployment.
 - [docs/privacy.md](docs/privacy.md) — children's data: what is collected and kept, what the external AI services receive, parental consent, deletion and retention.
 - [docs/decisions.md](docs/decisions.md) — the decision log: what was decided, why, and what was rejected.
+- [docs/stack.html](docs/stack.html) — the technology stack, layer by layer, with versions and what is still to be chosen. Open the file from a checkout in a browser: GitHub shows only its source.
 - [RUN.md](RUN.md) — the implementation plan: small tasks, run and reviewed one at a time.
 
 ## Development

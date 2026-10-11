@@ -44,6 +44,7 @@ The documents under `docs/` and RUN.md are in Russian (R25); they are cited by s
 - [docs/spec.md](docs/spec.md) — how it is built: stack, architecture, the canvas model, the engine, the AI tutor, the API, data, security, deployment, observability, tests and the repository's layout. Open questions Т-… and the spikes S1–S4 are in section 20.
 - [docs/privacy.md](docs/privacy.md) — children's data and the law: what we collect and keep, what the external AI services receive, consent, deletion and retention. Open questions П-… are in section 12.
 - [docs/decisions.md](docs/decisions.md) — the decision log, R01…: what was decided, why, and what was rejected. Read it before proposing a design change.
+- [docs/stack.html](docs/stack.html) — the stack by architecture layer: each technology with its version, status and the section, decision or task behind it. A summary, not a source: where it differs from spec, the decision log or RUN.md, they win.
 - [RUN.md](RUN.md) — the implementation plan: tasks T00–T58, run one at a time. Full executor rules are in its «Как пользоваться» section.
 - `docs/live/` — reports of the spikes and of live runs in the cloud (from T12).
 - [draft/ui/](draft/ui/README.md) — a clickable mockup of the canvas in child mode. Its README separates what comes from the docs from what is only proposed; where the two differ, the docs win.
