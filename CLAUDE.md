@@ -55,7 +55,7 @@ The documents under `docs/` and RUN.md are in Russian (R25); they are cited by s
 - [docs/privacy.md](docs/privacy.md) — children's data and the law: what we collect and keep, what the external AI services receive, consent, deletion and retention. Open questions П-… are in section 12.
 - [docs/decisions.md](docs/decisions.md) — the decision log, R01…: what was decided, why, and what was rejected. Read it before proposing a design change.
 - [docs/stack.html](docs/stack.html) — the stack by architecture layer: each technology with its version, status and the section, decision or task behind it. A summary, not a source: where it differs from spec, the decision log or RUN.md, they win.
-- [RUN.md](RUN.md) — the implementation plan: tasks T00–T58, run one at a time. Full executor rules are in its «Как пользоваться» section.
+- [RUN.md](RUN.md) — the implementation plan, in epics (R44). Table 1 holds the current epic's tasks, run one at a time; table 2 holds later epics, broken into tasks only when their turn comes. Full executor rules are in its «Как пользоваться» section.
 - `docs/live/` — reports of the spikes and of live runs in the cloud (from T12).
 - [draft/ui/](draft/ui/README.md) — a clickable mockup of the canvas in child mode. Its README separates what comes from the docs from what is only proposed; where the two differ, the docs win.
 
@@ -74,12 +74,12 @@ Project context lives in these files, not in chat history.
   - Drop a wrong finding with a one-line reason, and one that re-proposes a rejected alternative with no new evidence by naming the decision. A finding that questions product, spec, privacy or a decision for a reason that holds goes to the author as a question.
   - If anything was fixed, run the checks and the review once more. That second round is the last: its findings are handled the same way, and its fixes get the checks but no third review. The report says what was fixed, what was dropped and why, and what is left open.
   - `/code-review ultra` is billed and started only by the author; this rule does not cover it.
-- When done, mark the task in the RUN.md summary table: `[ ]` → `[x]`.
+- When done, mark the task in RUN.md's table 1: `[ ]` → `[x]`.
 - Finish with a short report in Russian: what was done, which files, how to check it (commands), what the review found, what is still open.
 - Do not commit: the author commits after review.
-- Mathpix, Gemini, Google Cloud, Firebase and Apple Developer cost money. Before a live run, a spike or any action in the cloud, name its expected cost and wait for the author's confirmation.
+- Gemini, Google Cloud, Firebase and Apple Developer cost money. Before a live run, a spike or any action in the cloud, name its expected cost and wait for the author's confirmation.
 - Do not re-propose alternatives rejected in `docs/decisions.md`, product, spec or privacy without new evidence. If a decision has to change, ask the author and update the log.
-- Do not write SDK, protocol or API code from memory: check the docs of the pinned version first (Firebase Admin SDK, OpenFGA go-sdk, `google.golang.org/genai`, Mathpix v3/strokes, Centrifugo v6, pgx, goose, buf, Konva, centrifuge-js, Firebase JS SDK, the Terraform providers).
+- Do not write SDK, protocol or API code from memory: check the docs of the pinned version first (Firebase Admin SDK, OpenFGA go-sdk, `google.golang.org/genai`, Centrifugo v6, pgx, goose, buf, Konva, centrifuge-js, Firebase JS SDK, the Terraform providers).
 - RUN.md «Как пользоваться» holds the executor rules in full. Beyond the bullets here, it asks you to propose a split before starting a task too big for one review (about 30–60 minutes of reading), to close the previous task's SonarCloud and CodeQL findings first (from T08), and — since every merge ships to prod — to have a task bring its own environment variables, secrets and services in Terraform and CD.
 
 ## Hard rules
@@ -146,7 +146,7 @@ draft/            the canvas mockup: a proposal, not a spec
 .devcontainer/ justfile .github/workflows/
 ```
 
-This is the layout of spec 18, plus the mockup in `draft/`. The grouping — `domain/`, `infra/`, `transport/` — is mentor-api's and the sample's, without mentor-api's `repository.go` and `handler.go` inside each domain package, which make its domain import gin and pgx. Our domains are computation — the page's geometry, the engine, the reading of a diagram, the tutor's rules — and they stay free of I/O. That is what lets the engine be tested with tables and properties alone, with no mocks at all (spec 17). The HTTP router is Т-1's to settle, in T13; the sample and mentor-api use gin.
+This is the layout of spec 18, plus the mockup in `draft/`. The grouping — `domain/`, `infra/`, `transport/` — is mentor-api's and the sample's, without mentor-api's `repository.go` and `handler.go` inside each domain package, which make its domain import gin and pgx. Our domains are computation — the page's geometry, the engine, the reading of a diagram, the tutor's rules — and they stay free of I/O. That is what lets the engine be tested with tables and properties alone, with no mocks at all (spec 17). The HTTP router is Т-1's to settle before the MVP epic's first code; the sample and mentor-api use gin.
 
 ### The dependency rule
 
@@ -250,7 +250,7 @@ Implementations of the same interface must be interchangeable, and that is worth
 - `go test -race` always; fixtures under `testdata/`.
 - Recorded responses of Mathpix and Gemini in `testdata/` are synthetic — never a child's sample (spec 17). They are the reference a test is checked against, so no test rewrites them. A snapshot the service itself owns, such as the path B render, may have `-update`, and then the regenerated diff is part of the review.
 - No network in unit tests: Firebase, Mathpix, Gemini and Centrifugo are faked with `httptest`.
-- Integration tests run Postgres and OpenFGA in containers, under a build tag of their own (`just ci-integration`, from T20).
+- Integration tests run Postgres and OpenFGA in containers, under a build tag of their own (`just ci-integration`, from the MVP epic's task that brings storage).
 - Behind an interface stands the real implementation, whenever that implementation does no I/O, and a small hand-written fake where a test has to force it to behave a particular way. That is what proves a property rather than the fact of a call, and it keeps what a test assumes in one readable place.
 - A mock earns its place when the real implementation needs the network, a clock, or is simply slow — and when what is being checked is that a call happened, with these arguments. It is then generated by mockery v3 into a `mocks/` folder next to the interface and committed; CI checks it is up to date. Config lives in `.mockery.yaml`, with expecters on, mirroring `mentor-api`, and its list of packages is empty until an interface of that kind exists.
 
