@@ -137,7 +137,7 @@ flowchart LR
 **Проверка:**
 - запрос уходит только по кнопке Check (R38). Кнопка доступна, когда в поле ответа есть штрихи (product 5.2);
 - клиент рисует две картинки (раздел 4.3) и шлёт один запрос `POST /v1/canvases/{canvas_id}/checks` с новым `client_check_id` (раздел 8.4);
-- пока проверка в полёте, Check недоступна. До ответа SPA хранит в IndexedDB вместе с холстом `client_check_id`, обе картинки и `id` штрихов, которые были на листе в момент Check. Повтор шлёт те же картинки, а рамка привязывается к тем же штрихам (раздел 4.4), даже после перезагрузки страницы. Получив ответ, SPA эти записи стирает;
+- пока проверка в полёте, Check недоступна. До ответа SPA хранит в IndexedDB вместе с холстом `client_check_id`, обе картинки и `id` штрихов, которые были на листе в момент Check. Повтор шлёт те же картинки, а рамка привязывается к тем же штрихам (раздел 4.4), даже после перезагрузки страницы. Получив ответ, SPA стирает картинки, а `client_check_id` и `id` штрихов последней проверки хранит до следующей: по ним рамка восстанавливается после перезагрузки (9.2);
 - после разрыва клиент повторяет запрос с тем же `client_check_id`. Пока проверка ещё идёт, сервер отвечает `CHECK_IN_PROGRESS`, и клиент повторяет через паузу, пока не получит сохранённый ответ (R42). Это не сбой: фраза «Couldn't reach the checker» здесь не показывается. Паузы и срок повторов — в разделе 8.4.
 
 ### 3.2. Сервер (`cmd/`, `internal/`)
@@ -789,7 +789,7 @@ message CreateCheckResponse {
 
 **Повтор** (3.1):
 - После сетевого сбоя, ответа 5xx, 429 или `CHECK_IN_PROGRESS` клиент повторяет запрос с тем же `client_check_id`: через 1 с, потом каждые 2 с — всего не дольше 60 с, дольше срока аренды.
-- Если ответа так и нет, ребёнок видит «Couldn't reach the checker…», а проверка ждёт в IndexedDB. Следующее нажатие Check повторяет её, если запись на листе и в поле ответа не менялась, а иначе начинает новую проверку.
+- Если ответа так и нет, ребёнок видит «Couldn't reach the checker…», а проверка ждёт в IndexedDB. Следующее нажатие Check повторяет её, если запись на листе и в поле ответа не менялась. Если запись изменилась, SPA стирает неотвеченную проверку вместе с картинками, и следующее нажатие Check начинает новую.
 - Ответ на повтор завершённой проверки собирается из `checks` и `hints` и совпадает с первым: тот же вердикт и прочитанный ответ, та же подсказка с рамкой. Отдельно ответ не хранится.
 
 **Почему не фоном.** При оплате Cloud Run за запросы CPU выделяется только на время запроса. Поэтому оба вызова Gemini идут внутри запроса, а не в горутине после ответа (R23).
@@ -804,7 +804,7 @@ message CreateCheckResponse {
 | `verdict` | сразу после чтения ответа и сравнения с ключом (R41) | `CheckVerdict` |
 | `hint` | после разбора черновика или запасного текста; после третьей ступени — `kind: HINT_KIND_OFFER_HELP` | `Hint` |
 
-Клиент связывает события и HTTP-ответ со своей проверкой по `client_check_id`, а показывает только самую позднюю проверку холста — с наибольшим `check_no`. События и ответы более ранних проверок, пришедшие позже, он не рисует. Вердикт новой проверки убирает прежние рамку и вопрос (product 5.6). Другие вкладки и устройства родителя на том же холсте получают те же события и показывают то же.
+Клиент связывает события и HTTP-ответ со своей проверкой по `client_check_id`, а показывает только самую позднюю проверку холста — с наибольшим `check_no`. События и ответы более ранних проверок, пришедшие позже, он не рисует. Вердикт новой проверки убирает прежние рамку и вопрос (product 5.6). Другие вкладки и устройства родителя на том же холсте получают те же события и показывают тот же вердикт и вопрос. Рамку рисует только устройство, где есть штрихи этой проверки (4.4); на другом устройстве остаётся вопрос без рамки.
 
 Пространство имён `canvas` в конфигурации Centrifugo v6:
 
@@ -962,13 +962,20 @@ sequenceDiagram
     A->>F: Write child:id owner canvas:cid
     A->>DB: COMMIT
     A->>A: подписать JWT подключения и подписки HS256
-    A-->>S: холст, задача без ответа, токены, адрес Centrifugo
+    A-->>S: холст, задача в открытом виде (8.6), токены, адрес Centrifugo
     S->>CE: WebSocket connect с токеном подключения
     S->>CE: subscribe canvas:cid с токеном подписки
-    S->>S: отрисовать слой задачи и линовку
+    S->>S: условие, лист в клетку и поле ответа с подписью единицы
 ```
 
-### 9.3. Верный шаг (путь А)
+- **Возврат к холсту.** После перезагрузки SPA берёт штрихи холста из IndexedDB (4.2), а у сервера — `GET /v1/canvases/{canvas_id}`: статус, последнюю проверку и её подсказку (8.2).
+  - Если последняя проверка сервера — та, чьи `client_check_id` и `id` штрихов SPA хранит (3.1), рамка снова привязывается к этим штрихам (4.4).
+  - Если проверку делали на другом устройстве, остаётся вопрос без рамки.
+  - Если ребёнок уже стёр обведённый штрих или нажал Check, SPA помнит, что подсказка этой проверки снята, и снова её не показывает (product 5.6).
+- **Неотвеченная проверка.** Если в IndexedDB ждёт проверка без ответа, а запись на листе и в поле ответа с тех пор не менялась, SPA повторяет её (8.4). Если менялась — стирает её вместе с картинками, и следующее нажатие Check начнёт новую проверку.
+- **Брошенный холст.** Прежний холст той же задачи становится `abandoned`, а его черновик SPA стирает (R42).
+
+### 9.3. Верный ответ
 
 ```mermaid
 sequenceDiagram
@@ -978,27 +985,32 @@ sequenceDiagram
     participant A as canvas-api
     participant F as OpenFGA
     participant DB as Neon
-    participant M as Mathpix
+    participant G as Gemini
+    participant CE as Centrifugo
 
-    C->>S: пишет строку и делает паузу 1,5 с
-    S->>A: POST strokes, seq 14, trigger PAUSE
-    A->>A: App Check, ID token, размер, лимиты
+    C->>S: пишет 7 в поле ответа и нажимает Check
+    S->>S: две PNG из штрихов; client_check_id, картинки и штрихи — в IndexedDB (3.1)
+    S->>A: POST checks: client_check_id, answer_png, draft_png
+    A->>A: App Check, ID token с отзывом, лимит частоты
     A->>F: Check user:uid can_write canvas:cid
     F-->>A: allowed true
-    A->>DB: FOR UPDATE холста, сверить seq, сохранить дельту, last_seq, COMMIT
-    A->>A: разбить на строки, изменилась строка 1
-    A->>DB: steps line:1 pending
-    A->>M: POST v3/strokes со штрихами строки 1
-    M-->>A: latex_styled 2x=11-5, confidence 0.97
-    A->>A: движок: строка 1 эквивалентна условию, CORRECT
-    A->>DB: steps line:1 CORRECT, canvas_deltas done с ответом
-    A-->>S: 200, verdicts line:1 CORRECT
-    S->>S: ничего не показывать
+    A->>A: проверки картинок (4.3)
+    A->>DB: FOR UPDATE холста: аренда, следующий check_no, резерв чтения и разбора, COMMIT
+    A->>G: вызов 1: PNG ответа и подсказка формы
+    G-->>A: text 7, разборчиво, однозначно
+    A->>A: нормализация и сравнение с ключом: CORRECT
+    A->>DB: checks: CORRECT, read 7
+    A->>CE: publish verdict CORRECT с solution
+    CE-->>S: verdict через WebSocket
+    S->>S: «Correct! I read “7”.», объяснение и поздравление
+    A->>DB: проверка done, аренда снята, резерв разбора возвращён, холст solved
+    A-->>S: 200: verdict ещё раз
+    S->>S: стереть черновик холста из IndexedDB (R42)
 ```
 
-Ориентировочное время от паузы до ответа — 0,4–0,9 с. Бюджет по этапам — в разделе 14.1.
+Вердикт приходит через ≈ 1–2 с после Check; цель — не больше 2 с (product 10). Бюджет по этапам — в разделе 14.1.
 
-### 9.4. Ошибка (путь А)
+### 9.4. Неверный ответ и разбор черновика
 
 ```mermaid
 sequenceDiagram
@@ -1006,95 +1018,75 @@ sequenceDiagram
     actor C as Ребёнок
     participant S as SPA
     participant A as canvas-api
-    participant M as Mathpix
     participant G as Gemini
     participant DB as Neon
     participant CE as Centrifugo
 
-    C->>S: пишет 2x = 11 + 5, начинает строку 2 и делает паузу
-    S->>A: POST strokes, seq 15, trigger PAUSE
-    Note over A: App Check, ID token, OpenFGA и приём дельты как в 9.3
-    A->>M: POST v3/strokes со штрихами строки 1
-    M-->>A: latex_styled 2x=11+5, confidence 0.96
-    A->>A: движок: ERROR SIGN_ON_TRANSFER, уверенность выше порога ошибки, строка закончена
-    A->>DB: steps line:1 ERROR
-    A->>CE: publish canvas:cid, событие verdict
+    C->>S: пишет 6 и нажимает Check
+    S->>A: POST checks
+    Note over A: вход, права, картинки и аренда как в 9.3; неверных ответов на холсте ещё нет, а черновик прислан, поэтому резервируются чтение и разбор (8.4)
+    A->>G: вызов 1: PNG ответа и подсказка формы
+    G-->>A: text 6
+    A->>A: сравнение: INCORRECT, совпала ловушка 6
+    A->>DB: checks: INCORRECT, read 6, ловушка 6
+    A->>CE: publish verdict INCORRECT
     CE-->>S: verdict через WebSocket
-    S->>S: мягкая подсветка строки 1 на слое подсказок
-    A->>G: generateContent: задача, шаги, код ошибки, только текст
-    G-->>A: JSON с teacher_text и canvas_actions
-    A->>A: проверки подсказки, при провале — шаблон
-    A->>DB: сверить revision строки, INSERT hints
-    A->>CE: publish canvas:cid, событие hint
+    S->>S: «Not yet. I read “6”.»
+    A->>G: вызов 2: PNG черновика, условие, ключ, решение, ответ 6, ловушка, ступень 1
+    G-->>A: found, box_2d, question
+    A->>A: проверки вопроса (7.3), рамка в координаты листа (4.4)
+    A->>DB: hints: вопрос, рамка, ступень 1, источник model
+    A->>CE: publish hint
     CE-->>S: hint через WebSocket
-    S->>S: указатель и текст вопроса
-    A-->>S: 200, вердикт и подсказка ещё раз
+    S->>S: обвести штрихи в рамке и показать вопрос (4.4)
+    A->>DB: проверка done, аренда снята
+    A-->>S: 200: verdict и hint ещё раз
 ```
 
-Маркер появляется через ≈ 0,5–1 с после паузы, текст подсказки — через ≈ 1–2,5 с.
+«Not yet» появляется через ≈ 1–2 с после Check, рамка и вопрос — через ≈ 3–6 с; цели — не больше 2 и 6 с (product 10).
 
-### 9.5. Неразборчиво или строка не дописана
+- **Вызов 2 не ответил или вопрос не прошёл проверки 7.3** — запасной текст (6.3), а вердикт `INCORRECT` остаётся.
+- **Черновик пуст** — вызова 2 нет, резерв разбора не брался; подсказка — запасной текст.
+- **Четвёртый неверный ответ и дальше** — вызова 2 нет: событие `hint` с `HINT_KIND_OFFER_HELP` (6.3).
 
-- **Mathpix вернул низкую уверенность.** Это ответ с низким `confidence` или `error_info` о низкой уверенности. Вердикт `UNRECOGNIZED`. По паузе ничего не показывается. По Check приходит шаблонная просьба переписать строку: событие `hint` с `source: template`, без вызова LLM.
-- **Строка не дописана.** Два случая:
-  - строка оканчивается оператором — вердикт `INCOMPLETE`;
-  - строка выглядит законченной, но ребёнок ещё пишет её, например `2x = 11` перед `− 5` — ошибка не показывается, пока строка не закончена (4.3).
+### 9.5. Неразборчиво или не та форма
 
-  Реплики — по таблице 5.4.
-- **Ребёнок исправил или стёр ошибочную строку.**
-  - Приходит дельта, строка перепроверяется.
-  - Если маркер был показан, публикуется `verdict` с `clear: true`, и клиент убирает маркер и подсказку.
-  - Строки ниже пересчитываются по сохранённому LaTeX: вердикт `FOLLOWS_ERROR` может смениться на `ERROR` или `CORRECT`.
+- **Модель сомневается** — по правилам 5.4: `legible: false`, `ambiguous: true` или другое чтение в `alternatives`. Вердикт `UNREADABLE` с причиной `illegible` или `ambiguous`: ребёнок видит просьбу переписать, ступень не растёт, резерв разбора возвращается.
+- **Не та форма** (5.2). У числового ответа — слово вместо числа, «x = 7», «07», два числа; у ответа-варианта — слово не из списка. Вердикт `UNREADABLE` · `form`, ребёнок видит подсказку формы задачи.
+- **Пустая картинка ответа.** Check недоступна, пока поле ответа пусто (3.1), поэтому пустая картинка — редкость. Если она всё же пришла, вердикт `UNREADABLE` · `blank`, без резерва и вызова модели (4.3).
+- **Ребёнок исправил ответ и снова нажал Check** — это новая проверка со своим `check_no`. Прежние рамка и вопрос исчезают с её вердиктом (product 5.6).
 
-### 9.6. Путь Б
+### 9.6. Повтор после разрыва и перехват аренды
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor C as Ребёнок
     participant S as SPA
     participant A as canvas-api
-    participant G as Gemini
-    participant CE as Centrifugo
+    participant DB as Neon
 
-    C->>S: рисует стрелку и делает паузу
-    S->>A: POST strokes
-    Note over A: App Check, ID token, OpenFGA и сохранение как в 9.3
-    A->>A: разбор связей, сохранённые интерпретации берутся из strokes
-    alt все штрихи разобраны
-        A->>A: сравнить связи с эталоном
-    else есть новые неоднозначные штрихи
-        A->>A: рендер PNG с сеткой и номерами штрихов
-        A->>G: gemini-3.8-flash: картинка и список объектов
-        G-->>A: интерпретация штрихов с box_2d
-        A->>A: сверить номер по box_2d, сохранить интерпретацию, сравнить с эталоном
-    end
-    alt vision не ответила или брак
-        A->>A: штрих UNCHECKED, без маркера и подсказки
-    else неверная связь
-        A->>CE: publish verdict с рамкой стрелки
-        A->>G: Flash-Lite: текст подсказки
-        G-->>A: teacher_text
-        A->>CE: publish hint
-    else все пары верны
-        A->>CE: publish task_completed
-    end
-    A-->>S: 200 с итогом
+    S->>A: POST checks, client_check_id k1
+    Note over S,A: связь оборвалась, ответ не дошёл
+    A->>A: проверка идёт дальше на контексте без отмены (8.4, Т-12)
+    S->>A: через 1 с — снова k1
+    A->>DB: найти k1 без блокировки: running, аренда жива
+    A-->>S: 409 CHECK_IN_PROGRESS
+    S->>A: через 2 с — снова k1
+    A->>DB: найти k1: done
+    A->>DB: собрать ответ из checks и hints
+    A-->>S: 200: те же verdict и hint
 ```
 
-### 9.7. Завершение задачи
+- **Перезагрузка страницы.** Неотвеченная проверка ждёт в IndexedDB вместе с картинками. После загрузки SPA повторяет её, если запись не менялась (9.2).
+- **Экземпляр упал посреди проверки.** Аренда истекает через 40 с. Повтор той же проверки перехватывает её и доводит тем, что успела записать упавшая попытка, а если вердикта нет — проверяет заново. Новая проверка с другим `client_check_id` сначала завершает упавшую тем, что та записала, а если вердикта нет — `UNCHECKED` · `internal` (8.4).
+- **Ответа нет 60 с.** Ребёнок видит «Couldn't reach the checker…», а следующее нажатие Check повторяет ту же проверку, если запись не менялась (8.4).
 
-- Путь А: строка `x = 3` получает `CORRECT` и признак решения. Путь Б: все пары верны.
-- canvas-api:
-  - ставит `canvases.status = completed` и `completed_at`;
-  - публикует `task_completed`;
-  - возвращает `task_completed: true`.
-- SPA показывает поздравление и предлагает следующую задачу или «решить заново» (О-16). «Решить заново» создаёт новый холст, старый остаётся в истории прогресса.
-- **Брошенные холсты.** Холст получает `status = abandoned` и `abandoned_at` в двух случаях:
-  - начат новый холст той же задачи для того же ребёнка (9.2);
-  - ежедневная очистка нашла холст `active`, который не менялся 24 часа.
+### 9.7. Завершение задачи и «начать заново»
 
-  От `completed_at` или `abandoned_at` отсчитывается срок хранения штрихов ([privacy.md](privacy.md), раздел 8).
+- **Верный ответ** (9.3). Холст становится `solved`, `solved_at` записывается. Вердикт несёт объяснение `solution`. SPA показывает поздравление и предлагает следующую задачу или «решить заново» (О-16), а черновик холста стирает (R42).
+- **«Решить заново»** — и после решения, и по кнопке «Start again» после третьей ступени (6.3) — это `POST /v1/canvases`: новый холст и новая лестница. Прежний холст, если он ещё `active`, становится `abandoned`, а его черновик SPA стирает.
+- **Брошенный холст** остаётся в истории прогресса: его проверки и подсказки хранятся по сроку privacy 8.
+- **Холст, к которому не возвращаются,** остаётся `active`: ежедневная очистка его не бросает. Освобождать на сервере нечего — черновик живёт на устройстве и стирается там через 30 дней без изменений (R42). Брошенным холст делает только новый холст той же задачи.
 
 ### 9.8. Удаление профиля ребёнка и аккаунта
 
@@ -1117,17 +1109,21 @@ sequenceDiagram
     end
     A->>F: Delete кортежи холстов и child:id parent пачками до 100, отсутствующие пропустить
     A-->>S: 204
+    S->>S: стереть черновики профиля из IndexedDB
     P->>S: Удалить аккаунт
     S->>A: DELETE /v1/me со свежим входом
     A->>A: всё то же для каждого ребёнка
     A->>DB: DELETE parents
     A->>FA: RevokeRefreshTokens, затем DeleteUser
     A-->>S: 204
+    S->>S: стереть все черновики из IndexedDB и выйти
 ```
 
 - **Порядок: сначала Neon, потом OpenFGA** (R27). Если удаление кортежей сорвалось, повтор проходит `Check`: кортежи ещё на месте. Строки Neon к этому моменту уже удалены, и удаление доводится до конца. Обратный порядок сделал бы повтор невозможным: без кортежа `parent` проверка вернула бы 403, а данные остались бы в Neon.
 - **Повтор идемпотентен.** Ребёнка нет ни в Neon, ни в OpenFGA — ответ 204, а не 404. Кортежи удаляются пачками до 100 (лимит OpenFGA на один Write), уже отсутствующие пропускаются.
 - **Удаление аккаунта** — в порядке «дети → `parents` → Firebase». Повтор после сбоя на `DeleteUser` видит, что строки `parents` уже нет, и просто доводит удаление в Firebase. Старые ID token на других устройствах перестают работать сразу, потому что стоит проверка отзыва (12.1).
+- **Каскад в Neon** уносит холсты, проверки и подсказки ребёнка. Дневные счётчики родителя остаются: иначе удаление и новый профиль снимали бы потолок трат (14.5).
+- **Другие устройства родителя** стирают черновики, когда там откроется SPA и узнает об удалении ([privacy.md](privacy.md), раздел 7).
 - **Что остаётся ненадолго:**
   - история канала Centrifugo исчезает сама через 10 минут, её мета-ключи — через час;
   - из истории восстановления Neon данные уходят через 6 часов;
@@ -1138,59 +1134,45 @@ sequenceDiagram
 
 | Что сломалось | Что видит ребёнок | Что делает сервис |
 |---|---|---|
-| Mathpix: тайм-аут 3 с, 5xx или `error_info` не о низкой уверенности | ничего; по Check — «I can't check right now — keep going!» | вердикт `UNCHECKED`, один повтор при следующем триггере, метрика |
-| Gemini, текст подсказки: тайм-аут, 5xx, брак JSON, `MAX_TOKENS`, провал проверок | маркер уже показан; вместо текста модели — шаблонная подсказка | `source: template`, метрика |
-| Gemini, vision в пути Б: тайм-аут, 5xx, брак JSON, `MAX_TOKENS`, номер не сошёлся | ничего; по Check — «I can't check right now» | штрих `UNCHECKED`, повтор при следующей проверке, задача не засчитывается, пока штрих не разобран |
-| Движок: паника | ничего; по Check — «I can't check right now» | паника перехвачена, `UNCHECKED` с причиной `engine_error` сохраняется, метрика |
-| Centrifugo недоступен | вердикт и подсказку из HTTP-ответа, чуть позже | ошибка публикации пишется в лог, ответ не падает |
-| OpenFGA или Neon недоступны | «Connection problem», запись не теряется | 503; клиент повторяет дельту с тем же `seq` и `client_event_id` |
+| Gemini, чтение ответа: тайм-аут 4 с, 5xx, брак JSON, `MAX_TOKENS` | «Couldn't reach the checker. Your answer is kept. Send it again in a moment.» | `UNCHECKED` · `reader_unavailable`; вызов засчитан в лимит, резерв разбора возвращён (R35); метрика |
+| Нет свободного слота к Gemini для чтения (Т-14) | то же | `UNCHECKED` · `busy`; резерв возвращён целиком; метрика |
+| Нет свободного слота к Gemini для разбора (Т-14) | «Not yet» уже показано; вместо вопроса модели — запасной текст | вердикт `INCORRECT` остаётся (6.1); резерв разбора возвращён; метрика |
+| Gemini, разбор черновика: тайм-аут 8 с, 5xx, брак JSON, `MAX_TOKENS`, провал проверок 7.3 | «Not yet» уже показано; вместо вопроса модели — запасной текст | источник `trap`, `template` или `simpler_case` (6.3); вызов засчитан; метрика |
+| Паника в `answer` или `tutor` | как при сбое чтения или как при сбое разбора | 5.5 |
+| Дневной лимит исчерпан | «I've helped all I can for now. Keep going on your own!» | `UNCHECKED` · `limit`, без вызовов модели (5.4, R35) |
+| Centrifugo недоступен | вердикт и подсказка из HTTP-ответа, чуть позже | ошибка публикации пишется в лог, ответ не падает |
+| OpenFGA или Neon недоступны | «Couldn't reach the checker…», запись на устройстве цела | 503; клиент повторяет с тем же `client_check_id` (8.4). Если база отказала уже после аренды, повтор после срока аренды доводит проверку |
+| Экземпляр упал посреди проверки | ответ — на повторе, позже обычного | аренда истекает через 40 с, повтор перехватывает её (8.4) |
 | ID token истёк | ничего | 401; SDK обновляет токен, клиент повторяет запрос |
-| Разрыв WebSocket | ничего | centrifuge-js переподключается, история восстанавливает события |
+| Разрыв WebSocket | ничего | centrifuge-js переподключается, история восстанавливает события; HTTP-ответ несёт их в любом случае |
 
 ## 10. Примеры данных: полный цикл
 
-Путь А, ошибка `SIGN_ON_TRANSFER` на задаче `2x + 5 = 11`, затем путь Б с разбором картинкой. Идентификаторы вымышленные.
+Задача про лестницу: ребёнок пишет 6, получает «Not yet» и вопрос с рамкой. Это его первая проверка на холсте. Идентификаторы вымышленные.
 
 ### 10.1. Клиент → canvas-api
 
-Заголовки:
+Запрос показан так, как его принимает локальный режим (8.1): тело — JSON по правилам protojson. В prod `Content-Type: application/x-protobuf`, а тело — то же сообщение `CreateCheckRequest` в двоичном виде.
 
 ```http
-POST /v1/canvases/7b3e2f4a-1c5d-4e8f-9a0b-2c4d6e8f0a1b/strokes HTTP/1.1
+POST /v1/canvases/7b3e2f4a-1c5d-4e8f-9a0b-2c4d6e8f0a1b/checks HTTP/1.1
 Authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6Ij...
 X-Firebase-AppCheck: eyJraWQiOiJ...
-Content-Type: application/x-protobuf
+Content-Type: application/json
 ```
-
-Тело (`SubmitStrokesRequest` в виде JSON по protojson):
 
 ```json
 {
-  "seq": "15",
-  "clientEventId": "c1d2e3f4-5a6b-4c7d-8e9f-0a1b2c3d4e5f",
-  "trigger": "TRIGGER_PAUSE",
-  "addedStrokes": [
-    {
-      "id": "s-0031",
-      "color": "#1A1A1A",
-      "width": 2.5,
-      "points": [
-        { "x": 212.4, "y": 218.0, "tMs": 48120, "pressure": 0.62 },
-        { "x": 214.9, "y": 222.7, "tMs": 48136, "pressure": 0.71 },
-        { "x": 217.3, "y": 229.5, "tMs": 48152, "pressure": 0.66 }
-      ]
-    }
-  ],
-  "removedStrokeIds": []
+  "clientCheckId": "c1d2e3f4-5a6b-4c7d-8e9f-0a1b2c3d4e5f",
+  "answerPng": "iVBORw0KGgoAAAANSUhEUgAAAlgAAACg...",
+  "draftPng": "iVBORw0KGgoAAAANSUhEUgAAA+gAAAV4..."
 }
 ```
 
-Отличия от черновика:
-- в теле нет `student_id`: кто действует, сервер определяет по ID token, а к чему есть доступ — по OpenFGA;
-- `canvas_id` только в пути запроса, в теле его нет (раздел 8.4);
-- координаты логические;
-- есть `seq` и `client_event_id` для порядка и идемпотентности;
-- `uint64` в protojson — строка.
+- Начала строк — заголовки PNG: 600 × 160 и 1000 × 1400 px, как требует 4.3.
+- `bytes` в protojson — base64. В prod тело — protobuf, и картинки идут без base64.
+- В теле нет ни `student_id`, ни `canvas_id`: кто действует, сервер определяет по ID token, к чему есть доступ — по OpenFGA, а холст берёт из пути (8.4).
+- Штрихов в запросе нет: они остаются на устройстве (R42).
 
 ### 10.2. canvas-api → OpenFGA
 
@@ -1220,87 +1202,23 @@ Content-Type: application/json
 }
 ```
 
-### 10.3. canvas-api → Mathpix
+### 10.3. canvas-api → Gemini: чтение ответа
 
-`POST https://api.mathpix.com/v3/strokes`. Заголовки `app_id` и `app_key` берутся из Secret Manager. В теле — штрихи одной строки, целые логические координаты: каждый штрих — отдельный массив `x` и `y`. Формат соответствует документации, в отличие от `strokes.word[{x, y, t}]` из черновика (R18).
-
-```json
-{
-  "strokes": {
-    "strokes": {
-      "x": [[212, 215, 217, 220, 224], [240, 246, 252, 258], [262, 262, 263], [300, 318], [300, 318], [336, 342, 346, 342, 336], [360, 366, 372], [400, 400, 400]],
-      "y": [[218, 223, 230, 234, 236], [222, 226, 230, 234], [220, 236, 252], [226, 226], [236, 236], [218, 226, 236, 246, 252], [236, 236, 236], [226, 236, 246]]
-    }
-  },
-  "formats": ["text", "latex_styled"],
-  "confidence_threshold": 0,
-  "confidence_rate_threshold": 0,
-  "metadata": { "improve_mathpix": false }
-}
-```
-
-Нулевые пороги отключают отказ на стороне Mathpix. Иначе при `confidence_rate < 0,75` он вернул бы ошибку без LaTeX, и наши пороги ниже 0,75 ничего бы не значили. Уверенность оценивает canvas-api (раздел 5.7). Если Mathpix всё же вернёт `error_info` о низкой уверенности, это `UNRECOGNIZED`. Любая другая ошибка даёт `UNCHECKED`.
-
-Ответ:
-
-```json
-{
-  "request_id": "2f1c9a7e-5b3d-4e2a-9c8f-1a2b3c4d5e6f",
-  "text": "\\( 2 x=11+5 \\)",
-  "latex_styled": "2 x=11+5",
-  "confidence": 0.96,
-  "confidence_rate": 0.98,
-  "is_printed": false,
-  "is_handwritten": true,
-  "image_height": 96,
-  "image_width": 412,
-  "version": "SuperNet-200"
-}
-```
-
-Поля `is_diagram` нет, координат символов тоже (R17, R20). Для строк и слов можно запросить `include_line_data` или `include_word_data` — это контуры на внутренней картинке Mathpix (Т-8).
-
-### 10.4. Состояние движка
-
-Структура Go в памяти, показана как JSON. Это не сетевой запрос.
-
-```json
-{
-  "canvas_id": "7b3e2f4a-1c5d-4e8f-9a0b-2c4d6e8f0a1b",
-  "task_id": "eq_two_step_01",
-  "path": "A",
-  "last_correct": { "target": "task", "latex": "2x+5=11", "solution": "3" },
-  "line": {
-    "target": "line:1",
-    "latex": "2x=11+5",
-    "confidence": 0.96,
-    "confidence_rate": 0.98,
-    "solution": "8",
-    "rect": { "x": 212, "y": 218, "w": 188, "h": 34 }
-  },
-  "verdict": "ERROR",
-  "error": { "code": "SIGN_ON_TRANSFER", "term": "+5", "from_side": "left", "to_side": "right" },
-  "forbidden_fragments": ["x=3", "3", "2x=11-5", "2x=6", "-5"],
-  "route": { "action": "HINT_TEXT", "model": "gemini-3.5-flash-lite", "hint_level": 1 }
-}
-```
-
-### 10.5. canvas-api → Gemini (путь А, только текст)
-
-Вызов идёт через `google.golang.org/genai` (`Models.GenerateContent`, бэкенд `BackendVertexAI`, модель `gemini-3.5-flash-lite`). Тело запроса в JSON:
+Вызов 1 идёт через `google.golang.org/genai` (`Models.GenerateContent`, бэкенд `BackendVertexAI`, модель `gemini-3.5-flash-lite`). Тело запроса в JSON:
 
 ```json
 {
   "systemInstruction": {
     "parts": [
-      { "text": "You are a warm, patient math tutor for children aged 6 to 12.\nA program has already checked the child's handwritten work and found one mistake.\nYou receive the task, the child's last correct step, the child's new step and the mistake type.\nHelp the child find the mistake on their own.\nRules:\n- Never state the answer, the corrected step, or the result of any calculation in the task.\n- Ask exactly one short guiding question. Use at most 2 sentences and simple words for the given grade.\n- Refer to the place of the mistake in words (for example \"the +5\") and use only target ids from the input.\n- Start with something encouraging when you can. Never say \"wrong\" or \"incorrect\".\n- Talk only about this task. No links, no personal questions, no other topics.\n- Reply only with JSON that matches the schema." }
+      { "text": "You read one short handwritten answer written by a child aged 6 to 12.\nThe image shows only the answer box.\n…" }
     ]
   },
   "contents": [
     {
       "role": "user",
       "parts": [
-        { "text": "Task (grade 6): Solve the equation 2x + 5 = 11.\nLast correct step: 2x + 5 = 11\nChild's new step (target line:1): 2x = 11 + 5\nMistake type: SIGN_ON_TRANSFER. The term \"+5\" was moved across \"=\" without changing its sign.\nHint level: 1 of 3" }
+        { "text": "Answer form: a whole number. Printed next to the box: rungs." },
+        { "inlineData": { "mimeType": "image/png", "data": "iVBORw0KGgoAAAANSUhEUgAAAlgAAACg..." } }
       ]
     }
   ],
@@ -1309,71 +1227,119 @@ Content-Type: application/json
     "responseJsonSchema": {
       "type": "object",
       "properties": {
-        "teacher_text": { "type": "string", "description": "One guiding question, at most 2 sentences." },
-        "canvas_actions": {
-          "type": "array",
-          "minItems": 1,
-          "maxItems": 2,
-          "items": {
-            "type": "object",
-            "properties": {
-              "action_type": { "type": "string", "enum": ["highlight", "underline", "point"] },
-              "target_element": { "type": "string", "description": "A target id from the input, e.g. line:1." }
-            },
-            "required": ["action_type", "target_element"]
-          }
-        }
+        "text": { "type": "string", "description": "Exactly what is written, or an empty string." },
+        "legible": { "type": "boolean" },
+        "ambiguous": { "type": "boolean" },
+        "alternatives": { "type": "array", "items": { "type": "string" }, "maxItems": 3 }
       },
-      "required": ["teacher_text", "canvas_actions"]
+      "required": ["text", "legible", "ambiguous", "alternatives"]
     },
-    "temperature": 0.4,
     "maxOutputTokens": 1024,
     "thinkingConfig": { "thinkingLevel": "MINIMAL" }
   }
 }
 ```
 
-Системная инструкция здесь — дословно файл `hint.system.md` версии `hint-v1` из 7.2. Фикстуры и адаптер строятся из этого файла, а не из текста примера.
+- Системная инструкция — дословно файл `read.system.md` версии `read-v1` (7.2); здесь она сокращена. Фикстуры и адаптер строятся из файла, а не из примера.
+- Условия, ключа и черновика в запросе нет (R38).
+- `temperature` не задаётся (7.1). Уровень картинки не показан: его поле для `GenerateContent` сверяется, когда пишется адаптер (7.1).
 
-Отличия от схемы черновика:
-- модель не возвращает цвет и координаты: координаты берутся из наших штрихов, цвет выбирает клиент;
-- в запросе нет картинки: в пути А модели хватает текста.
+Ответ:
+
+```json
+{ "text": "6", "legible": true, "ambiguous": false, "alternatives": [] }
+```
+
+### 10.4. Сравнение с ключом
+
+Результат пакета `answer`, показан как JSON. Это не сетевой запрос.
+
+```json
+{
+  "task_id": "mt-ladder-07",
+  "kind": "integer",
+  "key": "7",
+  "read": { "text": "6", "canonical": "6" },
+  "verdict": "INCORRECT",
+  "trap": "6"
+}
+```
+
+Нормализация (5.2) ничего не меняет, белый список `integer` пройден, `6` не равно `7`. Ответ 6 есть среди ловушек, поэтому текст ловушки уходит в разбор черновика (6.2).
+
+Дальше маршрут выбирает пакет `tutor` (6.1). По проверкам холста в `checks` этот неверный ответ первый, черновик прислан — значит, будет вызов 2 на первой ступени.
+
+### 10.5. canvas-api → Gemini: разбор черновика
+
+Вызов 2, модель `gemini-3.8-flash`:
+
+```json
+{
+  "systemInstruction": {
+    "parts": [
+      { "text": "You are a warm, patient math tutor for children aged 6 to 12.\nA program has already compared the child's final answer with the answer key: the answer is not correct.\n…" }
+    ]
+  },
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        { "text": "Task (grade 4): The rungs of a ladder are 30 cm apart. From the lowest rung to the highest it is 180 cm. How many rungs are there?\nAnswer key: 7\nModel solution: 180 ÷ 30 = 6 gaps, and a ladder has one more rung than gaps: 7 rungs.\nChild's answer: 6\nKnown trap for this answer: 6 is the number of gaps between the rungs. How many rungs hold those gaps?\nHint level: 1 of 3\nPrevious questions on this sheet: none" },
+        { "inlineData": { "mimeType": "image/png", "data": "iVBORw0KGgoAAAANSUhEUgAAA+gAAAV4..." } }
+      ]
+    }
+  ],
+  "generationConfig": {
+    "responseMimeType": "application/json",
+    "responseJsonSchema": {
+      "type": "object",
+      "properties": {
+        "found": { "type": "boolean" },
+        "box_2d": { "type": "array", "items": { "type": "integer" }, "minItems": 4, "maxItems": 4 },
+        "question": { "type": "string", "description": "One guiding question, at most 2 sentences." }
+      },
+      "required": ["found", "question"]
+    },
+    "maxOutputTokens": 4096,
+    "thinkingConfig": { "thinkingLevel": "LOW" }
+  }
+}
+```
+
+Системная инструкция — дословно файл `draft.system.md` версии `draft-v1` (7.2); здесь она сокращена. Идентификаторов, псевдонима и класса из профиля в запросе нет ([privacy.md](privacy.md), раздел 5.1).
 
 ### 10.6. Gemini → canvas-api
 
 ```json
 {
-  "teacher_text": "Nice start! Look at the +5 you moved to the right side: what happens to its sign when it jumps over the equals sign?",
-  "canvas_actions": [
-    { "action_type": "highlight", "target_element": "line:1" }
-  ]
+  "found": true,
+  "box_2d": [120, 80, 520, 460],
+  "question": "Nice drawing! Look at your ladder: what exactly did you count to get your answer?"
 }
 ```
 
-Проверки из 7.3 пройдены. Текст — два предложения, запрещённых фрагментов нет, `line:1` есть во входных данных.
+- **Проверки 7.3 пройдены.** Два предложения, без ссылок; ключа 7 нет ни цифрой, ни словом; прошлых вопросов на холсте нет.
+- **Рамка в координатах листа** (4.4, лист 1000 × 1400): `x = 80`, `y = 120 / 1000 × 1400 = 168`, `w = 380`, `h = 400 / 1000 × 1400 = 560`. Площадь 212 800 — меньше четверти листа (350 000), значит, рамка годная.
 
 ### 10.7. canvas-api → Centrifugo
 
 `POST https://centrifugo-xxxx.run.app/api/publish` с заголовком `X-API-Key`. Ключ берётся из Secret Manager.
 
-Сначала — вердикт, сразу после движка:
+Сначала — вердикт, сразу после чтения и сравнения:
 
 ```json
 {
   "channel": "canvas:7b3e2f4a-1c5d-4e8f-9a0b-2c4d6e8f0a1b",
   "data": {
     "canvasId": "7b3e2f4a-1c5d-4e8f-9a0b-2c4d6e8f0a1b",
-    "seq": "15",
     "verdict": {
-      "target": "line:1",
-      "verdict": "VERDICT_ERROR",
-      "errorCode": "SIGN_ON_TRANSFER",
-      "marker": { "x": 202, "y": 208, "w": 208, "h": 54 },
-      "hintId": "3c0f6a2e-8d4b-4f1a-b9e7-5a6c7d8e9f01",
-      "revision": 1
+      "clientCheckId": "c1d2e3f4-5a6b-4c7d-8e9f-0a1b2c3d4e5f",
+      "checkNo": 1,
+      "verdict": "VERDICT_INCORRECT",
+      "read": "6"
     }
   },
-  "idempotency_key": "verdict-7b3e2f4a-line1-r1"
+  "idempotency_key": "verdict-c1d2e3f4-5a6b-4c7d-8e9f-0a1b2c3d4e5f"
 }
 ```
 
@@ -1384,32 +1350,28 @@ Content-Type: application/json
   "channel": "canvas:7b3e2f4a-1c5d-4e8f-9a0b-2c4d6e8f0a1b",
   "data": {
     "canvasId": "7b3e2f4a-1c5d-4e8f-9a0b-2c4d6e8f0a1b",
-    "seq": "15",
     "hint": {
-      "hintId": "3c0f6a2e-8d4b-4f1a-b9e7-5a6c7d8e9f01",
-      "target": "line:1",
-      "teacherText": "Nice start! Look at the +5 you moved to the right side: what happens to its sign when it jumps over the equals sign?",
-      "actions": [
-        { "type": "highlight", "target": "line:1", "rect": { "x": 202, "y": 208, "w": 208, "h": 54 }, "style": "attention" }
-      ],
-      "source": "llm",
+      "clientCheckId": "c1d2e3f4-5a6b-4c7d-8e9f-0a1b2c3d4e5f",
+      "checkNo": 1,
+      "kind": "HINT_KIND_QUESTION",
+      "text": "Nice drawing! Look at your ladder: what exactly did you count to get your answer?",
+      "frame": { "x": 80, "y": 168, "w": 380, "h": 560 },
       "level": 1,
-      "kind": "hint",
-      "revision": 1
+      "source": "HINT_SOURCE_MODEL"
     }
   },
-  "idempotency_key": "hint-3c0f6a2e-8d4b-4f1a-b9e7-5a6c7d8e9f01"
+  "idempotency_key": "hint-c1d2e3f4-5a6b-4c7d-8e9f-0a1b2c3d4e5f"
 }
 ```
 
 Ответ Centrifugo — `{"result": {}}`. Ошибки приходят в поле `error`, HTTP-статус при этом 200.
 
-- **Ключ идемпотентности** строится из холста, цели и её `revision`, а не из `seq`. Поэтому одно и то же событие для одной версии строки не публикуется дважды, даже если его отправили два запроса.
-- **Вид события** определяет заполненное поле `oneof`: `verdict`, `hint` или `taskCompleted`. Отдельного поля `type` нет.
+- **Ключ идемпотентности** строится из `client_check_id` и вида события. Поэтому одно и то же событие проверки не публикуется дважды — даже когда упавшую проверку доводит перехват аренды (8.4).
+- **Вид события** определяет заполненное поле `oneof`: `verdict` или `hint`. Отдельного поля `type` нет.
 
 ### 10.8. Centrifugo → клиент
 
-centrifuge-js передаёт `data` публикации в обработчик подписки. Клиент разбирает событие через protobuf-es v2 и обрабатывает все три вида событий. Логический прямоугольник он переводит в пиксели и рисует рамку на HintLayer:
+centrifuge-js передаёт `data` публикации в обработчик подписки. Клиент разбирает событие через protobuf-es v2, показывает только самую позднюю проверку холста (8.5) и привязывает рамку к своим штрихам (4.4):
 
 ```ts
 import { fromJson } from '@bufbuild/protobuf';
@@ -1417,7 +1379,7 @@ import { CanvasEventSchema } from './gen/canvasapi/v1/canvas_pb';
 
 sub.on('publication', ({ data }) => {
   const event = fromJson(CanvasEventSchema, data);
-  const scale = stage.width() / PAGE_WIDTH; // одинаковый масштаб по обеим осям
+  const scale = stage.width() / SHEET_WIDTH; // одинаковый масштаб по обеим осям (4.1)
   const toPx = (r: { x: number; y: number; w: number; h: number }) => ({
     x: (r.x - viewport.x) * scale,
     y: (r.y - viewport.y) * scale,
@@ -1428,123 +1390,71 @@ sub.on('publication', ({ data }) => {
   switch (event.event.case) {
     case 'verdict': {
       const v = event.event.value;
-      if (isStale(v.target, v.revision)) return;           // устаревшая версия цели
-      if (v.clear) { clearTarget(v.target); return; }      // строку исправили или стёрли
-      if (v.marker) showMarker(v.target, toPx(v.marker));  // маркер — сразу, до подсказки
+      if (v.checkNo < latestCheckNo) return;   // событие более ранней проверки
+      if (v.checkNo > latestCheckNo) {          // новая проверка убирает прежние рамку и вопрос;
+        latestCheckNo = v.checkNo;              // повтор того же вердикта (WebSocket и HTTP) их не трогает
+        clearHint();
+      }
+      showVerdict(v);                           // реплика по таблице 5.4
       return;
     }
     case 'hint': {
       const h = event.event.value;
-      if (isStale(h.target, h.revision)) return;
-      for (const a of h.actions) {
-        if (a.rect) showAction(h.target, toPx(a.rect), styleFor(a.type, a.style)); // цвет — на клиенте
+      if (h.checkNo < latestCheckNo) return;
+      if (h.checkNo > latestCheckNo) {          // подсказка новой проверки пришла раньше её вердикта
+        latestCheckNo = h.checkNo;
+        clearHint();
       }
-      showTeacherText(h.target, h.teacherText, h.kind);    // offer_help — кнопки «Start again» / «Ask a grown-up»
+      if (h.frame) {
+        const strokes = strokesAtCheck(h.clientCheckId)                 // были в момент Check и не стёрты
+          .filter((s) => halfOfPointsInside(s, grow(h.frame, 10)));     // хотя бы половина точек в рамке
+        if (strokes.length > 0) showFrame(toPx(boundingBox(strokes, 10)));
+      }
+      showQuestion(h.text, h.kind);             // OFFER_HELP — кнопки «Ask a grown-up» и «Start again»
       return;
     }
-    case 'taskCompleted':
-      celebrate();
-      return;
   }
 });
 ```
 
-Рамка ложится точно на запись на любом экране: и страница, и рамка масштабируются одинаково (раздел 4.1).
+Рамка ложится точно на запись на любом экране: и лист, и рамка масштабируются одинаково (4.1), а обводятся штрихи самого ребёнка (R43).
 
-### 10.9. Путь Б: разбор картинкой
-
-Вызов `gemini-3.8-flash`, картинка — PNG 1000×800 с сеткой. Эталон в запрос не передаётся (раздел 6.3).
+### 10.9. Записи в БД
 
 ```json
 {
-  "systemInstruction": {
-    "parts": [
-      { "text": "You read children's drawings. The image shows objects with labels and numbered strokes drawn by a child over a light grid. For each numbered stroke, say which two objects it connects, using only the object ids from the list, or none. Return box_2d of each stroke as [ymin, xmin, ymax, xmax] normalized to 0-1000. Reply only with JSON that matches the schema." }
-    ]
-  },
-  "contents": [
-    {
-      "role": "user",
-      "parts": [
-        { "text": "Objects: bird, fish, bee (left column); hive, nest, sea (right column). Numbered strokes: 1." },
-        { "inlineData": { "mimeType": "image/png", "data": "iVBORw0KGgoAAAANSUhEUgAAA+gAAAMgCAYAAAD..." } }
-      ]
-    }
-  ],
-  "generationConfig": {
-    "responseMimeType": "application/json",
-    "responseJsonSchema": {
-      "type": "object",
-      "properties": {
-        "strokes": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "number": { "type": "integer" },
-              "from_object": { "type": "string", "enum": ["bird", "fish", "bee", "hive", "nest", "sea", "none"] },
-              "to_object": { "type": "string", "enum": ["bird", "fish", "bee", "hive", "nest", "sea", "none"] },
-              "box_2d": { "type": "array", "items": { "type": "integer" }, "minItems": 4, "maxItems": 4 }
-            },
-            "required": ["number", "from_object", "to_object", "box_2d"]
-          }
-        }
-      },
-      "required": ["strokes"]
-    },
-    "temperature": 0.2,
-    "maxOutputTokens": 4096,
-    "thinkingConfig": { "thinkingLevel": "LOW" }
-  }
-}
-```
-
-Ответ:
-
-```json
-{
-  "strokes": [
-    { "number": 1, "from_object": "bee", "to_object": "nest", "box_2d": [631, 270, 775, 735] }
-  ]
-}
-```
-
-- **Почему нужна картинка.** Штрих 1 начинается у пчелы, а заканчивается в точке (735, 705) между гнездом и морем. До рамки гнезда (низ y = 680) около 25 единиц, до рамки моря (верх y = 740) около 36. Разница меньше 20, поэтому по правилу 6.2 конец неоднозначен, и штрих уходит модели.
-- **Сверка номера.** Картинка — прямоугольник `R = {x0: 0, y0: 200, w: 1000, h: 800}`. По формулам 4.4 рамка `[631, 270, 775, 735]` превращается в `{x: 270, y: 704.8, w: 465, h: 115.2}`. Она пересекается с рамкой штриха 1, значит, модель говорит о нём.
-- **Интерпретация** `bee → nest` сохраняется в `strokes.interpretation` и при следующих проверках берётся оттуда.
-- **Вердикт.** Программа сверяет `bee → nest` с эталоном `bee → hive` и выносит `WRONG_CONNECTION`. Маркер — рамка самого штриха 1, а не рамка модели.
-- **Подсказка.** Текст пишет Flash-Lite, как в 10.5. Запрещённый фрагмент — `hive`. Например: «Look at the arrow from the bee. Where does a bee really live?».
-
-### 10.10. Записи в БД
-
-```json
-{
-  "steps": {
+  "checks": {
     "id": "a41d7c9e-2b3f-4a5e-8c6d-7e8f9a0b1c2d",
     "canvas_id": "7b3e2f4a-1c5d-4e8f-9a0b-2c4d6e8f0a1b",
-    "target": "line:1",
-    "revision": 1,
-    "latex": "2x=11+5",
-    "confidence": 0.96,
-    "verdict": "error",
-    "error_code": "SIGN_ON_TRANSFER",
+    "client_check_id": "c1d2e3f4-5a6b-4c7d-8e9f-0a1b2c3d4e5f",
+    "check_no": 1,
     "status": "done",
-    "created_at": "2026-09-27T16:04:12Z"
+    "verdict": "incorrect",
+    "reason": null,
+    "read_text": "6",
+    "trap": "6",
+    "model": "gemini-3.5-flash-lite",
+    "prompt_version": "read-v1",
+    "latency_ms": 1240,
+    "created_at": "2026-10-11T16:04:12Z"
   },
   "hints": {
     "id": "3c0f6a2e-8d4b-4f1a-b9e7-5a6c7d8e9f01",
-    "step_id": "a41d7c9e-2b3f-4a5e-8c6d-7e8f9a0b1c2d",
-    "source": "llm",
-    "model": "gemini-3.5-flash-lite",
-    "prompt_version": "hint-v1",
-    "ladder_key": "SIGN_ON_TRANSFER:+5",
-    "hint_level": 1,
-    "teacher_text": "Nice start! Look at the +5 you moved to the right side: what happens to its sign when it jumps over the equals sign?",
-    "latency_ms": 1180,
-    "created_at": "2026-09-27T16:04:13Z"
+    "check_id": "a41d7c9e-2b3f-4a5e-8c6d-7e8f9a0b1c2d",
+    "kind": "question",
+    "source": "model",
+    "model": "gemini-3.8-flash",
+    "prompt_version": "draft-v1",
+    "level": 1,
+    "text": "Nice drawing! Look at your ladder: what exactly did you count to get your answer?",
+    "frame": { "x": 80, "y": 168, "w": 380, "h": 560 },
+    "latency_ms": 3420,
+    "created_at": "2026-10-11T16:04:15Z"
   }
 }
 ```
+
+Из этих двух записей собирается ответ на повтор той же проверки (8.4). Аренда — поля холста; полная модель данных — в разделе 11.
 
 ## 11. Модель данных
 
