@@ -11,6 +11,7 @@
 .claude
 .githooks
 **/.env
+**/.env.*
 .devcontainer
 reference
 docs

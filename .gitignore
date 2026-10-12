@@ -1,5 +1,9 @@
-# Secrets
+# Secrets: a local .env, and the variants Vite also reads in web/ (.env.local,
+# .env.production, .env.production.local and the like). The one env file meant
+# to be committed is the example of the variables.
 .env
+.env.*
+!.env.example
 
 # Build and test output, and what a native or a profiling build leaves
 bin/
@@ -22,6 +26,10 @@ go.work.sum
 
 # Node modules of the SPA (web/)
 node_modules/
+
+# The coverage of the SPA's tests, made anew by every run of them. The SPA's
+# build lands in web/dist/, which dist/ above already keeps out.
+/web/coverage/
 
 # Terraform: downloaded providers, state, plans, and the values of one
 # deployment. The provider lock file is committed and is not any of these.
