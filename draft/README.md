@@ -19,5 +19,3 @@
 - **The draft.** The mockup keeps the sheet in the page's memory. The product keeps the strokes in IndexedDB on the device and sends the answer box as a PNG on every Check, and the draft too unless the sheet is empty (R42, spec 4.3).
 - **Accepted answers.** The mockup accepts lists of words, such as `no` and `cannot`. In the product, an answer is a number or one of the task's choices, and its form is checked against a whitelist (spec 5.2).
 - **Words on the screen.** The product's lines for every verdict, a failure and the daily limit are in product 5.5.
-
-`task.md` beside the mockup is the author's conversation with Gemini behind the pivot (R37). It is deleted after this branch is merged into `main`, in a commit that also removes this note.
