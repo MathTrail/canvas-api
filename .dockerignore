@@ -1,10 +1,32 @@
-# Build context filter for images built from the repository root. None of them
-# needs the history, local secrets, documents or reference material, so none of
-# it is sent to the builder.
+# Build context filter for images built from the repository root.
+# The service's image is built from the Go module alone. This keeps out what it
+# never reads and what is private: the history, local secrets and settings,
+# documents, reference material, the SPA (Firebase Hosting serves it), the
+# cloud's configuration, test data, tools, a local Go workspace, and whatever a
+# build on this machine left.
 .git
+.github
+.vscode
+.sonarlint
+.claude
+.githooks
 **/.env
 .devcontainer
 reference
 docs
 draft
+web
+infra
+**/testdata
+tools
+bin
+dist
+coverage.*
+*.out
+*.test
+*.prof
+.scannerwork
+go.work
+go.work.sum
 *.md
+**/node_modules

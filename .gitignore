@@ -1,35 +1,51 @@
-# If you prefer the allow list template instead of the deny list, see community template:
-# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
-#
-# Binaries for programs and plugins
+# Secrets
+.env
+
+# Build and test output, and what a native or a profiling build leaves
+bin/
+dist/
+coverage.*
+*.out
+*.coverprofile
+profile.cov
+*.test
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
+*.prof
 
-# Test binary, built with `go test -c`
-*.test
-
-# Code coverage profiles and other test artifacts
-*.out
-coverage.*
-*.coverprofile
-profile.cov
-
-# Dependency directories (remove the comment below to include it)
-# vendor/
-
-# Go workspace file
+# Go workspace files: the service is one module, and it builds without a workspace
 go.work
 go.work.sum
 
-# env file
-.env
+# Node modules of the SPA (web/)
+node_modules/
 
-# Editor/IDE
-# .idea/
-# .vscode/
+# Terraform: downloaded providers, state, plans, and the values of one
+# deployment. The provider lock file is committed and is not any of these.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+*.tfplan
+backend.hcl
+crash.log
+crash.*.log
+
+# Working directory of the static analysis scanner.
+.scannerwork/
+
+# Claude Code's settings of one person on one machine, such as the narrow
+# permission of a live run, which is deleted once the run is over (CLAUDE.md).
+.claude/settings.local.json
 
 # Reference copies of other repositories: read-only material, never committed.
 /reference/
+
+# The one deployment this repository delivers to is described in the repository,
+# not in somebody's console: these two are committed on purpose.
+!infra/terraform/prod.auto.tfvars
+!infra/terraform/backend.hcl

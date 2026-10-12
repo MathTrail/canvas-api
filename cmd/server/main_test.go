@@ -3,18 +3,24 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"maps"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/MathTrail/canvas-api/internal/version"
 )
 
 // The service answers its health probe and nothing else. /healthz is not the
@@ -45,6 +51,94 @@ func TestRoutes(t *testing.T) {
 				t.Errorf("%s %s status = %d, want %d", tc.method, tc.path, rec.Code, tc.want)
 			}
 		})
+	}
+}
+
+// The probe names the build that answers it, and nothing on the way may keep
+// the answer: the delivery reads the commit to know which revision serves.
+func TestHealthNamesTheBuild(t *testing.T) {
+	stamp(t)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/health", http.NoBody)
+	newServer().Handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /health status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	for header, want := range map[string]string{
+		"Cache-Control": "no-store",
+		"Content-Type":  "application/json",
+	} {
+		if got := rec.Header().Get(header); got != want {
+			t.Errorf("%s = %q, want %q", header, got, want)
+		}
+	}
+	var body map[string]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("the body is not a JSON object of strings: %v; body = %s", err, rec.Body.String())
+	}
+	want := map[string]string{"status": "ok", "version": "v1.2.3", "commit": "abc1234"}
+	if !maps.Equal(body, want) {
+		t.Errorf("body = %v, want %v", body, want)
+	}
+}
+
+// Once the port is its own, the server says which build it is and where it
+// listens, in the one line a deployment's log names its release and its
+// commit by; a stop then ends it as usual.
+func TestRunAnnouncesTheBuildItStarts(t *testing.T) {
+	stamp(t)
+
+	said, log := io.Pipe()
+	t.Cleanup(func() { _ = said.Close() })
+	ctx, stop := context.WithCancel(t.Context())
+	defer stop()
+	started := time.Now()
+	stopped := make(chan error, 1)
+	go func() { stopped <- run(ctx, "127.0.0.1:0", log) }()
+
+	first := make(chan string, 1)
+	go func() {
+		lines := bufio.NewScanner(said)
+		lines.Scan()
+		first <- lines.Text()
+	}()
+	var line string
+	select {
+	case line = <-first:
+	case err := <-stopped:
+		t.Fatalf("run() returned %v before it said which build it is", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("waited 5s for the startup line")
+	}
+	heard := time.Now()
+	stop()
+	if err := receive(t, stopped, "run() to return"); err != nil {
+		t.Errorf("run() error = %v, want nil", err)
+	}
+
+	var got map[string]string
+	if err := json.Unmarshal([]byte(line), &got); err != nil {
+		t.Fatalf("the startup line is not a JSON object of strings: %v; line = %s", err, line)
+	}
+	if !strings.HasPrefix(got["address"], "127.0.0.1:") {
+		t.Errorf("address = %q, want the loopback address it listens on", got["address"])
+	}
+	if at, err := time.Parse(time.RFC3339Nano, got["time"]); err != nil || at.Before(started) || at.After(heard) {
+		t.Errorf("time = %q, want the moment of the line in RFC 3339, between %v and %v", got["time"], started, heard)
+	}
+	delete(got, "address")
+	delete(got, "time")
+	want := map[string]string{
+		"severity": "INFO",
+		"message":  "startup",
+		"version":  "v1.2.3",
+		"commit":   "abc1234",
+		"date":     "2026-10-12T00:00:00Z",
+	}
+	if !maps.Equal(got, want) {
+		t.Errorf("the startup line = %v, want %v and the address", got, want)
 	}
 }
 
@@ -164,7 +258,7 @@ func TestRunReportsATakenPort(t *testing.T) {
 				stop()
 			}
 
-			if err := run(ctx, taken); !errors.Is(err, syscall.EADDRINUSE) {
+			if err := run(ctx, taken, io.Discard); !errors.Is(err, syscall.EADDRINUSE) {
 				t.Errorf("run() error = %v, want the port reported in use", err)
 			}
 		})
@@ -253,6 +347,17 @@ func TestASecondSignalEndsTheProcess(t *testing.T) {
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
+}
+
+// stamp sets the build identity as the linker would, and puts the placeholders
+// back when the test ends. The identity is the whole process's, so a test that
+// stamps it does not run in parallel: the parallel tests wait until it is over.
+func stamp(t *testing.T) {
+	t.Helper()
+
+	was := [3]string{version.Version, version.Commit, version.Date}
+	version.Version, version.Commit, version.Date = "v1.2.3", "abc1234", "2026-10-12T00:00:00Z"
+	t.Cleanup(func() { version.Version, version.Commit, version.Date = was[0], was[1], was[2] })
 }
 
 // listen takes a free loopback port and holds it until the test ends, so that

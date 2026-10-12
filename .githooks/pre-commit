@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# Runs what is cheap and catches what is embarrassing: formatting, a build and
+# the tests. Everything slower — the linter, the race detector, coverage,
+# vulnerability and secret scanning — stays out of it, so that a commit does
+# not become a wait.
+set -euo pipefail
+
+# The repository's own Go files: the copy of the sample under reference/ is
+# read-only and not this repository's to answer for, and installed packages and
+# providers are not its own either. The same list as GO_FILES in the justfile,
+# which this hook does not read, since a commit may be made where there is no
+# just. The arguments end the expression: how each file is printed.
+go_files() {
+    find . -path ./reference -prune -o -path ./.git -prune -o -name node_modules -prune \
+        -o -name .terraform -prune -o -type f -name '*.go' "$@"
+}
+
+# A tree with no Go of its own has nothing for these checks. One that has any
+# runs them whatever the commit holds: a change to the justfile or the
+# Dockerfile can fail a test as surely as a change to the code.
+if [ -z "$(go_files -print -quit)" ] && ! git diff --cached --name-only | grep -q '\.go$'; then
+    exit 0
+fi
+
+# A hook inherits whatever environment the commit was made from, and that
+# environment does not always carry the Go toolchain on PATH.
+for dir in /usr/local/go/bin /usr/lib/go/bin /opt/go/bin "${HOME:-}/go/bin"; do
+    if [ -x "$dir/go" ]; then
+        PATH="$dir:$PATH"
+    fi
+done
+export PATH
+
+# gofmt ships beside the compiler, which is not always the directory go itself
+# was found in.
+if command -v go >/dev/null && ! command -v gofmt >/dev/null; then
+    goroot_bin="$(go env GOROOT)/bin"
+    if [ -x "$goroot_bin/gofmt" ]; then
+        export PATH="$goroot_bin:$PATH"
+    fi
+fi
+
+# Some environments have no toolchain at all and are not meant to: a commit
+# made from one is not blocked, it only goes without these checks. Nothing is
+# waved through — the full checks run them again and gate the merge.
+for tool in gofmt go; do
+    if ! command -v "$tool" >/dev/null; then
+        echo "pre-commit: no Go toolchain here — skipping formatting, the build and the tests." >&2
+        exit 0
+    fi
+done
+
+# A tool that cannot read the tree must stop the commit, not report a clean one.
+if ! unformatted=$(go_files -print0 | xargs -0 -r gofmt -s -l); then
+    echo "pre-commit: gofmt could not read the tree." >&2
+    exit 1
+fi
+if [ -n "$unformatted" ]; then
+    echo "pre-commit: these files need gofmt -s:" >&2
+    echo "$unformatted" >&2
+    echo "Run: just fmt" >&2
+    exit 1
+fi
+
+if ! go build ./... >/dev/null; then
+    echo "pre-commit: the build failed." >&2
+    exit 1
+fi
+
+# Quiet when the tests pass; when one fails, what it said is shown, since go
+# test writes a failure to its standard output.
+if ! tested=$(go test ./... -count=1 2>&1); then
+    echo "$tested" >&2
+    echo "pre-commit: tests failed. Run: just test" >&2
+    exit 1
+fi
