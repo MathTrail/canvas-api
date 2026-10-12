@@ -106,8 +106,6 @@
 
 Продуктового кода в эпике нет: выкатываются простейший сервер (T02) и заглушка SPA (T05).
 
-**Старт** — после переработки документов под поворот R37–R44. Пока в CLAUDE.md стоит временная строка о переработке, задачи эпика не запускаются.
-
 | Статус | ID | Задача | Кто | План | Зависит от |
 |---|---|---|---|---|---|
 | [x] | T00 | Документы и план | Claude | — | — |
@@ -194,7 +192,7 @@
     - `docker-mirror`;
     - `GOMEMLIMIT` — девять десятых памяти (R125 standalone);
     - атака без вызовов проваливается (R124 standalone);
-  - новые факты к Т-12: Cloud Run держит запрос и процессор, пока не вернулся обработчик, даже после ухода клиента (R255 standalone);
+  - новые факты к Т-12: Cloud Run держит запрос и процессор, пока не вернулся обработчик, когда клиент ушёл после ответа (R255 standalone); уход посреди проверки ещё не проверен (spec 20);
   - интеграционные тесты с контейнерами идут на раннере: в образе тулчейна нет docker-клиента.
 - **Черновик разбиения** — приложение в конце файла: задачи T13–T58, написанные до поворота R37–R43.
   - Устарели целиком и пишутся заново:
@@ -440,7 +438,7 @@
     - `ci-test` — с `-race`, покрытие в `coverage.out`;
     - переменные сборки и ldflags — как в образце, модуль `github.com/MathTrail/canvas-api`.
   - **`.golangci.yml`** — файл образца: формат v2, тот же набор линтеров и настроек, включая `forbidigo`, `gocognit`, `interfacebloat` и `hugeParam`. Поменять:
-    - depguard `domain-stays-pure` для `internal/domain/**`: без `net/http`, gin, Firebase, OpenFGA, genai, pgx, `database/sql` и Centrifugo;
+    - depguard `domain-stays-pure` для `internal/domain/**` и пакетов сценариев (`internal/check/**` и соседних, spec 18): без `net/http`, gin, Firebase, OpenFGA, genai, pgx, `database/sql` и Centrifugo;
     - вместо запрета pgx везде — pgx только в `internal/infra/postgres` и `cmd/migrate`;
     - `goimports.local-prefixes` — `github.com/MathTrail/canvas-api`;
     - убрать `run.build-tags: [analytics]` — это продукт образца;
@@ -664,7 +662,7 @@
   - **`infra/terraform/`:**
     - `versions.tf` — Terraform и провайдеры точных версий: `google` 8.3.0, как в образце; `google-beta` — только если без него не обойтись ресурсам Firebase; `.terraform.lock.hcl`;
     - `backend.hcl` и `prod.auto.tfvars` лежат в репозитории, без секретов и персональных данных (spec 15.2, R33 standalone);
-    - `apis.tf`. Spec 15.2 перечисляет API всего MVP; этот эпик включает из них только нужные ему — Cloud Run, Artifact Registry, IAM и WIF, Firebase, бюджеты. Остальные включат задачи эпика MVP, которым они нужны (правило 13): Secret Manager — с первым секретом, Agent Platform — вместе с выключением кеша входов Gemini на уровне проекта (privacy 5.2), reCAPTCHA Enterprise — с App Check;
+    - `apis.tf`. Spec 15.2 перечисляет API всего MVP; этот эпик включает из них только нужные ему — Cloud Run, Artifact Registry, IAM и WIF, Firebase, бюджеты и Monitoring для `alert.tf`. Остальные включат задачи эпика MVP, которым они нужны (правило 13): Secret Manager — с первым секретом, Agent Platform — вместе с выключением кеша входов Gemini на уровне проекта (privacy 5.2), reCAPTCHA Enterprise — с App Check;
     - `registry.tf` — Artifact Registry с автоочисткой;
     - `service_api.tf` — Cloud Run canvas-api:
       - пока один контейнер; сайдкар OpenFGA добавит эпик MVP;
@@ -722,7 +720,7 @@
   - **Доступ** — только WIF, без ключей сервисных аккаунтов. Выкладка идёт в группе concurrency `cd`, без отмены.
   - **Порядок шагов** — R31 с поправкой R45: релиз → инфраструктура → образ → сервис → Hosting → smoke. Миграции и Centrifugo встанут в него задачами эпика MVP.
   - **Повтор** упавшей выкладки — только «Re-run failed jobs» в прогоне релиза, как в образце.
-  - **Откат** — трафик на прошлую ревизию (`gcloud run services update-traffic --to-revisions=<ревизия>=100`), а не `terraform apply` (R29 standalone).
+  - **Откат** — трафик на прошлую ревизию (`gcloud run services update-traffic --to-revisions=<ревизия>=100`) и прошлый выпуск Hosting, а не `terraform apply` (R29 standalone; spec 15.5). Способ отката Hosting — по документации Firebase с датой обращения.
     - После такого закрепления новые ревизии не получают трафик, пока его не вернут на latest. Следующая выкладка делает это сама (`ci-deploy`), а поведение сверить с документацией Cloud Run с датой обращения.
     - Команды отката и возврата — в `docs/self-hosting.md`: на них опирается R32.
   - **Решает автор:** окружение `prod`, разрешённое только для `main`, и WIF по subject окружения. Тогда «только `main`» обеспечивает сама платформа. Задание `plan` на PR входит с другим subject, поэтому ему нужна своя привязка WIF к аккаунту Terraform — иначе план на PR перестанет входить.
@@ -733,7 +731,7 @@
   - страница SPA открывается на адресе Hosting;
   - коммит с красным CI не выпускается и не выкатывается; кнопка на другой ветке ничего не применяет и не выкатывает;
   - перезапуск CI старого коммита ничего не выкатывает;
-  - откат по записанной команде возвращает прошлую ревизию, и `/health` называет её релиз; возврат на latest работает.
+  - откат по записанным командам возвращает прошлую ревизию и прошлую SPA, и `/health` называет её релиз; возврат на latest работает.
 - **Разделы:** spec 15.5; R31, R32, R33, R34, R45; standalone: R29, R30, R32, R33, R154.
 
 #### T12. Первый деплой
