@@ -1,0 +1,22 @@
+Third-party licenses
+====================
+
+canvas-api itself is MIT; see LICENSE. Rewrite this file with: just licenses
+
+The Go modules below are linked into the programs this repository builds,
+and so are the standard library and the runtime of the Go release that
+builds them, listed as std. Each line is a license, what it covers, and the
+text of that license at the exact version that is built.
+
+BSD-3-Clause  std                                            https://github.com/golang/go/blob/go1.27.2/LICENSE
+
+The npm packages below are what the SPA is built from: every package its
+lockfile needs outside development, and every package one of those names
+as an optional companion, used or not. Firebase Hosting serves the SPA, so
+neither the server's binary nor its image carries any of them (R10). Each
+line is a license, the package at the exact version in
+web/package-lock.json, and the page of that version in the npm registry.
+
+MIT           react-dom@19.3.0                               https://www.npmjs.com/package/react-dom/v/19.3.0
+MIT           react@19.3.0                                   https://www.npmjs.com/package/react/v/19.3.0
+MIT           scheduler@0.28.0                               https://www.npmjs.com/package/scheduler/v/0.28.0

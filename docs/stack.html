@@ -266,7 +266,7 @@
       <li><b id="f-open">—</b>выбор ещё не сделан</li>
     </ul>
     <dl class="legend">
-      <div><dt><span class="chip chip--repo">в репозитории</span></dt><dd>Версия уже закреплена в репозитории — в <code>.devcontainer/</code> (Dockerfile, devcontainer.json) или в <code>go.mod</code>. Здесь — её снимок на дату внизу страницы.</dd></div>
+      <div><dt><span class="chip chip--repo">в репозитории</span></dt><dd>Версия уже закреплена в репозитории — в <code>.devcontainer/</code> (Dockerfile, devcontainer.json), в <code>go.mod</code>, в <code>web/package.json</code> с его lockfile или в <code>justfile</code>. Здесь — её снимок на дату внизу страницы.</dd></div>
       <div><dt><span class="chip chip--spec">по спеке</span></dt><dd>Выбор сделан в spec или decisions; версия — ориентир spec&nbsp;3, точно закрепит задача.</dd></div>
       <div><dt><span class="chip chip--sample">из образца</span></dt><dd>Переносится из mathtrail-standalone (R11); версия — как в образце.</dd></div>
       <div><dt><span class="chip chip--open">не решено</span></dt><dd>Открытый вопрос Т-… или спайк; в строке — рекомендация и где решается: задача эпика E1 или эпик MVP (E2).</dd></div>
@@ -412,8 +412,8 @@
   </section>
 
   <footer>
-    <p>Это сводка, а не источник: где она расходится со spec, журналом решений или RUN.md, правы они. Статусы — на 2026-10-12: сделаны T00–T04, T59 и T60, документы пересмотрены под поворот LLM-first (R37–R45).</p>
-    <p>Источники: docs/spec.md (разделы 2, 3, 12–20), docs/decisions.md (R01–R46), RUN.md (задачи эпика E1 и таблица 2), .devcontainer/Dockerfile и devcontainer.json; версии образца — reference/mathtrail-standalone.</p>
+    <p>Это сводка, а не источник: где она расходится со spec, журналом решений или RUN.md, правы они. Статусы — на 2026-10-12: сделаны T00–T05, T59 и T60, документы пересмотрены под поворот LLM-first (R37–R45).</p>
+    <p>Источники: docs/spec.md (разделы 2, 3, 12–20), docs/decisions.md (R01–R48), RUN.md (задачи эпика E1 и таблица 2), .devcontainer/Dockerfile и devcontainer.json, web/package.json и justfile; версии образца — reference/mathtrail-standalone.</p>
     <p>Цены и лимиты сервисов — из spec 3.3 на 2026-09-27, цены Gemini — на 2026-10-11; перед живым запуском их сверяют заново.</p>
   </footer>
 </div>
@@ -429,9 +429,10 @@
 
   var LAYERS = [
     { id: "spa", name: "Клиент (SPA)", path: "web/ · Firebase Hosting", note: "пишет, как в тетради", rows: [
-      { n: "TypeScript", v: "7.0.x", r: "Типы контрактов и холста; только проверка типов — собирает Vite", s: "spec", ref: "spec 3.1 · T05" },
-      { n: "React", v: "19.3.x", r: "Экраны родителя и детского режима", s: "spec", ref: "spec 3.1 · T05" },
-      { n: "Vite", v: "8.3.x", r: "Dev-сервер на :5173 и сборка SPA в web/dist", s: "spec", ref: "spec 3.1 · T05" },
+      { n: "TypeScript", v: "7.0.2", r: "Типы контрактов и холста; только проверка типов, в двух программах — браузер и Node; собирает Vite", s: "repo", ref: "spec 3.1 · R47 · T05" },
+      { n: "React", p: "react · react-dom", v: "19.3.0", r: "Экраны родителя и детского режима", s: "repo", ref: "spec 3.1 · T05" },
+      { n: "Vite", v: "8.3.4", r: "Dev-сервер на 127.0.0.1:5173 и сборка SPA в web/dist", s: "repo", ref: "spec 3.1 · T05" },
+      { n: "@vitejs/plugin-react", v: "6.1.2", r: "JSX и Fast Refresh в dev-сервере: правка компонента без перезагрузки страницы; без Babel", s: "repo", ref: "R47 · T05" },
       { n: "Konva + react-konva", p: "konva · react-konva", v: "10.7.x / 19.3.x", r: "Лист: слои записи и подсказок; поле ответа — своя сцена", s: "spec", ref: "spec 3.1 · E2" },
       { n: "Pointer Events", p: "API браузера", v: "", r: "Перо или палец по pointerType, нажим — только для толщины на экране; касание шире 30 px — ладонь", s: "spec", ref: "spec 3.1 · E2" },
       { n: "protobuf-es", p: "@bufbuild/protobuf · protoc-gen-es", v: "2.15.x", r: "Сообщения API из proto/ в web/src/gen/", s: "spec", ref: "R12 · E2" },
@@ -439,8 +440,8 @@
       { n: "Firebase JS SDK", p: "firebase/auth · firebase/app-check", v: "12.19.x", r: "Вход через Google и Apple; токен App Check с автообновлением", s: "spec", ref: "spec 12.1 · E2" },
       { n: "IndexedDB", p: "API браузера · storage.persist()", v: "", r: "Черновик и поле ответа живут на устройстве; стираются по правилам R42", s: "spec", ref: "spec 4.2 · R42 · E2" },
       { n: "Картинки проверки", p: "<canvas> вне экрана · toBlob", v: "", r: "PNG поля ответа и черновика по Check; линии постоянной толщины, без нажима", s: "spec", ref: "spec 4.3 · E2" },
-      { n: "Biome", p: "@biomejs/biome", v: "2.5.14", r: "Формат и линт TypeScript (biome.json)", s: "sample", ref: "R84 standalone · T05" },
-      { n: "Vitest + happy-dom", v: "5.0.2 / 20.14.5", r: "Unit-тесты компонентов, пересчёта координат, привязки рамки и картинок проверки", s: "sample", ref: "T05" }
+      { n: "Biome", p: "@biomejs/biome", v: "2.5.15", r: "Формат и линт TypeScript (biome.json); правила домена React включаются сами", s: "repo", ref: "R84 standalone · T05" },
+      { n: "Vitest + happy-dom", p: "+ @vitest/coverage-v8", v: "5.0.3 / 20.14.6", r: "Unit-тесты компонентов, пересчёта координат, привязки рамки и картинок проверки; покрытие в web/coverage/lcov.info", s: "repo", ref: "T05" }
     ]},
     { id: "contract", name: "Контракт API", path: "proto/canvasapi/v1/ · gen/", note: "один источник правды", rows: [
       { n: "Protocol Buffers", p: "пакет canvasapi.v1", v: "", r: "Единый контракт клиента и сервера; тело — application/x-protobuf", s: "spec", ref: "R12 · spec 8" },
@@ -533,7 +534,7 @@
       { n: "golangci-lint", v: "2.14.0", r: "Конфиг v2: depguard, forbidigo, gocognit, interfacebloat", s: "repo", ref: "T04" },
       { n: "gofmt -s · goimports", v: "", r: "Формат Go; pre-commit в .githooks", s: "repo", ref: "T04" },
       { n: "mockery", v: "3.8.0", r: "Моки только там, где нужны сеть или часы; CI сверяет, что они актуальны", s: "repo", ref: "T04" },
-      { n: "govulncheck · npm audit", v: "", r: "Уязвимости в зависимостях Go и npm", s: "sample", ref: "T05" },
+      { n: "govulncheck · npm audit", v: "govulncheck v1.8.0", r: "Уязвимости: код Go, который сервис достигает; пакеты, из которых собрана SPA, — high и выше", s: "repo", ref: "R48 · T05" },
       { n: "gitleaks", v: "", r: "Секреты по всей истории репозитория", s: "sample", ref: "T06" },
       { n: "Trivy", v: "HIGH, CRITICAL", r: "Скан образа сервиса; блокирует мерж", s: "sample", ref: "T06" },
       { n: "CodeQL", v: "security-extended", r: "Статический анализ Go и TypeScript; блокирует мерж", s: "sample", ref: "T07" },
@@ -541,7 +542,7 @@
       { n: "Codecov", v: "патч ≥ 90 %", r: "Покрытие Go и web; патч блокирует мерж", s: "sample", ref: "T07" },
       { n: "OpenSSF Scorecard", v: "", r: "Оценка цепочки поставок; только сообщает", s: "sample", ref: "T07" },
       { n: "Dependabot", v: "раз в неделю", r: "gomod, npm, actions, docker — версии остаются точными", s: "sample", ref: "T06" },
-      { n: "Проверка лицензий", p: "THIRD_PARTY_LICENSES", v: "", r: "Только MIT-совместимые зависимости; CI сверяет список с графом", s: "sample", ref: "T05 · T06" }
+      { n: "Проверка лицензий", p: "go-licenses · web/scripts/licenses.ts · THIRD_PARTY_LICENSES", v: "go-licenses v2.0.1", r: "Только MIT-совместимые зависимости, весь lockfile npm; исключение — lightningcss; список сверяется с графом", s: "repo", ref: "R48 · T05 · T06" }
     ]},
     { id: "tests", name: "Тесты", path: "*_test.go · testdata/ · tools/load/", note: "ложная тревога хуже молчания", rows: [
       { n: "testing", p: "stdlib", v: "Go 1.27.2", r: "Таблицы, t.Parallel, сообщения «got …, want …»; всегда -race", s: "repo", ref: "CLAUDE.md" },
