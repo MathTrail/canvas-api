@@ -1,0 +1,168 @@
+# Verify after editing: golangci-lint config verify
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: standard # errcheck, govet, ineffassign, staticcheck, unused
+  enable:
+    - bodyclose # a response body left open is a leaked connection
+    - depguard # the dependency rule, enforced rather than remembered
+    - dupl
+    - errorlint # %w and errors.Is/As instead of == and %v
+    - forbidigo # the two zap fields that would put a whole struct in a log line
+    - gocognit # the same ceiling Sonar holds, checked before a merge rather than after
+    - gocritic
+    - gosec
+    - interfacebloat # a wide interface is a type doing several jobs
+    - misspell
+    - nakedret
+    - noctx # every request that blocks carries a context
+    - nolintlint # a //nolint without a reason is a silent exception
+    - revive
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - wastedassign
+    - whitespace
+
+  settings:
+    depguard:
+      rules:
+        # The domain and the use cases may not import the libraries that reach
+        # the outside world (CLAUDE.md, "The dependency rule"): HTTP and its
+        # routers, the clients of Firebase, OpenFGA, Gemini, Postgres,
+        # Centrifugo and Google. The domain is pure computation, and a use case
+        # reaches out only through the ports it declares, which is what lets
+        # both be tested with tables, properties and fakes. The use cases are
+        # check and the packages the MVP epic puts beside it (spec 18), so the
+        # rule holds for every package under internal/ but those whose job is
+        # the outside world: the adapters, the transport, the wiring and the
+        # telemetry's export. A new package of that kind joins the list below
+        # by name.
+        domain-stays-pure:
+          files:
+            - "**/internal/**"
+            - "!**/internal/app/**"
+            - "!**/internal/infra/**"
+            - "!**/internal/telemetry/**"
+            - "!**/internal/transport/**"
+          deny:
+            - pkg: net/http
+              desc: the domain and the use cases do no I/O; move it to internal/infra or internal/transport
+            - pkg: github.com/gin-gonic/gin
+              desc: HTTP handlers live in internal/transport/http
+            - pkg: github.com/go-chi/chi
+              desc: HTTP handlers live in internal/transport/http
+            - pkg: firebase.google.com/go
+              desc: Firebase belongs in internal/infra/firebase
+            - pkg: github.com/openfga/go-sdk
+              desc: OpenFGA belongs in internal/infra/openfga, behind the Authorizer port
+            - pkg: google.golang.org/genai
+              desc: Gemini belongs in internal/infra/gemini, behind the Recognizer and Tutor ports
+            - pkg: github.com/jackc/pgx
+              desc: Postgres belongs in internal/infra/postgres, behind the use case's store ports
+            - pkg: database/sql
+              desc: Postgres belongs in internal/infra/postgres, behind the use case's store ports
+            - pkg: github.com/centrifugal
+              desc: Centrifugo belongs in internal/infra/centrifugo, behind the Notifier port
+            - pkg: google.golang.org/api
+              desc: Google's clients belong in internal/infra
+            - pkg: cloud.google.com/go
+              desc: Google's clients belong in internal/infra
+        # pgx is the driver of one adapter and of the migrations, and of
+        # nothing else: everywhere else the database is a port (spec 18).
+        pgx-stays-in-postgres:
+          files:
+            - "$all"
+            - "!**/internal/infra/postgres/**"
+            - "!**/cmd/migrate/**"
+          deny:
+            - pkg: github.com/jackc/pgx
+              desc: pgx is imported by internal/infra/postgres and cmd/migrate alone
+
+    errcheck:
+      check-type-assertions: true
+
+    forbidigo:
+      forbid:
+        # A log line is built field by field on purpose. These two take anything
+        # at all and render it, which is how a check image, a read answer or a
+        # hint reaches a log that may hold none of them.
+        - pattern: ^zap\.Any$
+          msg: name the field and its type; a log line carries IDs, codes and timings, never a child's data
+        - pattern: ^zap\.Reflect$
+          msg: name the field and its type; a log line carries IDs, codes and timings, never a child's data
+
+    gocognit:
+      # A function past this is doing more than one thing, and the next reader
+      # pays for it. The number matches what the static analysis asks for.
+      min-complexity: 15
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - opinionated
+        - performance
+        - style
+      disabled-checks:
+        - whyNoLint # nolintlint covers it, with better messages
+      settings:
+        hugeParam:
+          # The check's own default. The sample moves it to 88 for a value of
+          # its product that weighs exactly 80 bytes (R47 standalone); nothing
+          # here carries that reason.
+          sizeThreshold: 80
+
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment # readability of a struct beats a few bytes of padding
+
+    interfacebloat:
+      # Past five methods an interface usually describes a type that does
+      # several jobs, and the fix is to split it rather than to raise this.
+      max: 5
+
+    revive:
+      rules:
+        - name: exported # every exported identifier has a doc comment starting with its name
+        - name: package-comments
+        - name: context-as-argument
+        - name: error-strings
+        - name: error-return
+        - name: indent-error-flow
+        - name: var-naming
+        - name: unreachable-code
+        - name: redefines-builtin-id
+
+    dupl:
+      threshold: 150
+
+  exclusions:
+    # No comments preset, unlike the sample: it hides what revive's exported
+    # and package-comments report, and those are how CLAUDE.md's rule of a doc
+    # comment on every package and every exported identifier is enforced.
+    presets:
+      - std-error-handling
+    rules:
+      # Tests may repeat themselves and may hard-code what they are testing;
+      # a table-driven test that lints clean is not the goal.
+      - path: _test\.go$
+        linters:
+          - dupl
+          - gosec
+          - unparam
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes:
+        - github.com/MathTrail/canvas-api

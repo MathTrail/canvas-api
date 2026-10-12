@@ -412,7 +412,7 @@
   </section>
 
   <footer>
-    <p>Это сводка, а не источник: где она расходится со spec, журналом решений или RUN.md, правы они. Статусы — на 2026-10-12: сделаны T00–T03, T59 и T60, документы пересмотрены под поворот LLM-first (R37–R45).</p>
+    <p>Это сводка, а не источник: где она расходится со spec, журналом решений или RUN.md, правы они. Статусы — на 2026-10-12: сделаны T00–T04, T59 и T60, документы пересмотрены под поворот LLM-first (R37–R45).</p>
     <p>Источники: docs/spec.md (разделы 2, 3, 12–20), docs/decisions.md (R01–R46), RUN.md (задачи эпика E1 и таблица 2), .devcontainer/Dockerfile и devcontainer.json; версии образца — reference/mathtrail-standalone.</p>
     <p>Цены и лимиты сервисов — из spec 3.3 на 2026-09-27, цены Gemini — на 2026-10-11; перед живым запуском их сверяют заново.</p>
   </footer>
@@ -456,7 +456,7 @@
       { n: "otelgin", p: "go.opentelemetry.io/contrib/…/otelgin", v: "v0.71.0", r: "Спан на входящий запрос, если роутер — gin; /health не трассируется, IP и user agent затираются", s: "open", q: "Т-1", ref: "E2" }
     ]},
     { id: "domain", name: "Домен и сценарии", path: "internal/domain/ · internal/check/", note: "домен без I/O — тестируется таблицами", rows: [
-      { n: "Чистая логика", p: "depguard domain-stays-pure", v: "Go 1.27.2", r: "Ни net/http, ни SDK, ни pgx: линтер не пропустит такой импорт", s: "spec", ref: "CLAUDE.md · T04" },
+      { n: "Чистая логика", p: "depguard domain-stays-pure", v: "Go 1.27.2", r: "Ни net/http, ни SDK, ни pgx: линтер не пропустит такой импорт", s: "repo", ref: "CLAUDE.md · T04" },
       { n: "math/big", p: "big.Rat", v: "stdlib", r: "Точное сравнение числового ответа с ключом — после белого списка формы", s: "spec", ref: "spec 5.2, 5.3 · E2" },
       { n: "image · image/draw · image/png", p: "stdlib", v: "", r: "Проверка картинок и перекодирование в grayscale: метаданные файла отбрасываются", s: "spec", ref: "spec 4.3 · E2" },
       { n: "canvas", p: "internal/domain/canvas", v: "", r: "Лист и координаты, картинки проверки, перевод рамки в единицы листа", s: "spec", ref: "spec 4 · E2" },
@@ -470,7 +470,7 @@
       { n: "viper", p: "github.com/spf13/viper", v: "v1.21.0", r: "Только переменные окружения CANVAS_*; Validate() называет переменную", s: "sample", ref: "spec 15.4 · E2" },
       { n: "errgroup + signal.NotifyContext", p: "golang.org/x/sync", v: "v0.23.0", r: "Жизненный цикл main; остановка через context.WithoutCancel с тайм-аутом", s: "sample", ref: "E2" },
       { n: "Ручной контейнер", p: "app.NewContainer", v: "", r: "Сборка зависимостей без DI-фреймворка; закрытие в обратном порядке", s: "sample", ref: "R11 · E2" },
-      { n: "version + ldflags", p: "internal/version", v: "", r: "Version, Commit, Date через -ldflags -X; коммит виден в /health", s: "spec", ref: "T04" }
+      { n: "version + ldflags", p: "internal/version", v: "", r: "Version, Commit, Date через -ldflags -X; коммит виден в /health", s: "repo", ref: "T04" }
     ]},
     { id: "infra", name: "Адаптеры", path: "internal/infra/", note: "реализуют порты сценариев", rows: [
       { n: "Firebase Admin SDK", p: "firebase.google.com/go/v4", v: "v4.22.0", r: "ID token с отзывом и без, App Check, RevokeRefreshTokens, DeleteUser", s: "spec", ref: "R14 · E2" },
@@ -519,7 +519,7 @@
       { n: "Workload Identity Federation", v: "", r: "CI входит в GCP без ключей сервисных аккаунтов", s: "spec", ref: "spec 15.5 · T10" },
       { n: "gcloud CLI", p: "на x86_64; на arm64 — из образа Google", v: "585.0.0", r: "jobs update и execute, services update в CD", s: "repo", ref: "spec 15.5 · T11" },
       { n: "firebase-tools", v: "закрепит T11", r: "firebase deploy --only hosting", s: "spec", ref: "T11" },
-      { n: "Образ сервиса", p: "golang → gcr.io/distroless/static-debian13", v: "по digest", r: "Многоэтапная сборка: CGO_ENABLED=0, -trimpath, пользователь nonroot", s: "sample", ref: "T04" },
+      { n: "Образ сервиса", p: "golang → gcr.io/distroless/static-debian13", v: "по digest", r: "Многоэтапная сборка: CGO_ENABLED=0, -trimpath, пользователь nonroot", s: "repo", ref: "T04" },
       { n: "cosign + gh release", p: "подпись без ключей, OIDC", v: "v3.1.3", r: "Подписанный релиз vX.Y.Z на каждом зелёном main: бинарники, SPA, SHA256SUMS; выкладка идёт из его тега", s: "sample", ref: "R40 standalone, R45 · T08" },
       { n: "Бюджет GCP", p: "budget.tf", v: "50 / 90 / 100 %", r: "Оповещения о тратах проекта", s: "spec", ref: "spec 14.4 · T10" }
     ]},
@@ -531,7 +531,7 @@
     ]},
     { id: "quality", name: "Качество кода", path: "CI · .githooks/", note: "блокируют: патч Codecov, CodeQL, Trivy", rows: [
       { n: "golangci-lint", v: "2.14.0", r: "Конфиг v2: depguard, forbidigo, gocognit, interfacebloat", s: "repo", ref: "T04" },
-      { n: "gofmt -s · goimports", v: "", r: "Формат Go; pre-commit в .githooks", s: "sample", ref: "T04" },
+      { n: "gofmt -s · goimports", v: "", r: "Формат Go; pre-commit в .githooks", s: "repo", ref: "T04" },
       { n: "mockery", v: "3.8.0", r: "Моки только там, где нужны сеть или часы; CI сверяет, что они актуальны", s: "repo", ref: "T04" },
       { n: "govulncheck · npm audit", v: "", r: "Уязвимости в зависимостях Go и npm", s: "sample", ref: "T05" },
       { n: "gitleaks", v: "", r: "Секреты по всей истории репозитория", s: "sample", ref: "T06" },

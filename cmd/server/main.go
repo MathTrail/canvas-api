@@ -4,13 +4,17 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/MathTrail/canvas-api/internal/version"
 )
 
 // defaultPort is served when PORT is unset. Cloud Run always sets PORT, so
@@ -34,7 +38,7 @@ const shutdownTimeout = 9 * time.Second
 
 func main() {
 	ctx, stop := signalled()
-	err := run(ctx, listenAddr())
+	err := run(ctx, listenAddr(), os.Stdout)
 	stop()
 
 	if err != nil {
@@ -62,16 +66,48 @@ func listenAddr() string {
 	return net.JoinHostPort("", port)
 }
 
-// run serves the service on addr until ctx ends. It takes the port before it
-// serves, so a port that is already in use is reported as the failure it is,
-// even when a stop arrives at the same moment.
-func run(ctx context.Context, addr string) error {
+// run serves the service on addr until ctx ends, and says on log which build
+// it is once the port is its own. It takes the port before it serves, so a
+// port that is already in use is reported as the failure it is, even when a
+// stop arrives at the same moment.
+func run(ctx context.Context, addr string, log io.Writer) error {
 	var lc net.ListenConfig
 	listener, err := lc.Listen(ctx, "tcp", addr)
 	if err != nil {
 		return fmt.Errorf("listen: %w", err)
 	}
+	announce(log, listener.Addr())
 	return serve(ctx, newServer(), listener)
+}
+
+// startup is the one line the service logs until the MVP epic brings its
+// logger: which build is starting, and where it listens. Its first keys are
+// the ones Cloud Logging reads a structured entry by and the logger will write
+// (CLAUDE.md, "Logging"), so that a deployment's log names the release and the
+// commit it runs.
+type startup struct {
+	Severity string `json:"severity"`
+	Message  string `json:"message"`
+	Time     string `json:"time"`
+	Version  string `json:"version"`
+	Commit   string `json:"commit"`
+	Date     string `json:"date"`
+	Address  string `json:"address"`
+}
+
+// announce writes the startup line for a server that listens on addr. A line
+// that cannot be written is no reason to stop serving: the platform logs every
+// request, and the probe names the build all the same.
+func announce(log io.Writer, addr net.Addr) {
+	_ = json.NewEncoder(log).Encode(startup{
+		Severity: "INFO",
+		Message:  "startup",
+		Time:     time.Now().UTC().Format(time.RFC3339Nano),
+		Version:  version.Version,
+		Commit:   version.Commit,
+		Date:     version.Date,
+		Address:  addr.String(),
+	})
 }
 
 // newServer is the service's HTTP server: its routes, and every timeout set.
@@ -118,9 +154,28 @@ func routes() http.Handler {
 	return mux
 }
 
-// health says the process is up and serving. It checks nothing else on
-// purpose: a probe that reached for a dependency would turn that dependency's
-// outage into restarts of this service.
+// healthBody is what the probe answers. It is a type rather than a map so that
+// the shape of the answer is stated once, and a mistyped key is a compile
+// error rather than a field nobody notices is missing.
+type healthBody struct {
+	Status  string `json:"status"`
+	Version string `json:"version"`
+	Commit  string `json:"commit"`
+}
+
+// health says the process is up and serving, and which build it is: the
+// delivery reads the commit here to know that the revision it rolled out is
+// the one that answers (T11), so no cache on the way may answer for it. It
+// checks nothing else on purpose: a probe that reached for a dependency would
+// turn that dependency's outage into restarts of this service.
 func health(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Type", "application/json")
+	// A body that cannot be written means the caller has gone, and nobody is
+	// left to tell.
+	_ = json.NewEncoder(w).Encode(healthBody{
+		Status:  "ok",
+		Version: version.Version,
+		Commit:  version.Commit,
+	})
 }

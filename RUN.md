@@ -31,7 +31,7 @@
 5. Gemini, Google Cloud, Firebase и Apple Developer стоят денег. Живые прогоны, спайки и действия в облаке — только после предупреждения с ожидаемой стоимостью и моего подтверждения.
 6. Код SDK, протоколов и API не писать по памяти: сначала свериться с документацией закреплённой версии (Firebase Admin SDK, OpenFGA go-sdk, `google.golang.org/genai`, Centrifugo v6, pgx, goose, buf, Konva, centrifuge-js, Firebase JS SDK, провайдеры Terraform). Ссылка на документацию идёт с датой обращения — в отчёте и в решении или документе, которые на неё опираются. Если документация расходится с закреплённой версией, эталон — сама библиотека (R06 standalone).
 7. **Задача с кодом заканчивается зелёными проверками** — теми рецептами, которые уже есть и касаются её правок:
-   - `just ci-lint` и `just ci-test` — всегда (с T04);
+   - `just ci-lint`, `just ci-test` и `just ci-mocks-check` — всегда (с T04);
    - `just ci-web` — если задача трогает `web/` (с T05);
    - `just load-lint` и `just load-test` — всегда; `just ci-load-smoke` — если задача трогает код сервера; `just ci-proto` — если трогает `proto/`; `just ci-integration` — если трогает хранилище, права, миграции или путь запроса. Эти рецепты приносят задачи эпика MVP (E2).
 
@@ -126,7 +126,7 @@
 | [x] | T03 | Devcontainer | Claude | да | T02 |
 | [x] | T59 | Правила: сверка с образцом 2026-10-11 | Claude, проверяю я | — | T03 |
 | [x] | T60 | Devcontainer: версии и наши отличия от образца | Claude | — | T03 |
-| [ ] | T04 | Проверки Go и образ сервиса | Claude | — | T59, T60 |
+| [x] | T04 | Проверки Go и образ сервиса | Claude | — | T59, T60 |
 | [ ] | T05 | Web-тулчейн | Claude | да | T04 |
 | [ ] | T06 | CI | Claude | — | T04, T05 |
 | [ ] | T07 | Анализ кода и витрина качества | я + Claude | — | T06 |
@@ -518,6 +518,68 @@
   - `just docker-build && just docker-run` → `curl localhost:8080/health` показывает коммит;
   - pre-commit останавливает `git commit` с неотформатированным файлом.
 - **Не делать:** config, logger и gin — каркас эпика MVP; web — T05; CI — T06.
+- **Сделано (2026-10-12):**
+  - `justfile`: тринадцать рецептов Go-части, переменные сборки и ldflags — как в образце, с модулем `github.com/MathTrail/canvas-api`. `build` и `release-artifacts` не собирают виджет: SPA в бинарник не входит (R10). `docker-run` — без ключа печати образца;
+  - `.golangci.yml` — файл образца с правками задачи и ревью:
+    - `domain-stays-pure` держит весь `internal/`, кроме `app`, `infra`, `telemetry` и `transport`. Так под правило попадают и `check`, и соседние сценарии, которых ещё нет (spec 18);
+    - запрещены `net/http`, gin и chi, Firebase, OpenFGA, genai, pgx, `database/sql` и Centrifugo;
+    - `pgx-stays-in-postgres` пускает pgx только в `internal/infra/postgres` и `cmd/migrate`;
+    - `goimports.local-prefixes` — `github.com/MathTrail/canvas-api`, `run.build-tags` убран, у `hugeParam` умолчание 80 с объяснением;
+  - `.mockery.yaml` с `packages: {}`, `.githooks/pre-commit` и `.vscode/launch.json` с двумя конфигурациями — как в образце, с поправками ревью (ниже);
+  - `internal/version` и два теста образца; `cmd/server`:
+    - `/health` отвечает `{"status","version","commit"}` с `Cache-Control: no-store`;
+    - при старте пишет одну JSON-строку с ключами, по которым Cloud Logging читает запись: `severity`, `message: startup`, версия, коммит, дата и адрес. Логгер — каркас эпика MVP, поэтому строку пишет `encoding/json`;
+  - `Dockerfile` сервиса: `golang:1.27.2-trixie` по digest образца, `CGO_ENABLED=0`, `-trimpath`, ldflags с версией; запуск — `gcr.io/distroless/static-debian13` по digest, `USER nonroot:nonroot`. `COPY go.* ./` вместо `go.mod go.sum`: зависимостей нет, и `go.sum` тоже;
+  - `.gitignore` по образцу, с исключениями `prod.auto.tfvars` и `backend.hcl`; `.dockerignore` — явный список задачи;
+  - `CLAUDE.md`, Environment: рецепты на каждый день и обязательные `ci-lint`, `ci-test`, `ci-mocks-check`; «Git hooks», «The runtime image», «Build context»;
+  - сверх текста задачи, на проверку:
+    - `fmt`, `fmt-check` и хук форматируют только файлы самого репозитория. `gofmt -s -w .` образца зашёл бы в `reference/`, а копию править нельзя. Сегодня все 611 Go-файлов копии отформатированы, но новый gofmt или обновлённый снимок могут это изменить;
+    - правило `domain-stays-pure` задано от обратного, чтобы не перечислять сценарии, которых ещё нет. Под ним оказываются и `config`, `logger`, `version`, `apierror`: таких импортов им тоже не нужно. Новый пакет ввода-вывода вписывается в исключения по имени;
+    - chi запрещён рядом с gin: роутер ещё не выбран (Т-1);
+    - `.claude/settings.local.json` в `.gitignore` — по предложению из «Открыто» T59;
+    - `ci-mocks-check` добавлен в обязательные и в правило 7, и в CLAUDE.md (How we work), чтобы три места называли один список;
+    - в `docs/stack.html` статус «в репозитории» получили depguard, `internal/version`, образ сервиса и gofmt; в подвале — T00–T04;
+    - Dockerfile и CLAUDE.md объясняют, почему образ запуска закреплён только digest: у distroless нет тегов с версией. Исключение вписано и в Hard rules;
+  - проверки — в образе стадии `toolchain` того же Dockerfile (Go 1.27.2, golangci-lint 2.14.0): контейнер ещё на Go 1.27.1.
+    - `golangci-lint config verify`, `just ci-lint` — 0 замечаний, `just ci-test` — покрытие `cmd/server` 81,1 %, `just ci-mocks-check`.
+    - depguard в копии дерева: отклонил `net/http` в домене, в `check`, в соседнем сценарии и в `version`, `database/sql` в `check`, pgx в домене и в `infra/gemini`; пропустил `net/http` в `infra`, `transport`, `app`, `telemetry` и pgx в `infra/postgres` и `cmd/migrate`.
+    - `just docker-build && just docker-run`: `curl localhost:8080/health` → `{"status":"ok","version":"dea01ca-dirty","commit":"dea01ca"}` с `no-store`, строка старта называет версию и коммит, образ — 16,2 МБ.
+    - Хук в одноразовом репозитории:
+      - останавливает `git commit` с неотформатированным файлом;
+      - пропускает коммит, когда неопрятный файл лежит только в `reference/`;
+      - останавливает коммит, где поменялся только justfile, если тот ломает путь ldflags (хук образца такой коммит пропускает);
+      - без Go предупреждает и пропускает проверки;
+      - `just fmt` файл в `reference/` не тронул.
+    - 14 поломок новых проверок в копиях дерева — четыре по `/health`, шесть по строке старта, четыре по `internal/version`: все пойманы. Fuzz нет: внешний ввод здесь никто не разбирает.
+  - ревью `/code-review high`, первый круг: 9 замечаний.
+    - Исправлено, и всё это — тоже отличия от образца:
+      - пресет `comments` глушил `exported` и `package-comments` у revive, то есть правило doc-комментариев из CLAUDE.md не проверялось. В копии с пресетом — 0 замечаний, без него — 3; наш код чист и без пресета. Пресет убран;
+      - `template: mockery` и `with-expecter` mockery v3.8.0 отвергает: шаблона с таким именем нет, а у testify нет такой опции. Теперь `template: testify`, и mock с `EXPECT()` получается — проверено на Go 1.27.1;
+      - условие хука `**/*.go` без `globstar` видит только один уровень, поэтому у нас хук пропускал все коммиты без `.go`. Условие переписано под нашу раскладку;
+      - в `domain-stays-pure` добавлены `google.golang.org/api` и `cloud.google.com/go`: в образце первый тоже запрещён;
+      - локальный `go.work` попадал в сборку образа — `.dockerignore` его исключает. Ещё он теперь исключает каждый `testdata/`, `web/`, `.claude/`, `.githooks/`, а комментарий говорит правду.
+    - Отброшено:
+      - хук смотрит рабочее дерево, а не индекс — так устроен хук образца: дешёвая первая проверка, а то, что закоммичено, проверяет CI;
+      - `just test` и хук без `-race` — так в образце: детектор гонок — дело `ci-test` (CLAUDE.md, Environment), а R207 standalone опирается на прогон без него;
+      - нет кеша сборки в образе, и `DATE` сбрасывает слой — кеш через `--mount` отвергнут (R36 standalone), а сборка с датой пересобирается по замыслу.
+  - второй круг: 10 замечаний.
+    - Исправлено:
+      - хук прятал, какой тест упал: теперь при провале показывает вывод `go test`;
+      - в строке старта не было ключа `time`, который CLAUDE.md (Logging) называет рядом с `severity` и `message`. Добавлен, тест проверяет момент;
+      - правило «тег плюс digest» в Hard rules не знало исключения для distroless — исключение вписано;
+      - тест строки старта ждал только строку, и ранний выход `run()` выглядел как тайм-аут на 5 с. Теперь тест сразу называет ошибку;
+      - `.dockerignore` пропускал `*.out`, `*.test`, `*.prof` и `.scannerwork` — добавлены;
+      - `find` заходил в `node_modules` и `.terraform` — теперь не заходит, а хук и justfile ссылаются друг на друга, чтобы список не разошёлся;
+      - комментарий к `domain-stays-pure` обещал больше, чем правило проверяет. Теперь он называет ровно то, что запрещено;
+      - `.gitignore` по образцу потерял строки шаблона GitHub (`*.so`, `*.dylib`, `*.dll`, `*.exe~`, `*.coverprofile`, `profile.cov`) — возвращены.
+    - Отброшено:
+      - хук блокирует коммит, когда Go старше `go.mod`: причину называет сам `go build`. На хосте Go нет, а хук включится тем стартом контейнера, который принесёт Go 1.27.2;
+      - `**/internal/**` совпадёт со всем деревом, если клон лежит в каталоге `internal`: depguard сверяет абсолютные пути и не умеет привязываться к корню модуля. Такой клон маловероятен, а провал был бы громким.
+- **Открыто:**
+  - Rebuild Container — шаг автора (T60). До него в контейнере не работают команды Go, а хук `post-start` включит только при следующем старте контейнера;
+  - mockery 3.8.0 не загружает пакеты на тулчейне Go 1.27.2: «export data version 5 is greater than maximum supported version 4». Так и с `go 1.27.1` в модуле, и с пустым кешем, а на Go 1.27.1 всё работает. Внутри mockery — golang.org/x/tools v0.49.0. Пока `packages: {}`, рецепты моков ничего не делают, но к первому моку (эпик MVP) mockery придётся поднять. В образце те же версии;
+  - отличия проверок от образца — пресет `comments`, шаблон testify, условие хука, отказ `gofmt` от `reference/`, правило depguard от обратного — объяснены в комментариях файлов, но не в журнале решений. Предлагаю записать их решением, как R46 для devcontainer: иначе следующая сверка может их откатить;
+  - SonarQube for IDE отмечает `docker:S8431` и на `FROM` сборщика в `Dockerfile` сервиса — отвечать вместе с находкой из T60, когда T07 подключит SonarCloud.
 - **Разделы:** spec 3.2, 18; R30; standalone: R05, R20, R35, R43, R47.
 
 #### T05. Web-тулчейн
