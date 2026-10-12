@@ -144,7 +144,7 @@ flowchart LR
 
 | Назначение | Выбор | Версия | Комментарий |
 |---|---|---|---|
-| Язык | Go | 1.27.1 | как в mathtrail-standalone |
+| Язык | Go | 1.27.2 | как в mathtrail-standalone |
 | HTTP-роутер | gin или chi | gin v1.12.0 / chi v5.3.2 | Т-1: в каркасе standalone gin (R11), в черновике chi |
 | Protobuf | `google.golang.org/protobuf` + buf | v1.36.12 | контракты в `proto/` (R12) |
 | Firebase | `firebase.google.com/go/v4` | v4.22.0 | `auth.VerifyIDToken`, `VerifyIDTokenAndCheckRevoked`, `appcheck.VerifyToken`, `RevokeRefreshTokens`, `DeleteUser` (R14) |
