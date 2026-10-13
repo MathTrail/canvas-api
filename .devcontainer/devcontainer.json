@@ -64,9 +64,11 @@
                 "bierner.markdown-mermaid@1.32.1",
                 "eamodio.gitlens@19.2.0",
                 "ms-azuretools.vscode-containers@2.5.1",
-                // Sonar's analysis inside the editor. Its Linux x86-64 package brings its own
-                // Java runtime. There is no such package for arm64 and the image installs no
-                // Java: there it asks to download one, and analyses nothing if that is declined.
+                // Sonar's analysis inside the editor. .sonarlint/connectedMode.json offers to
+                // bind it to the SonarCloud project, for the project's rules; the token stays
+                // with each developer. Its Linux x86-64 package brings its own Java runtime.
+                // There is no such package for arm64 and the image installs no Java: there it
+                // asks to download one, and analyses nothing if that is declined.
                 "SonarSource.sonarlint-vscode@5.10.0"
             ]
         }
