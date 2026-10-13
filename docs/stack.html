@@ -412,8 +412,8 @@
   </section>
 
   <footer>
-    <p>Это сводка, а не источник: где она расходится со spec, журналом решений или RUN.md, правы они. Статусы — на 2026-10-13: сделаны T00–T06, T59 и T60, документы пересмотрены под поворот LLM-first (R37–R45).</p>
-    <p>Источники: docs/spec.md (разделы 2, 3, 12–20), docs/decisions.md (R01–R49), RUN.md (задачи эпика E1 и таблица 2), .devcontainer/Dockerfile и devcontainer.json, web/package.json, justfile и .github/; версии образца — reference/mathtrail-standalone.</p>
+    <p>Это сводка, а не источник: где она расходится со spec, журналом решений или RUN.md, правы они. Статусы — на 2026-10-13: сделаны T00–T07, T59 и T60, документы пересмотрены под поворот LLM-first (R37–R45).</p>
+    <p>Источники: docs/spec.md (разделы 2, 3, 12–20), docs/decisions.md (R01–R51), RUN.md (задачи эпика E1 и таблица 2), .devcontainer/Dockerfile и devcontainer.json, web/package.json, justfile и .github/; версии образца — reference/mathtrail-standalone.</p>
     <p>Цены и лимиты сервисов — из spec 3.3 на 2026-09-27, цены Gemini — на 2026-10-11; перед живым запуском их сверяют заново.</p>
   </footer>
 </div>
@@ -537,10 +537,10 @@
       { n: "govulncheck · npm audit", v: "govulncheck v1.8.0", r: "Уязвимости: код Go, который сервис достигает; пакеты, из которых собрана SPA, — high и выше", s: "repo", ref: "R48 · T05" },
       { n: "gitleaks", v: "v8.30.1", r: "Секреты по всей истории репозитория; ложная тревога — узким исключением в .gitleaks.toml", s: "repo", ref: "R49 · T06" },
       { n: "Trivy", p: "из образа по digest", v: "0.75.0", r: "Скан образа сервиса: HIGH и CRITICAL, у которых есть исправление; читает сохранённую копию образа, без сокета Docker; блокирует мерж", s: "repo", ref: "R49 · T06" },
-      { n: "CodeQL", v: "security-extended", r: "Статический анализ Go и TypeScript; блокирует мерж", s: "sample", ref: "T07" },
-      { n: "SonarCloud", p: "+ SonarQube for IDE", v: "", r: "Анализ и витрина качества; только сообщает", s: "sample", ref: "R38 standalone · T07" },
-      { n: "Codecov", v: "патч ≥ 90 %", r: "Покрытие Go и web; патч блокирует мерж", s: "sample", ref: "T07" },
-      { n: "OpenSSF Scorecard", v: "", r: "Оценка цепочки поставок; только сообщает", s: "sample", ref: "T07" },
+      { n: "CodeQL", p: "codeql-action v4.38.3", v: "security-extended", r: "Статический анализ Go и TypeScript на каждом PR и раз в неделю; находки High и выше блокируют мерж", s: "repo", ref: "R50 · T07" },
+      { n: "SonarCloud", p: "+ SonarQube for IDE", v: "MathTrail_canvas-api", r: "Анализ и витрина качества; только сообщает и не останавливает релиз", s: "repo", ref: "R50 · R31 standalone · T07" },
+      { n: "Codecov", v: "патч ≥ 90 %", r: "Покрытие Go и web; патч блокирует мерж, общее покрытие только сообщает", s: "repo", ref: "R50 · T07" },
+      { n: "OpenSSF Scorecard", p: "scorecard-action", v: "v2.5.0", r: "Оценка цепочки поставок; только сообщает; открытые находки — с причиной", s: "repo", ref: "R50, R51 · T07" },
       { n: "Dependabot", v: "раз в неделю", r: "gomod, npm, actions, docker — версии остаются точными; новый Go — руками, Dependabot предлагает только digest того же релиза", s: "repo", ref: "R49 · T06" },
       { n: "Проверка лицензий", p: "go-licenses · web/scripts/licenses.ts · THIRD_PARTY_LICENSES", v: "go-licenses v2.0.1", r: "Только MIT-совместимые зависимости, весь lockfile npm; исключение — lightningcss; список сверяется с графом", s: "repo", ref: "R48 · T05 · T06" }
     ]},

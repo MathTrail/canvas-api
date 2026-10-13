@@ -1,0 +1,60 @@
+# A public reading of how this repository is run: whether its dependencies are
+# pinned, whether its workflows hand out more permission than they need, whether
+# a branch can be pushed to without review. It measures practices, not code, and
+# it blocks nothing — the badge in the README is the point (R50). The findings no
+# change can close are answered once, in the decision log (R51).
+#
+# Publishing the results holds this file to the Scorecard API's rules: no
+# environment or defaults at the top, nothing but read permission there, and
+# in the job only the actions the API names.
+name: Scorecard
+
+# A change to what protects main changes the answer too, but main is protected
+# by a ruleset, and a ruleset's change starts no workflow: GitHub's
+# branch_protection_rule event is sent for the classic rules alone. Such a
+# change is measured at the next merge, or on Monday.
+on:
+  # GitHub switches a schedule off after sixty days without activity in a
+  # public repository; every merge runs it anyway.
+  schedule:
+    - cron: "41 4 * * 1"
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Supply-chain practices
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      # Where the findings are written, and what the Security tab reads.
+      security-events: write
+      # The signed proof that these results came from this repository, which is
+      # what lets them be published without a token of ours.
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # v2.5.0 at the least: the releases before it pull their image from
+      # gcr.io, which is retired, and fail.
+      - uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e # v2.5.0
+        with:
+          results_file: scorecard.sarif
+          results_format: sarif
+          publish_results: true
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: scorecard
+          path: scorecard.sarif
+          retention-days: 14
+
+      - uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          sarif_file: scorecard.sarif

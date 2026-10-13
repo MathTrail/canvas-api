@@ -131,7 +131,7 @@
 | [x] | T04 | Проверки Go и образ сервиса | Claude | — | T59, T60 |
 | [x] | T05 | Web-тулчейн | Claude | да | T04 |
 | [x] | T06 | CI | Claude | — | T04, T05 |
-| [ ] | T07 | Анализ кода и витрина качества | я + Claude | — | T06 |
+| [x] | T07 | Анализ кода и витрина качества | я + Claude | — | T06 |
 | [ ] | T08 | Релиз | Claude | — | T06 |
 | [ ] | T09 | Решения для поставки | я + Claude | — | T01 |
 | [ ] | T10 | Terraform | Claude | да | T04, T09 |
@@ -905,7 +905,59 @@
   - плашки живые и ведут на этот репозиторий;
   - находки Scorecard, которые остаются открытыми, записаны с причиной (как R51 standalone).
 - **Риски:** у публичного репозитория запуск по расписанию выключается после 60 дней без активности, а запуски по расписанию приходят с опозданием на часы.
-- **Разделы:** privacy 9; R25, R45; standalone: R31, R38, R51, R81.
+- **Сделано (2026-10-13)** — часть Claude; шаги автора — в «Открыто»:
+  - **CodeQL** — `.github/workflows/codeql.yml`: задания «Analyze Go» (сборка Go версии из `go.mod`) и «Analyze TypeScript», `security-extended`, на PR, `main` и по понедельникам. В `paths-ignore` — `draft` и `docs/stack.html`.
+  - **SonarCloud:**
+    - `sonar-project.properties`: тесты, исключения задачи плюс сгенерированный buf код (`gen/`, `web/src/gen/`), покрытие Go и SPA;
+    - задание «Static analysis» в `ci.yml` — на раннере, с артефактами покрытия и `fetch-depth: 0`. PR без токена пропускает, права — только `contents: read`;
+    - `.sonarlint/connectedMode.json` с `"region": "EU"`.
+  - **Codecov:** загрузка обоих отчётов из заданий «Tests» и «SPA» с `fail_ci_if_error: false`. CLI загрузчика закреплён `version: v11.3.1`, иначе action скачивает `latest`. `codecov.yml`: патч 90 %, проект `auto` с порогом 1 %, статус — только после обеих загрузок (`after_n_builds: 2`), `ignore` для моков и кода buf, `comment` с `require_changes`.
+  - **Scorecard** — `.github/workflows/scorecard.yml` с публикацией, scorecard-action v2.5.0.
+  - **Решения:**
+    - R50 — что держит мерж, а что только сообщает. Сообщающее не останавливает и релиз: у задания SonarCloud `continue-on-error: true` на уровне задания, поэтому упавший анализ красит задание, а прогон CI остаётся зелёным (R45);
+    - R51 — находки, которые правка закрыть не может: `docker:S8431`; Scorecard `Code-Review`, `Branch-Protection` и `Pinned-Dependencies` про npm-установку; находки, которые пройдут со временем.
+  - **Документы:** `SECURITY.md`, `CONTRIBUTING.md`, `docs/openssf-best-practices.md` — по-русски, со статусом каждого критерия на сегодня. `README.md` — плашки и ссылки на оба файла. `docs/stack.html`.
+  - **Сверх текста задачи, на проверку:**
+    - scorecard-action v2.5.0 вышел 2026-10-12, раньше трёх дней ожидания: версии до него тянут образ из выведенного gcr.io и падают (release notes Scorecard v5.6.0);
+    - триггера `branch_protection_rule` в `scorecard.yml` нет, хотя в образце он есть. По документации GitHub событие идёт только для классических правил защиты, а `main` защищает ruleset;
+    - concurrency CodeQL на `main` — по коммиту, как в CI (R49);
+    - `permissions: contents: read` у заданий «Static analysis» и «Runtime image»;
+    - пины свежее образца: codeql-action v4.38.3, download-artifact v8.0.2;
+    - в `devcontainer.json` вернулась фраза о `.sonarlint/connectedMode.json`. Её обещал R46, а тело задачи файл не называет (предложение из «Открыто» T60). R46 поправлен на месте: временных отличий не осталось.
+  - **Проверки:**
+    - зелёные `just ci-lint`, `just ci-test`, `just ci-mocks-check`, `just ci-licenses`, `just ci-vuln`, `just ci-secrets`, `just ci-web` и `just ci-image-smoke canvas-api:dev ci-image-scan canvas-api:dev`;
+    - actionlint 1.7.12 с shellcheck и схемы SchemaStore (`check-jsonschema` 0.34.1) для трёх workflow; валидатор Codecov для `codecov.yml`;
+    - `yq explode`: права и `continue-on-error` каждого задания после раскрытия якорей.
+  - **Выключенные проверки:** кода с проверками в правке нет. Что держит мерж, проверяется на GitHub (ниже). Fuzz нет, флейков не было.
+  - **Документация, прочитана 2026-10-13:**
+    - docs.github.com: `continue-on-error` задания; правила ruleset и «Require code scanning results» с порогами; языки CodeQL и `paths-ignore`; события `branch_protection_rule`; видимость пакетов;
+    - `action.yml` каждого action на его SHA и release notes новых версий;
+    - README и `action.yaml` scorecard-action v2.5.0 — ограничения workflow при публикации, адрес плашки;
+    - release notes Scorecard v5.6.0;
+    - README codecov-action v7.1.1 — загрузка из форков без токена; API `cli.codecov.io` — последняя версия CLI v11.3.1;
+    - README sonarqube-scan-action v8.3.0;
+    - criteria bestpractices.dev.
+  - **Ревью `/code-review high`:**
+    - первый круг, 10 замечаний:
+      - исправлено: CLI Codecov качался как `latest`; статус патча мог прийти по одной загрузке из двух; критерии криптографии отмечены Met для кода, которого ещё нет, — теперь N/A; триггер `branch_protection_rule` ruleset не видит; concurrency CodeQL теряла коммиты `main`; R50 неверно говорил о PR из форка; R46 спорил сам с собой; CONTRIBUTING говорил, что все проверки идут в образе тулчейна;
+      - записано: плашка OpenSSF Best Practices ждёт ID проекта (ниже); правка `devcontainer.json` вне текста задачи — по R46 (выше);
+    - второй круг, 8 замечаний:
+      - исправлено: код buf не был исключён из Codecov и SonarCloud; R50 называл обязательными все задания CI, хотя «Static analysis» только сообщает; три доказательства в `openssf-best-practices.md` не держали свой ответ; `SECURITY.md` выдавал будущую выкладку за действующую; лишние права у «Static analysis» — и у «Runtime image»;
+      - плашка OpenSSF Best Practices — снова, ниже;
+      - исправления второго круга прошли проверки, третьего ревью нет (CLAUDE.md).
+- **Открыто** — шаги автора по «Я»:
+  - SonarCloud: импортировать репозиторий в организацию `mathtrail` с ключом `MathTrail_canvas-api` и выключить Automatic Analysis. `SONAR_TOKEN` — в секреты Actions и Dependabot;
+  - Codecov: `CODECOV_TOKEN` — в секреты Actions и Dependabot;
+  - ruleset «main» (R50):
+    - только через PR, список обхода пуст, одобрения не нужны, ветка перед мержем актуальна;
+    - обязательные проверки: «Toolchain image», «Formatting and lint», «Tests», «SPA», «Generated mocks», «Vulnerabilities and licenses», «Secrets», «Runtime image», «Analyze Go», «Analyze TypeScript», `codecov/patch`. «Static analysis» — не обязательная;
+    - правило «Require code scanning results»: CodeQL, Security alerts — High or higher, Alerts — Errors;
+  - включить private vulnerability reporting и Dependabot alerts;
+  - зарегистрировать проект на bestpractices.dev и заполнить анкету по `docs/openssf-best-practices.md`. Затем — плашка в `README.md` после Codecov: `[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/<ID>/badge)](https://www.bestpractices.dev/projects/<ID>)`. ID появится только после регистрации;
+  - «Как проверить» на GitHub: PR показывает CodeQL, SonarCloud и Codecov; PR, который роняет блокирующую проверку, не мержится; Scorecard опубликован; плашки живые;
+  - по правилу 3 перед T08: сверить R51 с первыми прогонами SonarCloud, CodeQL и Scorecard и дописать новое;
+  - предложение: CodeQL для workflow (язык `actions`) — после T08 и T11. Их `workflow_run` и выкладка — ровно то, что он проверяет, но его находки держали бы мерж уже в самих этих задачах.
+- **Разделы:** privacy 9; R25, R45, R46, R50, R51; standalone: R31, R38, R51, R81.
 
 #### T08. Релиз
 
