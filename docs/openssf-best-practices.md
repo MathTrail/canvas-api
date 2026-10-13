@@ -1,12 +1,10 @@
 # OpenSSF Best Practices: ответы для плашки
 
-Ответы на критерии уровня **passing** [OpenSSF Best Practices](https://www.bestpractices.dev/) для canvas-api — по строке на критерий, с доказательствами, которые будет искать проверяющий. Уровни silver и gold здесь не разбираются.
+Ответы на критерии уровня **passing** [OpenSSF Best Practices](https://www.bestpractices.dev/projects/15460) для canvas-api — по строке на критерий, с доказательствами, которые будет искать проверяющий. Уровни silver и gold здесь не разбираются.
 
 Файл держится в актуальном виде: когда ответ на критерий меняется, меняется и строка. Плашку подтверждают заново, а не получают один раз.
 
-Статусы — на 2026-10-13, после T07. Критерий, который ещё не выполнен, назван так и ссылается на задачу, которая его закроет. Анкета на bestpractices.dev заполняется по этой таблице. Уровень passing пока не достигнут:
-- `vulnerability_report_private` закрывает шаг автора в T07;
-- `version_semver`, `version_tags`, `release_notes` и `release_notes_vulns` закрывает релиз (T08).
+Статусы — на 2026-10-13, после T07. Критерий, который ещё не выполнен, назван так и ссылается на задачу, которая его закроет. [Анкета проекта 15460](https://www.bestpractices.dev/en/projects/15460/passing/edit) заполняется по этой таблице. Каждый критерий с требованием MUST выполнен или неприменим, поэтому уровень passing достижим уже сейчас. Не выполнены только `version_semver` и `version_tags` — оба SUGGESTED, их закрывает релиз (T08).
 
 Идентификаторы критериев и ответы — как в анкете: Met, Unmet, N/A.
 
@@ -32,10 +30,10 @@
 |---|---|---|
 | `repo_public`, `repo_track`, `repo_interim`, `repo_distributed` | Met | публичный git-репозиторий на GitHub; каждое изменение — через PR |
 | `version_unique` | Met | версия и коммит вшиваются в бинарник при сборке ([`internal/version`](../internal/version), `justfile`), и `/health` их называет |
-| `version_semver` | Unmet | теги `vMAJOR.MINOR.PATCH` вводит релиз (T08, R45) |
-| `version_tags` | Unmet | тег ставит workflow релиза на каждом зелёном `main` (T08) |
-| `release_notes` | Unmet | `gh release create --generate-notes` (T08) |
-| `release_notes_vulns` | Unmet | исправленная уязвимость описывается в GitHub advisory, на которую ссылается релиз (T08) |
+| `version_semver` | Unmet | SUGGESTED. Теги `vMAJOR.MINOR.PATCH` вводит релиз (T08, R45) |
+| `version_tags` | Unmet | SUGGESTED. Тег ставит workflow релиза на каждом зелёном `main` (T08) |
+| `release_notes` | N/A | критерий разрешает N/A сервису, который не переиспользуют в других местах и поставляют непрерывно, — это canvas-api: каждый мерж в `main` выкатывается (R32, R45). Подписанные релизы T08 придут с заметками `gh release create --generate-notes` |
+| `release_notes_vulns` | N/A | по формулировке критерия: заметок о релизах ещё нет, и публично известных уязвимостей не исправлялось |
 
 ## Сообщения об ошибках
 
@@ -44,14 +42,14 @@
 | `report_process`, `report_tracker`, `report_archive` | Met | issues на GitHub, публичные и постоянные |
 | `report_responses`, `enhancement_responses` | Met | критерий — о фактических ответах на issues, а сообщений об ошибках и предложений пока не было. Как их подавать, говорит [`CONTRIBUTING.md`](../CONTRIBUTING.md) |
 | `vulnerability_report_process` | Met | [`SECURITY.md`](../SECURITY.md) |
-| `vulnerability_report_private` | Unmet | станет Met, когда автор включит private vulnerability reporting на GitHub (шаг T07): до этого ссылка из `SECURITY.md` никуда не ведёт |
-| `vulnerability_report_response` | Met | критерий — о фактическом первом ответе в пределах 14 дней на сообщения за последние полгода, а сообщений об уязвимостях не было. `SECURITY.md` срока не называет: ответ в эти 14 дней — то, что держит критерий, когда сообщение придёт |
+| `vulnerability_report_private` | Met | private vulnerability reporting на GitHub включён (шаг автора в T07); ссылка из [`SECURITY.md`](../SECURITY.md) ведёт в приватный тред |
+| `vulnerability_report_response` | N/A | по формулировке критерия: за последние полгода сообщений об уязвимостях не было. Когда сообщение придёт, первый ответ нужен в пределах 14 дней — `SECURITY.md` срока не называет |
 
 ## Качество
 
 | Критерий | Ответ | Доказательство |
 |---|---|---|
-| `build`, `build_common_tools`, `build_floss` | Met | `just build` и многоэтапный `Dockerfile` для сервиса, `just web-build` для SPA. Тулчейн — Go, Node.js, `just` и Docker, все FLOSS |
+| `build`, `build_common_tools`, `build_floss_tools` | Met | `just build` и многоэтапный `Dockerfile` для сервиса, `just web-build` для SPA. Тулчейн — Go, Node.js, `just` и Docker, все FLOSS |
 | `test`, `test_invocation` | Met | `just test` и `just web-test`; проверки зовут `just ci-test` и `just ci-web` |
 | `test_most` | Met | покрытие: `cmd/server` — 81,1 % инструкций, SPA — 95,7 % строк (T05) |
 | `test_continuous_integration` | Met | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) на каждом PR и каждом коммите `main` (R49) |
@@ -81,4 +79,5 @@
 | `static_analysis_often` | Met | на каждом PR, CodeQL — ещё и раз в неделю |
 | `dynamic_analysis` | Met | `go test -race` в каждом прогоне. Fuzz-тесты приходят вместе с кодом, который разбирает внешний ввод, — в эпике MVP (CLAUDE.md, «Tests») |
 | `dynamic_analysis_unsafe` | N/A | Go и TypeScript безопасны по памяти; гонки ловит детектор |
+| `dynamic_analysis_enable_assertions` | Met | тесты идут под детектором гонок: он проверяет каждое обращение к памяти |
 | `dynamic_analysis_fixed` | Met | упавший тест роняет проверки |
