@@ -1,0 +1,16 @@
+# What the secret scan looks for: everything it looks for by default, less one
+# false alarm. The examples of what canvas-api publishes to Centrifugo carry an
+# idempotency key made of the event's kind and the check's UUID, such as
+# hint-c1d2e3f4-5a6b-4c7d-8e9f-0a1b2c3d4e5f, and the generic rule for API keys
+# reads it as a key (spec 10.7). The exception is held to that file and to that
+# shape together, so a real key there, or a key of that shape anywhere else, is
+# still reported.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Centrifugo's idempotency keys in the spec's examples"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^docs/spec\.md$''']
+regexes = ['''^(verdict|hint)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$''']

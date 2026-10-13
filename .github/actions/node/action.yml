@@ -1,0 +1,29 @@
+name: node
+description: Installs Node.js at the version this repository pins for it.
+
+runs:
+  using: composite
+  steps:
+    - id: version
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # The version lives where the development image installs it, as the
+        # default of an ARG, so it is written down once and read from there.
+        dockerfile="$GITHUB_WORKSPACE/.devcontainer/Dockerfile"
+        version="$(sed -n 's/^ARG NODE_VERSION=//p' "$dockerfile")"
+        if [ -z "$version" ]; then
+            echo "node: $dockerfile pins no NODE_VERSION" >&2
+            exit 1
+        fi
+        echo "node $version"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: ${{ steps.version.outputs.version }}
+        # Nothing is restored from a cache: what a job builds and signs is made
+        # of packages fetched for it and checked against the lockfile, and of
+        # nothing an earlier run left behind.
+        package-manager-cache: false

@@ -1,0 +1,58 @@
+name: docker mirror
+description: Lets Docker on the runner pull Docker Hub's images through Google's mirror of it, and from Docker Hub itself only what the mirror does not hold. It restarts Docker, which stops any container already running, so it comes before a job starts one.
+
+# Docker Hub counts the pulls of anyone not signed in by the address they come
+# from, and a hosted runner's address is shared with other people's jobs, so a
+# build could stop at a limit somebody else used up: "429 Too Many Requests".
+# mirror.gcr.io keeps copies of the images people pull often, and Docker asks
+# Docker Hub only for an image the mirror lacks. An image pinned by its digest
+# is the same image from either.
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+
+        # The runner's daemon keeps settings of its own in this file, mirrors
+        # among them, and they stay as they are: this mirror comes after any
+        # the daemon already asks.
+        mirror=https://mirror.gcr.io
+        config=/etc/docker/daemon.json
+        # A file of blanks holds no settings, as a missing one does.
+        current='{}'
+        if sudo grep -q '[^[:space:]]' "$config" 2> /dev/null; then
+            current="$(sudo cat "$config")"
+        fi
+        # Settings jq cannot add the mirror to are left as they are, and Docker
+        # with them: ones that do not read as JSON, or that name the mirrors in
+        # something other than a list.
+        if ! next="$(jq --arg mirror "$mirror" \
+            '."registry-mirrors" = (((."registry-mirrors" // []) - [$mirror]) + [$mirror])' \
+            <<< "$current")"; then
+            echo "::warning title=docker mirror::$config holds settings this step cannot add a mirror to, so Docker runs as it did: its pulls of Docker Hub's images count against Docker Hub's limit"
+            exit 0
+        fi
+        printf '%s\n' "$next" | sudo tee "$config" > /dev/null
+
+        # A daemon that will not start with the setting gets back the one it
+        # had, and the run goes on pulling from Docker Hub alone, as before.
+        if ! sudo systemctl restart docker; then
+            if [ "$current" = '{}' ]; then
+                sudo rm -f "$config"
+            else
+                printf '%s\n' "$current" | sudo tee "$config" > /dev/null
+            fi
+            sudo systemctl restart docker
+            echo "::warning title=docker mirror::Docker would not start with $mirror and runs as it did: its pulls of Docker Hub's images count against Docker Hub's limit"
+            exit 0
+        fi
+
+        # A daemon that does not take the setting still pulls, from Docker Hub
+        # alone, as it did before: the run goes on, and says so.
+        mirrors="$(docker info --format '{{json .RegistryConfig.Mirrors}}' || true)"
+        if [[ "$mirrors" != *mirror.gcr.io* ]]; then
+            echo "::warning title=docker mirror::Docker does not ask $mirror ($mirrors): its pulls of Docker Hub's images count against Docker Hub's limit"
+        else
+            echo "Docker Hub through $mirrors"
+        fi
