@@ -7,10 +7,19 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 BINARY := "bin/server"
 MODULE := "github.com/MathTrail/canvas-api"
 
+# The image the full checks run inside, published by CI. Lowercase throughout:
+# a registry rejects a repository name that is not.
+TOOLCHAIN_IMAGE := "ghcr.io/mathtrail/canvas-api/toolchain"
+
 # Exact versions of the tools that only the full checks need. Each is a Go
 # program run straight from its module, so none of them is installed anywhere.
 GOVULNCHECK := "golang.org/x/vuln/cmd/govulncheck@v1.8.0"
+GITLEAKS := "github.com/zricethezav/gitleaks/v8@v8.30.1"
 GO_LICENSES := "github.com/google/go-licenses/v2@v2.0.1"
+
+# The image the runtime image is scanned with, pinned by tag and digest like
+# every other image this repository runs.
+TRIVY_IMAGE := "aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa"
 
 # What a dependency's license may be: permissive, and compatible with releasing
 # the result under MIT.
@@ -290,7 +299,161 @@ ci-licenses:
         exit 1
     fi
 
+# The scan is over the whole history: a key that was committed and then removed
+# is still published. A history git declines to read would be scanned as no
+# commits at all and reported clean, the one outcome worse than a failure, and a
+# shallow clone holds only its last commits; either one refuses to start. Each
+# finding is shown where it is — rule, file, line, and the commit with its
+# author, as git log shows them — and with its value hidden: the log of a check
+# is public, and must not spread a secret any further.
+#
+# What is not committed yet is no history, and a change checked before it is
+# committed would otherwise be scanned only once it is published. So it is
+# scanned too, as one commit more on top of HEAD, made in an index and an
+# object store of its own that read the repository's and never write to it:
+# the repository stays exactly as it was, and what git ignores, such as a local
+# .env, stays out, as it would stay out of a commit.
+# Fail if anything in the history, or in what is not committed yet, looks like a secret
+ci-secrets:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    git rev-parse --verify HEAD > /dev/null
+    if [ "$(git rev-parse --is-shallow-repository)" != false ]; then
+        echo "ci-secrets: this clone is shallow, and the scan needs the whole history: git fetch --unshallow" >&2
+        exit 1
+    fi
+    go run {{ GITLEAKS }} git --no-banner --redact --verbose .
+    if [ -z "$(git status --porcelain)" ]; then
+        exit 0
+    fi
+    scratch=$(mktemp -d)
+    trap 'rm -rf "$scratch"' EXIT
+    mkdir "$scratch/objects"
+    cp "$(git rev-parse --git-path index)" "$scratch/index"
+    GIT_ALTERNATE_OBJECT_DIRECTORIES=$(git rev-parse --path-format=absolute --git-path objects)
+    export GIT_ALTERNATE_OBJECT_DIRECTORIES
+    export GIT_INDEX_FILE="$scratch/index" GIT_OBJECT_DIRECTORY="$scratch/objects"
+    git add --all
+    tree=$(git write-tree)
+    pending=$(GIT_AUTHOR_NAME=ci-secrets GIT_AUTHOR_EMAIL=ci-secrets@invalid \
+        GIT_COMMITTER_NAME=ci-secrets GIT_COMMITTER_EMAIL=ci-secrets@invalid \
+        git commit-tree "$tree" -p HEAD -m "What is not committed yet")
+    echo "ci-secrets: and what is not committed yet, as $pending" >&2
+    go run {{ GITLEAKS }} git --no-banner --redact --verbose --log-opts="-1 $pending" .
+
+# The image is started as Cloud Run starts it, with PORT and nothing else, and
+# asked for its health as the platform's probe asks. It has to answer, and to
+# name the build it was made from: an image that lost its version on the way
+# would roll out as a revision nobody can tell from the one before.
+# Fail if the image does not start, or its health does not name this build
+ci-image-smoke tag="canvas-api:dev": (docker-build tag)
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # The tag and the build identity reach the script as quoted text, as in
+    # docker-build, and it reads them only from these variables.
+    tag={{ quote(tag) }}
+    version={{ quote(VERSION) }}
+    commit={{ quote(COMMIT) }}
+    # Where git cannot tell the build, it is named dev at unknown — which is
+    # also what a binary that lost its version says, so the answer would prove
+    # nothing.
+    if [ "$version" = dev ] || [ "$commit" = unknown ]; then
+        echo "ci-image-smoke: the build is named ${version} at ${commit}, as a binary that lost its version names itself, so its answer would prove nothing; run the check in a clone, with its history" >&2
+        exit 1
+    fi
+    # Created first and started second, so that the container is removed when
+    # the check ends, whether it never started, stopped at once — its logs are
+    # still there to show — or is serving still.
+    container=$(docker create --publish 127.0.0.1::8080 --env PORT=8080 "$tag")
+    trap 'docker rm --force "$container" > /dev/null' EXIT
+    if ! docker start "$container" > /dev/null; then
+        echo "ci-image-smoke: ${tag} did not start" >&2
+        exit 1
+    fi
+    answered=false
+    for attempt in $(seq 1 20); do
+        # A container that has stopped publishes no port.
+        address=$(docker port "$container" 8080/tcp 2> /dev/null | head -1) || true
+        if [ -n "$address" ] && body=$(curl -fsS --max-time 2 "http://${address}/health" 2> /dev/null); then
+            answered=true
+            break
+        fi
+        echo "health: no answer yet (attempt ${attempt})" >&2
+        sleep 0.5
+    done
+    if [ "$answered" != true ]; then
+        echo "ci-image-smoke: ${tag} never answered its health check" >&2
+        docker logs "$container" >&2
+        exit 1
+    fi
+    if ! jq --exit-status --arg version "$version" --arg commit "$commit" \
+        '.status == "ok" and .version == $version and .commit == $commit' <<< "$body" > /dev/null 2>&1; then
+        echo "ci-image-smoke: ${tag} answers ${body}; want status ok, version ${version}, commit ${commit}" >&2
+        exit 1
+    fi
+    echo "ci-image-smoke: ${tag} answers as ${version} at ${commit}"
+
+# Trivy runs from its own image, so nothing about it is installed here and the
+# verdict is the same on a laptop and in CI. It reads a saved copy of the image
+# rather than Docker itself: handed Docker's socket, the scanner would hold the
+# whole machine. A finding is waived only in .trivyignore, with its reason, and
+# the file goes in beside the copy; one in Go's standard library is not waived
+# but fixed by a newer Go (R38 standalone).
+# Fail on a known HIGH or CRITICAL vulnerability, with a fix out, in the runtime image
+ci-image-scan tag="canvas-api:dev": (docker-build tag)
+    #!/usr/bin/env bash
+    set -euo pipefail
+    scan=$(mktemp -d)
+    trap 'rm -rf "$scan"' EXIT
+    docker save --output "$scan/image.tar" {{ quote(tag) }}
+    if [ -f .trivyignore ]; then
+        cp .trivyignore "$scan/"
+    fi
+    docker run --rm --volume "$scan:/scan:ro" --workdir /scan \
+        {{ TRIVY_IMAGE }} image \
+        --input image.tar \
+        --severity HIGH,CRITICAL \
+        --ignore-unfixed \
+        --exit-code 1 \
+        --no-progress
+
 # -- Container --------------------------------------------------------------
+
+# The tag is a hash of the toolchain stage of the development image — every
+# line above the stage built on top of it — so one definition of the checks'
+# environment is one image, and any edit to it a new one, while an edit to the
+# stage on top, a new Claude Code say, leaves it as it was. Nothing is built
+# when that tag is published already. What is printed is the digest, not the
+# tag: a tag can be moved, and a version here is exact (R20 standalone).
+# Publish the image the full checks run inside, and print its exact reference
+ci-toolchain-image:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    hash=$(sed '/^FROM toolchain AS devcontainer$/,$d' .devcontainer/Dockerfile | sha256sum | cut -c1-16)
+    reference="{{ TOOLCHAIN_IMAGE }}:${hash}"
+    if ! docker buildx imagetools inspect "$reference" > /dev/null 2>&1; then
+        echo "This environment is not published yet; building it." >&2
+        # Built with no context at all: the stage copies nothing in, and its
+        # tag hashes its text alone, so a COPY added to it fails here instead
+        # of building what the tag does not name. The label ties the package
+        # to the repository it is built from.
+        docker build --target toolchain \
+            --label "org.opencontainers.image.source=https://{{ MODULE }}" \
+            --tag "$reference" - < .devcontainer/Dockerfile >&2
+        if ! docker push "$reference" >&2; then
+            echo "ci-toolchain-image: could not publish $reference; docker push says why above. A pull request from a fork cannot publish at all, so there a change to the toolchain stage reaches main from a branch of this repository first." >&2
+            exit 1
+        fi
+    fi
+    # Read with awk rather than a Go template, whose braces would collide with
+    # the interpolation syntax of this file.
+    digest=$(docker buildx imagetools inspect "$reference" | awk '/^Digest:/ { print $2 }')
+    if [ -z "$digest" ]; then
+        echo "ci-toolchain-image: the registry names no digest for $reference" >&2
+        exit 1
+    fi
+    # The one thing on stdout, so that a caller can read it with a substitution.
+    echo "{{ TOOLCHAIN_IMAGE }}@${digest}"
 
 # The version stays exact — this only removes the part where a person edits the
 # same number in two files and misses one. Without an argument, whatever npm

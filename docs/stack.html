@@ -266,7 +266,7 @@
       <li><b id="f-open">—</b>выбор ещё не сделан</li>
     </ul>
     <dl class="legend">
-      <div><dt><span class="chip chip--repo">в репозитории</span></dt><dd>Версия уже закреплена в репозитории — в <code>.devcontainer/</code> (Dockerfile, devcontainer.json), в <code>go.mod</code>, в <code>web/package.json</code> с его lockfile или в <code>justfile</code>. Здесь — её снимок на дату внизу страницы.</dd></div>
+      <div><dt><span class="chip chip--repo">в репозитории</span></dt><dd>Версия уже закреплена в репозитории — в <code>.devcontainer/</code> (Dockerfile, devcontainer.json), в <code>go.mod</code>, в <code>web/package.json</code> с его lockfile, в <code>justfile</code> или в <code>.github/</code>. Здесь — её снимок на дату внизу страницы.</dd></div>
       <div><dt><span class="chip chip--spec">по спеке</span></dt><dd>Выбор сделан в spec или decisions; версия — ориентир spec&nbsp;3, точно закрепит задача.</dd></div>
       <div><dt><span class="chip chip--sample">из образца</span></dt><dd>Переносится из mathtrail-standalone (R11); версия — как в образце.</dd></div>
       <div><dt><span class="chip chip--open">не решено</span></dt><dd>Открытый вопрос Т-… или спайк; в строке — рекомендация и где решается: задача эпика E1 или эпик MVP (E2).</dd></div>
@@ -412,8 +412,8 @@
   </section>
 
   <footer>
-    <p>Это сводка, а не источник: где она расходится со spec, журналом решений или RUN.md, правы они. Статусы — на 2026-10-12: сделаны T00–T05, T59 и T60, документы пересмотрены под поворот LLM-first (R37–R45).</p>
-    <p>Источники: docs/spec.md (разделы 2, 3, 12–20), docs/decisions.md (R01–R48), RUN.md (задачи эпика E1 и таблица 2), .devcontainer/Dockerfile и devcontainer.json, web/package.json и justfile; версии образца — reference/mathtrail-standalone.</p>
+    <p>Это сводка, а не источник: где она расходится со spec, журналом решений или RUN.md, правы они. Статусы — на 2026-10-13: сделаны T00–T06, T59 и T60, документы пересмотрены под поворот LLM-first (R37–R45).</p>
+    <p>Источники: docs/spec.md (разделы 2, 3, 12–20), docs/decisions.md (R01–R49), RUN.md (задачи эпика E1 и таблица 2), .devcontainer/Dockerfile и devcontainer.json, web/package.json, justfile и .github/; версии образца — reference/mathtrail-standalone.</p>
     <p>Цены и лимиты сервисов — из spec 3.3 на 2026-09-27, цены Gemini — на 2026-10-11; перед живым запуском их сверяют заново.</p>
   </footer>
 </div>
@@ -516,7 +516,7 @@
       { n: "Terraform CLI", v: "1.16.3", r: "Весь проект как код; состояние в GCS", s: "repo", ref: "spec 15.2 · T10" },
       { n: "Провайдеры Terraform", p: "google; google-beta — если нужен Firebase", v: "закрепит T10", r: "Точные версии и .terraform.lock.hcl в репозитории", s: "spec", ref: "spec 15.2 · T10" },
       { n: "Neon и Upstash в Terraform", p: "их провайдеры", v: "", r: "Если провайдер есть и лицензия подходит; иначе руками по инструкции", s: "open", q: "выбор в E2", ref: "spec 15.2 · E2" },
-      { n: "GitHub Actions", p: "actions по SHA", v: "", r: "CI; подписанный релиз после зелёного CI на main; выкладка из тега релиза", s: "sample", ref: "R33, R45 · T06, T08, T11" },
+      { n: "GitHub Actions", p: "actions по SHA", v: "", r: "CI на каждом PR и коммите main — в образе тулчейна по digest; подписанный релиз после зелёного CI на main и выкладка из его тега — T08, T11", s: "repo", ref: "R33, R45, R49 · T06, T08, T11" },
       { n: "Workload Identity Federation", v: "", r: "CI входит в GCP без ключей сервисных аккаунтов", s: "spec", ref: "spec 15.5 · T10" },
       { n: "gcloud CLI", p: "на x86_64; на arm64 — из образа Google", v: "585.0.0", r: "jobs update и execute, services update в CD", s: "repo", ref: "spec 15.5 · T11" },
       { n: "firebase-tools", v: "закрепит T11", r: "firebase deploy --only hosting", s: "spec", ref: "T11" },
@@ -535,13 +535,13 @@
       { n: "gofmt -s · goimports", v: "", r: "Формат Go; pre-commit в .githooks", s: "repo", ref: "T04" },
       { n: "mockery", v: "3.8.0", r: "Моки только там, где нужны сеть или часы; CI сверяет, что они актуальны", s: "repo", ref: "T04" },
       { n: "govulncheck · npm audit", v: "govulncheck v1.8.0", r: "Уязвимости: код Go, который сервис достигает; пакеты, из которых собрана SPA, — high и выше", s: "repo", ref: "R48 · T05" },
-      { n: "gitleaks", v: "", r: "Секреты по всей истории репозитория", s: "sample", ref: "T06" },
-      { n: "Trivy", v: "HIGH, CRITICAL", r: "Скан образа сервиса; блокирует мерж", s: "sample", ref: "T06" },
+      { n: "gitleaks", v: "v8.30.1", r: "Секреты по всей истории репозитория; ложная тревога — узким исключением в .gitleaks.toml", s: "repo", ref: "R49 · T06" },
+      { n: "Trivy", p: "из образа по digest", v: "0.75.0", r: "Скан образа сервиса: HIGH и CRITICAL, у которых есть исправление; читает сохранённую копию образа, без сокета Docker; блокирует мерж", s: "repo", ref: "R49 · T06" },
       { n: "CodeQL", v: "security-extended", r: "Статический анализ Go и TypeScript; блокирует мерж", s: "sample", ref: "T07" },
       { n: "SonarCloud", p: "+ SonarQube for IDE", v: "", r: "Анализ и витрина качества; только сообщает", s: "sample", ref: "R38 standalone · T07" },
       { n: "Codecov", v: "патч ≥ 90 %", r: "Покрытие Go и web; патч блокирует мерж", s: "sample", ref: "T07" },
       { n: "OpenSSF Scorecard", v: "", r: "Оценка цепочки поставок; только сообщает", s: "sample", ref: "T07" },
-      { n: "Dependabot", v: "раз в неделю", r: "gomod, npm, actions, docker — версии остаются точными", s: "sample", ref: "T06" },
+      { n: "Dependabot", v: "раз в неделю", r: "gomod, npm, actions, docker — версии остаются точными; новый Go — руками, Dependabot предлагает только digest того же релиза", s: "repo", ref: "R49 · T06" },
       { n: "Проверка лицензий", p: "go-licenses · web/scripts/licenses.ts · THIRD_PARTY_LICENSES", v: "go-licenses v2.0.1", r: "Только MIT-совместимые зависимости, весь lockfile npm; исключение — lightningcss; список сверяется с графом", s: "repo", ref: "R48 · T05 · T06" }
     ]},
     { id: "tests", name: "Тесты", path: "*_test.go · testdata/ · tools/load/", note: "ложная тревога хуже молчания", rows: [
@@ -558,6 +558,7 @@
       { n: "Go", v: "1.27.2", r: "Тулчейн сервиса; та же версия в go.mod", s: "repo", ref: "Dockerfile · go.mod" },
       { n: "Node.js", v: "24.21.0", r: "Тулчейн SPA", s: "repo", ref: "Dockerfile" },
       { n: "just", v: "1.58.0", r: "Вход для всех команд; ci-* — то, что вызывает CI", s: "repo", ref: "Dockerfile" },
+      { n: "Образ тулчейна", p: "ghcr.io/mathtrail/canvas-api/toolchain", v: "по digest", r: "Стадия toolchain Dockerfile: в ней CI гоняет те же рецепты ci-*; тег — хеш стадии", s: "repo", ref: "R20 standalone, R49 · T06" },
       { n: "gopls · Delve", v: "0.23.0 · 1.27.2", r: "Язык Go и отладчик в VS Code", s: "repo", ref: "Dockerfile" },
       { n: "Docker-in-Docker", p: "devcontainer feature 4.1.1", v: "Docker 29.8.1", r: "Образы, compose и интеграционные тесты внутри контейнера", s: "repo", ref: "devcontainer.json" },
       { n: "Docker Compose", v: "5.5.1", r: "Postgres, OpenFGA, Centrifugo и Redis для локального запуска", s: "repo", ref: "Dockerfile" },

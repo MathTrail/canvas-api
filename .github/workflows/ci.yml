@@ -1,0 +1,222 @@
+# Every check that decides whether a change may be merged, on every pull
+# request and every commit of main. The checks run inside the toolchain stage
+# of the development image, so a verdict here and a verdict in the container
+# come from the same tools at the same versions; the work itself lives in the
+# justfile.
+#
+# A check a merge waits for comes from a workflow that always starts: one held
+# back by a filter on paths leaves its checks waiting for good, and the pull
+# request with them (R231 standalone). So nothing here filters on paths, and
+# work that only some changes need is skipped by a step inside its job.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: read
+
+# A new push to a pull request replaces the run still going for the one before:
+# only its newest commit can be merged. On main every commit gets a run of its
+# own: a group holds at most one waiting run and drops the one that waited
+# before it, which would leave a commit of main unchecked, and every commit of
+# main is one a release is cut from (R45).
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Settings every job needs, passed through the environment rather than written
+# into a home directory, so that they hold for every step whatever user it runs
+# as.
+env:
+  # Git refuses a repository whose files belong to somebody else, which is what
+  # a checkout inside a container looks like to it.
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: safe.directory
+  GIT_CONFIG_VALUE_0: "*"
+  # Fixed places for what Go downloads and builds, so that the paths a job
+  # caches and the paths Go reads are the same ones.
+  GOMODCACHE: /tmp/go/mod
+  GOCACHE: /tmp/go/build
+
+# bash, which GitHub runs with pipefail: a step that pipes one command into
+# another fails when the first one does.
+defaults:
+  run:
+    shell: bash
+
+# No job pushes to the repository, so no checkout leaves its token behind in
+# the clone for the steps after it.
+jobs:
+  toolchain:
+    name: Toolchain image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # The one job that may publish: the image is built and published here when
+    # nothing is published yet for its definition. A pull request from a fork
+    # gets a token that cannot publish, and runs on what is published already
+    # (R20 standalone).
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.image.outputs.reference }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/just
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: image
+        # Read into a variable first: inside the echo, a recipe that failed
+        # would leave the step green and the reference empty.
+        run: |
+          reference="$(just ci-toolchain-image)"
+          echo "reference=$reference" >> "$GITHUB_OUTPUT"
+
+  lint:
+    name: Formatting and lint
+    needs: toolchain
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # The container every check runs in, written once here and named by its
+    # anchor in the jobs below.
+    container: &toolchain-container
+      image: ${{ needs.toolchain.outputs.image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Each job that runs Go keeps a cache of its own: what one job downloads
+      # and builds, another does not, and a shared one would be saved by
+      # whichever job finished first. The key names what decides the contents —
+      # the module's requirements, the versions of the tools the justfile runs,
+      # and the toolchain image, whose Go builds them — and when it is new, the
+      # job starts from its own last cache. Written once here, and named by its
+      # anchor below.
+      - &go-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            /tmp/go/mod
+            /tmp/go/build
+          key: go-${{ github.job }}-${{ hashFiles('go.mod', 'go.sum', 'justfile') }}-${{ needs.toolchain.outputs.image }}
+          restore-keys: go-${{ github.job }}-
+      - run: just ci-lint
+
+  test:
+    name: Tests
+    needs: toolchain
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container: *toolchain-container
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - *go-cache
+      - run: just ci-test
+      # The coverage the tests measured is kept with the run, for what reads it
+      # afterwards, so that nothing runs the tests a second time to measure it.
+      - name: Keep the coverage profile
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-go
+          path: coverage.out
+          if-no-files-found: error
+          retention-days: 14
+
+  web:
+    name: SPA
+    needs: toolchain
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container: *toolchain-container
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: just ci-web
+      # The report names its files from the repository's root, where the tools
+      # that read coverage look for them.
+      - name: Keep the SPA's coverage
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-web
+          path: web/coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 14
+
+  # No cache: while .mockery.yaml names no interface, the check builds nothing,
+  # and a cache with nothing in it only warns on every run that there was
+  # nothing to save. The first interface brings *go-cache back (R49).
+  mocks:
+    name: Generated mocks
+    needs: toolchain
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container: *toolchain-container
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: just ci-mocks-check
+
+  dependencies:
+    name: Vulnerabilities and licenses
+    needs: toolchain
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container: *toolchain-container
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - *go-cache
+      - run: just ci-vuln
+      - run: just ci-licenses
+
+  secrets:
+    name: Secrets
+    needs: toolchain
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container: *toolchain-container
+    steps:
+      # The whole history: a key that was committed and then removed is still
+      # published, and a shallow clone would not see it.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - *go-cache
+      - run: just ci-secrets
+
+  image:
+    name: Runtime image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # On the runner: building and running an image takes a Docker daemon, and
+    # the toolchain image has no Docker client, since the development container
+    # gets Docker from a feature that a build of the Dockerfile alone does not
+    # apply. The image is built, started, scanned and thrown away — nothing
+    # leaves the runner. One run of just builds it once for both checks, with
+    # one build date; each recipe is given its tag, since a recipe that takes
+    # one would read the next recipe's name as its tag.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/just
+      - uses: ./.github/actions/docker-mirror
+      - run: just ci-image-smoke canvas-api:dev ci-image-scan canvas-api:dev

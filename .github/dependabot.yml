@@ -1,0 +1,89 @@
+# Dependabot proposes new versions; a pull request changes a pinned version and
+# nothing else, because every version in this repository is exact. What the
+# justfile pins — the scanners and the tools run from their modules — and what
+# the development image installs from its ARGs are raised by hand: no
+# ecosystem here reads them.
+#
+# Every ecosystem waits three days after a release before proposing it. That is
+# Dependabot's own default, written down because CI counts on it: a release
+# that was hijacked is most often pulled within that time, and the job that
+# publishes the toolchain image runs what a pull request proposes (Т-17). The
+# wait does not hold back a security update.
+version: 2
+
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 3
+    open-pull-requests-limit: 5
+    groups:
+      # Routine bumps travel together. A major version arrives on its own,
+      # because it is the one that has to be read before it is merged.
+      go-modules:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  # The packages the SPA is built from, and the tools it is built with.
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 3
+    open-pull-requests-limit: 5
+    groups:
+      npm-packages:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    ignore:
+      # The types of Node's own modules follow the major version of the Node
+      # the scripts run on, which moves only by hand.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+
+  # The workflows, and the actions of this repository that use actions of
+  # their own.
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/*
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 3
+    open-pull-requests-limit: 5
+    groups:
+      # The parts of CodeQL's action move together: analyze reads the
+      # configuration init wrote and refuses one written by another version, so
+      # a pull request that bumps one part alone fails the scan it bumps.
+      codeql-action:
+        patterns:
+          - "github/codeql-action/*"
+
+  # The image the service runs on, and the one it is developed in.
+  - package-ecosystem: docker
+    directories:
+      - /
+      - /.devcontainer
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 3
+    open-pull-requests-limit: 5
+    ignore:
+      # The service is built by the Go its tests run on: the release go.mod
+      # names, which the development image installs from an ARG that no update
+      # here touches. So a new Go, however small, comes in by hand, in all three
+      # places at once; only a fresh digest of the same release is proposed here.
+      - dependency-name: golang
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
