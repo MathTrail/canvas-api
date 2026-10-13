@@ -1,0 +1,92 @@
+# Static analysis that follows data rather than matching patterns: where a value
+# taken from a request or a file ends up, and whether it reaches somewhere it
+# must not. The linter's own security checks stay where they are; this one sees
+# what a single file cannot. Its findings hold a merge through the ruleset of
+# main, which requires CodeQL's code scanning results (R50).
+name: CodeQL
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # A query set that grows between our commits would otherwise only ever run
+  # against code somebody happened to touch. GitHub switches a schedule off
+  # after sixty days without activity in a public repository.
+  schedule:
+    - cron: "17 4 * * 1"
+
+permissions:
+  contents: read
+
+# As in CI: a new push to a pull request replaces the run of the one before,
+# and every commit of main is analysed in a run of its own, since a group holds
+# at most one waiting run and would drop the commits in between (R49).
+concurrency:
+  group: codeql-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  analyze-go:
+    name: Analyze Go
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      # Where the findings are written, and what the Security tab reads.
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The scanner builds the code itself, and the version it builds with is
+      # the one the module declares: a second place to write it down is a second
+      # place to forget.
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          languages: go
+          build-mode: manual
+          queries: security-extended
+
+      - run: go build ./...
+
+      - uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          category: /language:go
+
+  analyze-typescript:
+    name: Analyze TypeScript
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The SPA is what a child's strokes pass through on their way to the
+      # service; where a value from an answer ends up in the page is what this
+      # reads. TypeScript is read from its sources, with nothing to build.
+      - uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          languages: javascript-typescript
+          build-mode: none
+          queries: security-extended
+          # The mockup is the bundle a design tool exported, with its own copy
+          # of React, and the summary of the stack is a document whose script
+          # only draws its tables: neither is code of the product.
+          config: |
+            paths-ignore:
+              - draft
+              - docs/stack.html
+
+      - uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          category: /language:javascript-typescript

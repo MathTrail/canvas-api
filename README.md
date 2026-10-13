@@ -1,5 +1,18 @@
 # MathTrail Canvas
 
+[![CI](https://github.com/MathTrail/canvas-api/actions/workflows/ci.yml/badge.svg)](https://github.com/MathTrail/canvas-api/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/MathTrail/canvas-api/actions/workflows/codeql.yml/badge.svg)](https://github.com/MathTrail/canvas-api/actions/workflows/codeql.yml)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/MathTrail/canvas-api)](https://github.com/MathTrail/canvas-api/blob/main/go.mod)
+[![codecov](https://codecov.io/gh/MathTrail/canvas-api/branch/main/graph/badge.svg)](https://codecov.io/gh/MathTrail/canvas-api)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/MathTrail/canvas-api/badge)](https://scorecard.dev/viewer/?uri=github.com/MathTrail/canvas-api)
+[![License: MIT](https://img.shields.io/github/license/MathTrail/canvas-api)](LICENSE)
+
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=MathTrail_canvas-api&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=MathTrail_canvas-api)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=MathTrail_canvas-api&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=MathTrail_canvas-api)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=MathTrail_canvas-api&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=MathTrail_canvas-api)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=MathTrail_canvas-api&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=MathTrail_canvas-api)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=MathTrail_canvas-api&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=MathTrail_canvas-api)
+
 MathTrail Canvas is a math tutor for children in grades 1–6. A child solves a task by hand, with a stylus or a finger, on a squared draft sheet and writes the final answer in an answer box. On **Check**, an AI reads the answer and a program compares it with the task's key. When the answer is wrong, the tutor looks at the draft, frames the place where the reasoning went wrong and asks one short guiding question. It never gives the answer.
 
 What the child sees on the screen:
@@ -37,4 +50,4 @@ All development happens in the devcontainer; nothing but Docker and VS Code is n
 2. Open the repository — on Windows, from WSL — and choose "Reopen in Container". The first build downloads the pinned toolchain and takes a few minutes.
 3. `just --list` shows the available recipes.
 
-The environment, its pinned versions and how to change one are described in [CLAUDE.md](CLAUDE.md#environment).
+The environment, its pinned versions and how to change one are described in [CLAUDE.md](CLAUDE.md#environment). What a change has to satisfy is in [CONTRIBUTING.md](CONTRIBUTING.md); a vulnerability is reported privately, as [SECURITY.md](SECURITY.md) describes.

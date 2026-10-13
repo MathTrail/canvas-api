@@ -1,0 +1,44 @@
+# What Codecov does with the coverage the tests upload: the Go profile and the
+# SPA's report, merged into one. The reports themselves are produced by the
+# test runs; nothing here measures anything.
+
+# Two jobs upload, and nothing is judged until both have: a status posted on
+# the Go profile alone would pass a change whose uncovered lines are in the
+# SPA, and a pull request could be merged in the moment before the second
+# report arrived.
+codecov:
+  notify:
+    after_n_builds: 2
+
+coverage:
+  status:
+    # New and changed lines are held to a higher standard than the average of
+    # everything written before them: this is the number that decides whether
+    # a change arrives with the tests that prove it, and the ruleset of main
+    # requires it (R50).
+    patch:
+      default:
+        target: 90%
+    # The whole may not quietly slide downwards. The allowance is there because
+    # a refactor that deletes covered code moves the number a little through no
+    # fault of its own. This status only reports: no rule requires it.
+    project:
+      default:
+        target: auto
+        threshold: 1%
+
+# Code that is generated, not written, measures nothing about the tests that
+# come with a change: the mocks mockery writes beside the interfaces they stand
+# in for, and the Go and TypeScript buf generates from proto/ (spec 18). All of
+# it is committed, and all of it would count as untested lines. A package of
+# helpers that tests share goes here too when one arrives: like any test, it
+# measures rather than being measured.
+ignore:
+  - "**/mocks/**"
+  - "gen/**"
+  - "web/src/gen/**"
+
+comment:
+  layout: "condensed_header, diff, files"
+  require_changes: true
+  after_n_builds: 2
