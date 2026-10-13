@@ -16,6 +16,10 @@
 
 MathTrail Canvas is a math tutor for children in grades 1–6. A child solves a task by hand, with a stylus or a finger, on a squared draft sheet and writes the final answer in an answer box. On **Check**, an AI reads the answer and a program compares it with the task's key. When the answer is wrong, the tutor looks at the draft, frames the place where the reasoning went wrong and asks one short guiding question. It never gives the answer.
 
+![The task screen on a tablet, as the design draws it](docs/design/app.jpeg)
+
+The picture is a concept from the design: it shows where the product is heading, further than the MVP goes.
+
 ## Documents
 
 The documents are in Russian.
@@ -26,3 +30,10 @@ The documents are in Russian.
 - [docs/decisions.md](docs/decisions.md) — the decision log: what was decided, why, and what was rejected.
 - [docs/stack.html](docs/stack.html) — the technology stack, layer by layer, with versions and what is still to be chosen. Open the file from a checkout in a browser: GitHub shows only its source.
 - [RUN.md](RUN.md) — the implementation plan, in epics: the current epic broken into small tasks, run and reviewed one at a time, and the later epics.
+
+## Design
+
+Clickable prototypes from the design, each a single page that runs in a browser with no server. GitHub shows only their source, so open them from a checkout. They show where the product is heading; where they differ from the documents, the documents win.
+
+- [MathTrail Screens.html](docs/design/MathTrail%20Screens.html) — eighteen screens of the prototype.
+- [MathTrail Widget.html](docs/design/MathTrail%20Widget.html) — the olympiad coach, as one page.
