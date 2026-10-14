@@ -44,7 +44,7 @@ The conventions are written down in [`CLAUDE.md`](CLAUDE.md) — it is addressed
 
 The short version:
 
-- **The full checks are green**: `just ci-lint`, `just ci-test`, `just ci-mocks-check`, `just ci-licenses`, `just ci-vuln`, `just ci-secrets`, `just ci-image-smoke` and `just ci-image-scan`, and `just ci-web` too when the SPA in `web/` changed. They are what the pull request checks run — in the same toolchain image, but for the two image checks, which need Docker and run beside it — so a failure here is a failure there.
+- **The full checks are green**: `just ci-lint`, `just ci-test`, `just ci-mocks-check`, `just ci-licenses`, `just ci-vuln`, `just ci-secrets`, `just ci-image-smoke`, `just ci-image-scan`, `just release-version` and `just release-artifacts`, and `just ci-web` too when the SPA in `web/` changed. They are what the pull request checks run — in the same toolchain image, but for the two image checks, which need Docker and run beside it — so a failure here is a failure there.
 - **Tests come with the change.** A pull request whose changed lines are less than 90% covered cannot be merged. A new check is not considered covered until its test has been seen to fail with the check switched off.
 - **Nothing personal reaches a log.** Log lines, metrics and traces carry IDs, codes and timings — never an email, a name, a pseudonym, a check's picture, a read answer or the text of a hint.
 - **The task's answer stays hidden** until the task is solved, and every hint is checked for leaking it.

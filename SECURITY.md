@@ -43,7 +43,23 @@ The service is still being built, in the order [`RUN.md`](RUN.md) sets; this is 
 
 ## Supported versions
 
-There is one: the newest commit of `main`. There is no maintenance branch — a fix goes to `main`. The delivery is still being set up: once it is, every merge to `main` whose checks are green is published as a release and deployed from it, and the service names the release it runs.
+There is one: the newest commit of `main`. There is no maintenance branch — a fix goes to `main`. Every merge to `main` whose checks are green is published as a signed release. The delivery is still being set up: once it is, each release is deployed from its tag, and the service names the release it runs.
+
+## Checking that a release is ours
+
+Every [release](https://github.com/MathTrail/canvas-api/releases) carries the server for linux/amd64 and linux/arm64, the SPA as Firebase Hosting serves it (`canvas-web_<version>.tar.gz`), `SHA256SUMS` of the three, and a Sigstore bundle beside every file. The release workflow signs them with a short-lived identity of its own rather than a stored key, and the certificate in each bundle names the repository, the workflow and the branch it ran on; the release's tag points at the commit that was built. cosign runs from its image, pinned by digest, in the folder the files were downloaded to:
+
+```bash
+docker run --rm --volume "$PWD:/release:ro" --workdir /release \
+  ghcr.io/sigstore/cosign/cosign:v3.1.3@sha256:9e5c2f2edc34351160407ca3416c61855bdf9403c3c5936e0f0be7fc261611b8 \
+  verify-blob --bundle SHA256SUMS.sigstore.json \
+  --certificate-identity https://github.com/MathTrail/canvas-api/.github/workflows/release.yml@refs/heads/main \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  SHA256SUMS
+sha256sum --check --ignore-missing SHA256SUMS
+```
+
+The first command says the sums were signed by this repository's release workflow, run on `main`; the second, that each file downloaded beside them is the one they describe — on macOS, `shasum -a 256 --check --ignore-missing SHA256SUMS` does the same. A release cut from another branch names that branch in its certificate instead, and fails the first command as written.
 
 ## How this is kept honest
 
@@ -56,7 +72,8 @@ Every change arrives through a pull request that cannot be merged until the foll
 - a licence check of every dependency;
 - a secret scan of the whole history;
 - the runtime image: that it starts and names its build, and a Trivy scan of it;
+- the release build: the server and the SPA build as a release builds them;
 - CodeQL with the `security-extended` queries;
 - 90% coverage of the lines the change touches.
 
-The reasoning behind each of these is written down in [`docs/decisions.md`](docs/decisions.md), in Russian: R49 and R50.
+The reasoning behind each of these is written down in [`docs/decisions.md`](docs/decisions.md), in Russian: R49, R50, R52 and R53.

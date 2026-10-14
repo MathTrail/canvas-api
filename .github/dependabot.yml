@@ -7,8 +7,10 @@
 # Every ecosystem waits three days after a release before proposing it. That is
 # Dependabot's own default, written down because CI counts on it: a release
 # that was hijacked is most often pulled within that time, and the job that
-# publishes the toolchain image runs what a pull request proposes (Т-17). The
-# wait does not hold back a security update.
+# publishes the toolchain image runs what a pull request proposes (R53). The
+# wait does not hold back a security update, and it needs the registry to say
+# when a release came out: Microsoft's registry, of the development image's
+# base, does not, and its new versions are proposed at once.
 version: 2
 
 updates:

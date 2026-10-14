@@ -2,8 +2,10 @@
 
 [![CI](https://github.com/MathTrail/canvas-api/actions/workflows/ci.yml/badge.svg)](https://github.com/MathTrail/canvas-api/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/MathTrail/canvas-api/actions/workflows/codeql.yml/badge.svg)](https://github.com/MathTrail/canvas-api/actions/workflows/codeql.yml)
+[![Release](https://img.shields.io/github/v/release/MathTrail/canvas-api)](https://github.com/MathTrail/canvas-api/releases/latest)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/MathTrail/canvas-api)](https://github.com/MathTrail/canvas-api/blob/main/go.mod)
 [![codecov](https://codecov.io/gh/MathTrail/canvas-api/branch/main/graph/badge.svg)](https://codecov.io/gh/MathTrail/canvas-api)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15460/badge)](https://www.bestpractices.dev/projects/15460)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/MathTrail/canvas-api/badge)](https://scorecard.dev/viewer/?uri=github.com/MathTrail/canvas-api)
 [![License: MIT](https://img.shields.io/github/license/MathTrail/canvas-api)](LICENSE)
 
@@ -15,21 +17,9 @@
 
 MathTrail Canvas is a math tutor for children in grades 1–6. A child solves a task by hand, with a stylus or a finger, on a squared draft sheet and writes the final answer in an answer box. On **Check**, an AI reads the answer and a program compares it with the task's key. When the answer is wrong, the tutor looks at the draft, frames the place where the reasoning went wrong and asks one short guiding question. It never gives the answer.
 
-What the child sees on the screen:
+![The task screen on a tablet, as the design draws it](docs/design/app.jpeg)
 
-- **The task** at the top. It never changes.
-- **The draft sheet** — squared paper for working things out. The child writes, draws and erases whole strokes; the draft stays on the device.
-- **The answer box** — the child writes the final answer there and presses **Check**.
-- **The hint layer** over the draft: a soft frame around the child's own strokes and one question. It never covers the child's writing.
-
-After **Check**, the child sees one of these:
-
-- "Correct! I read “7”." with a short explanation of the solution;
-- "Not yet. I read “6”.", then a frame and a question. The questions get more specific with every wrong answer, up to three, and then the tutor suggests asking a grown-up or starting the task again;
-- a request to rewrite the answer, if it was hard to read. Doubt is never shown as a mistake;
-- a neutral line if the checker cannot be reached, or, once the day's help is used up, a line saying the child can keep going alone.
-
-The MVP is a closed, free beta for families, with five static tasks and a daily limit on the tutor's help. A clickable mockup of the screen is in [draft/](draft/README.md).
+The picture is a concept from the design: it shows where the product is heading, further than the MVP goes.
 
 ## Documents
 
@@ -42,12 +32,9 @@ The documents are in Russian.
 - [docs/stack.html](docs/stack.html) — the technology stack, layer by layer, with versions and what is still to be chosen. Open the file from a checkout in a browser: GitHub shows only its source.
 - [RUN.md](RUN.md) — the implementation plan, in epics: the current epic broken into small tasks, run and reviewed one at a time, and the later epics.
 
-## Development
+## Design
 
-All development happens in the devcontainer; nothing but Docker and VS Code is needed on the host.
+Clickable prototypes from the design, each a single page that runs in a browser with no server. GitHub shows only their source, so open them from a checkout. They show where the product is heading; where they differ from the documents, the documents win.
 
-1. Install Docker and VS Code with the Dev Containers extension.
-2. Open the repository — on Windows, from WSL — and choose "Reopen in Container". The first build downloads the pinned toolchain and takes a few minutes.
-3. `just --list` shows the available recipes.
-
-The environment, its pinned versions and how to change one are described in [CLAUDE.md](CLAUDE.md#environment). What a change has to satisfy is in [CONTRIBUTING.md](CONTRIBUTING.md); a vulnerability is reported privately, as [SECURITY.md](SECURITY.md) describes.
+- [MathTrail Screens.html](docs/design/MathTrail%20Screens.html) — eighteen screens of the prototype.
+- [MathTrail Widget.html](docs/design/MathTrail%20Widget.html) — the olympiad coach, as one page.

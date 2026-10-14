@@ -10,6 +10,18 @@ MODULE := "github.com/MathTrail/canvas-api"
 # The image the full checks run inside, published by CI. Lowercase throughout:
 # a registry rejects a repository name that is not.
 TOOLCHAIN_IMAGE := "ghcr.io/mathtrail/canvas-api/toolchain"
+# Who signs that image: the workflow of the checks, run for a commit of main. A
+# run for a pull request carries the pull request's ref in its certificate, and
+# no run of a fork is this repository's at all, so neither signs as main. The
+# issuer is GitHub's, whose short-lived tokens the certificate is given for
+# (R53).
+TOOLCHAIN_SIGNER := "https://" + MODULE + "/.github/workflows/ci.yml@refs/heads/main"
+GITHUB_ISSUER := "https://token.actions.githubusercontent.com"
+# The definition of the checks' environment: a hash of the toolchain stage of
+# the development image — every line above the stage built on top of it. It is
+# the image's tag, and main's signature names it too, so that a signature of an
+# image built from another definition does not vouch for this one.
+TOOLCHAIN_HASH := `sed '/^FROM toolchain AS devcontainer$/,$d' .devcontainer/Dockerfile 2>/dev/null | sha256sum | cut -c1-16`
 
 # Exact versions of the tools that only the full checks need. Each is a Go
 # program run straight from its module, so none of them is installed anywhere.
@@ -81,13 +93,77 @@ test:
 build:
     go build -trimpath -ldflags {{ quote(LDFLAGS) }} -o {{ BINARY }} ./cmd/server
 
+# A version asked for is the one published. Otherwise it is the next patch of
+# the line the releases are numbered in, MAJOR.MINOR, or the line's first when
+# none of it is out yet; the line is the one release.yml names, unless another
+# is given (R149 standalone). Refused: a version that is not vMAJOR.MINOR.PATCH,
+# one already released, and one that would come out below the newest release —
+# from a line older than it, or asked for so — since each would number the
+# releases out of order or twice.
+#
+# A commit is released once. When it carries a tag of the form a release takes,
+# v*, nothing is printed and nothing is published, so a button pressed again,
+# or the checks of a released commit run again, hang no second tag on it. The
+# arguments reach the script through the environment, never as its text, since
+# a version asked for is typed by a person.
+# Print the version the next release is published as, or nothing when this commit is released already
+release-version $line="" $requested="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -z "$line" ]; then
+        line=$(sed -n 's/^  RELEASE_LINE: "\(.*\)"$/\1/p' .github/workflows/release.yml)
+    fi
+    # A number as SemVer writes it: digits alone, with no leading zero.
+    number='(0|[1-9][0-9]*)'
+    if [[ ! "$line" =~ ^${number}\.${number}$ ]]; then
+        echo "release-version: the line '${line}' is not MAJOR.MINOR" >&2
+        exit 1
+    fi
+    released=$(git tag --points-at HEAD --list 'v*' | head -1)
+    if [ -n "$released" ]; then
+        echo "release-version: this commit is released already, as ${released}" >&2
+        exit 0
+    fi
+    # The tags a release makes, oldest first. Any other tag that starts with a
+    # v is no release, and counts for neither the newest nor the line's last.
+    releases() { grep -E "^v${number}\.${number}\.${number}$" | sort -V || true; }
+    newest=$(git tag --list 'v*' | releases | tail -1)
+    if [ -n "$requested" ]; then
+        version="$requested"
+    else
+        last=$(git tag --list "v${line}.*" | releases | tail -1)
+        if [ -z "$last" ]; then
+            version="v${line}.0"
+        else
+            version="v${line}.$((${last##*.} + 1))"
+        fi
+    fi
+    if [[ ! "$version" =~ ^v${number}\.${number}\.${number}$ ]]; then
+        echo "release-version: '${version}' is not vMAJOR.MINOR.PATCH" >&2
+        exit 1
+    fi
+    if git rev-parse -q --verify "refs/tags/${version}" > /dev/null; then
+        echo "release-version: ${version} is released already" >&2
+        exit 1
+    fi
+    if [ -n "$newest" ] && [ "$(printf '%s\n' "${newest#v}" "${version#v}" | sort -V | tail -1)" != "${version#v}" ]; then
+        if [ -n "$requested" ]; then
+            echo "release-version: ${version} would come out below the newest release, ${newest}" >&2
+        else
+            echo "release-version: the line ${line} is older than the newest release, ${newest}; raise RELEASE_LINE in release.yml" >&2
+        fi
+        exit 1
+    fi
+    echo "$version"
+
 # The version is a parameter, because a release knows the number it is about to
 # publish before any tag carries it; without one, the same version the rest of
 # the build uses. It reaches the script through the environment, never as its
 # text: a version asked for is typed by a person, and the name of a tag may hold
-# $ and parentheses.
-# Build the release artifacts into dist/: the server for every architecture, and the sums of what was built
-release-artifacts $version=VERSION:
+# $ and parentheses. The SPA is built first, naming the same version: Firebase
+# Hosting serves it, and no binary carries it (R10).
+# Build the release artifacts into dist/: the server for every architecture, the SPA as Hosting serves it, and the sums of what was built
+release-artifacts $version=VERSION: (web-build version)
     #!/usr/bin/env bash
     set -euo pipefail
     # A release's tag, how far past one a build is, or a bare commit: letters,
@@ -104,10 +180,17 @@ release-artifacts $version=VERSION:
     rm -rf dist
     mkdir -p dist
     for arch in amd64 arm64; do
-        name="canvas-api_${version}_linux_${arch}"
+        name="canvas-api-server_${version}_linux_${arch}"
         CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build \
             -trimpath -ldflags "$ldflags" -o "dist/$name" ./cmd/server
     done
+    # The same files always make the same archive, byte for byte: in the order
+    # of their names, with no owner, no time, no name of its own and modes
+    # that do not depend on the umask of whoever built them, so that anybody
+    # who builds the SPA again can compare the sum.
+    tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner \
+        --mode='u+rwX,go+rX,go-w' --format=gnu \
+        -C web/dist -cf - . | gzip -n > "dist/canvas-web_${version}.tar.gz"
     cd dist
     sha256sum * > SHA256SUMS
     echo "dist: $(ls | wc -l) files"
@@ -425,14 +508,48 @@ ci-image-scan tag="canvas-api:dev": (docker-build tag)
 # stage on top, a new Claude Code say, leaves it as it was. Nothing is built
 # when that tag is published already. What is printed is the digest, not the
 # tag: a tag can be moved, and a version here is exact (R20 standalone).
+#
+# Whoever may publish the package may move the tag, and every run of a pull
+# request of this repository may (Т-17). So a pull request takes the image the
+# tag names — accept=published — while main takes only one it signed itself —
+# accept=signed — and builds any other again. An image built here is named by
+# the digest its own push reports, never by what the tag names afterwards: a run
+# of a pull request may move the tag in between (R53).
 # Publish the image the full checks run inside, and print its exact reference
-ci-toolchain-image:
+ci-toolchain-image $accept="published":
     #!/usr/bin/env bash
     set -euo pipefail
-    hash=$(sed '/^FROM toolchain AS devcontainer$/,$d' .devcontainer/Dockerfile | sha256sum | cut -c1-16)
-    reference="{{ TOOLCHAIN_IMAGE }}:${hash}"
-    if ! docker buildx imagetools inspect "$reference" > /dev/null 2>&1; then
+    case "$accept" in
+        published) ;;
+        signed)
+            # Without cosign every image would read as unsigned, and each run
+            # would build one again for nothing.
+            if ! command -v cosign > /dev/null; then
+                echo "ci-toolchain-image: accept=signed checks the signature with cosign, and there is no cosign here" >&2
+                exit 1
+            fi
+            ;;
+        *)
+            echo "ci-toolchain-image: accept is published or signed, not '${accept}'" >&2
+            exit 1
+            ;;
+    esac
+    reference="{{ TOOLCHAIN_IMAGE }}:{{ TOOLCHAIN_HASH }}"
+    # Read with awk rather than a Go template, whose braces would collide with
+    # the interpolation syntax of this file. A tag that names nothing yet reads
+    # as no digest at all.
+    digest=$(docker buildx imagetools inspect "$reference" 2> /dev/null | awk '/^Digest:/ { print $2 }' || true)
+    if [ -z "$digest" ]; then
         echo "This environment is not published yet; building it." >&2
+    elif [ "$accept" = signed ] && ! cosign verify \
+        --certificate-identity {{ quote(TOOLCHAIN_SIGNER) }} \
+        --certificate-oidc-issuer {{ quote(GITHUB_ISSUER) }} \
+        --annotations toolchain={{ TOOLCHAIN_HASH }} \
+        "{{ TOOLCHAIN_IMAGE }}@${digest}" > /dev/null; then
+        echo "ci-toolchain-image: main did not sign the image ${reference} names as this definition's, as cosign says above; building it again." >&2
+        digest=""
+    fi
+    if [ -z "$digest" ]; then
         # Built with no context at all: the stage copies nothing in, and its
         # tag hashes its text alone, so a COPY added to it fails here instead
         # of building what the tag does not name. The label ties the package
@@ -440,20 +557,42 @@ ci-toolchain-image:
         docker build --target toolchain \
             --label "org.opencontainers.image.source=https://{{ MODULE }}" \
             --tag "$reference" - < .devcontainer/Dockerfile >&2
-        if ! docker push "$reference" >&2; then
+        if ! pushed=$(docker push "$reference" | tee /dev/stderr); then
             echo "ci-toolchain-image: could not publish $reference; docker push says why above. A pull request from a fork cannot publish at all, so there a change to the toolchain stage reaches main from a branch of this repository first." >&2
             exit 1
         fi
-    fi
-    # Read with awk rather than a Go template, whose braces would collide with
-    # the interpolation syntax of this file.
-    digest=$(docker buildx imagetools inspect "$reference" | awk '/^Digest:/ { print $2 }')
-    if [ -z "$digest" ]; then
-        echo "ci-toolchain-image: the registry names no digest for $reference" >&2
-        exit 1
+        digest=$(sed -n 's/^.*: digest: \(sha256:[0-9a-f]\{64\}\) size: [0-9]*$/\1/p' <<< "$pushed" | tail -1)
+        if [ -z "$digest" ]; then
+            echo "ci-toolchain-image: docker push named no digest for $reference" >&2
+            exit 1
+        fi
     fi
     # The one thing on stdout, so that a caller can read it with a substitution.
     echo "{{ TOOLCHAIN_IMAGE }}@${digest}"
+
+# Signed by its digest, since a tag can be moved between a check and a
+# signature, with the definition it was built from, and only once: a second signature of the same image would only
+# grow the list a check reads. The signature goes into the package beside the
+# image, and its certificate into Sigstore's public log (R53).
+# Sign the toolchain image, named by its digest, as main's, unless main signed it already
+ci-toolchain-sign image:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    image={{ quote(image) }}
+    digest="${image#"{{ TOOLCHAIN_IMAGE }}@"}"
+    if [ "$digest" = "$image" ] || [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+        echo "ci-toolchain-sign: '${image}' is not {{ TOOLCHAIN_IMAGE }} named by its digest" >&2
+        exit 1
+    fi
+    if cosign verify \
+        --certificate-identity {{ quote(TOOLCHAIN_SIGNER) }} \
+        --certificate-oidc-issuer {{ quote(GITHUB_ISSUER) }} \
+        --annotations toolchain={{ TOOLCHAIN_HASH }} \
+        "$image" > /dev/null 2>&1; then
+        echo "ci-toolchain-sign: main has signed ${image} already"
+        exit 0
+    fi
+    cosign sign --yes --annotations toolchain={{ TOOLCHAIN_HASH }} "$image"
 
 # The version stays exact — this only removes the part where a person edits the
 # same number in two files and misses one. Without an argument, whatever npm
