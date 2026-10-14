@@ -73,7 +73,8 @@ Every change arrives through a pull request that cannot be merged until the foll
 - a secret scan of the whole history;
 - the runtime image: that it starts and names its build, and a Trivy scan of it;
 - the release build: the server and the SPA build as a release builds them;
+- the deployment's Terraform: formatted, valid, and true to its own tests;
 - CodeQL with the `security-extended` queries;
 - 90% coverage of the lines the change touches.
 
-The reasoning behind each of these is written down in [`docs/decisions.md`](docs/decisions.md), in Russian: R49, R50, R52 and R53.
+The reasoning behind each of these is written down in [`docs/decisions.md`](docs/decisions.md), in Russian: R49, R50, R52, R53 and R56.

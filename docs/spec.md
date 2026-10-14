@@ -1777,17 +1777,18 @@ canvas-api подписывает оба токена алгоритмом HS256
 - **В MVP одна среда — prod** (R32): один проект GCP, связанный со своим проектом Firebase. Каждый мерж в `main` выкатывается в неё (15.5).
 - **Вторая среда (dev) создаётся после успешного MVP:** отдельные проекты GCP и Firebase, тот же Terraform со своим `*.auto.tfvars` (15.2).
 - Регион один для всего контура — `us-east4` (R54): Cloud Run и вызовы Gemini в нём, Neon — `aws-us-east-1`, Upstash — в Северной Вирджинии.
-- Адреса (R55): canvas-api и Centrifugo — свои `*.run.app`, SPA — `https://<id проекта>.web.app`; он один уходит в CORS и `client.allowed_origins`.
+- Адреса (R55): canvas-api и Centrifugo — свои `*.run.app`, SPA — `https://<id проекта>.web.app`; он один уходит в CORS и `client.allowed_origins`. Проект — `mathtrail-canvas-prod` (T10): SPA — `https://mathtrail-canvas-prod.web.app`, canvas-api — `https://canvas-api-796865465273.us-east4.run.app`.
+- Журналы и трассы — тоже в `us-east4` (R57).
 
 ### 15.2. Terraform
 
-Структура по образцу `mathtrail-standalone/infra/terraform/`:
+Структура по образцу `mathtrail-standalone/infra/terraform/`; что заведено в T10 и чем отличается от образца — R56. Проект, бакет состояния, пул WIF и аккаунт Terraform создаёт разовый `infra/bootstrap.sh`, а не Terraform:
 
 ```text
 infra/terraform/
-  versions.tf         провайдеры и их точные версии
+  versions.tf         провайдеры и их точные версии: google и google-beta (Firebase — только в нём)
   backend.hcl         состояние в GCS
-  apis.tf             включение API (Run, Secret Manager, Artifact Registry, Agent Platform, reCAPTCHA Enterprise, Monitoring)
+  apis.tf             включение API (Run, Artifact Registry, IAM и WIF, Firebase, бюджеты, Monitoring, Logging, Observability; Secret Manager, Agent Platform и reCAPTCHA Enterprise — с задачами эпика MVP)
   registry.tf         Artifact Registry для образов
   secrets.tf          семь секретов (значения кладутся вне ресурсов Terraform; R34)
   iam.tf              сервисные аккаунты, роли, WIF для GitHub Actions
@@ -1798,13 +1799,15 @@ infra/terraform/
   firebase.tf         Hosting, App Check, провайдеры Auth
   budget.tf           бюджет и оповещения
   alert.tf            алерт на число запросов
+  logging.tf          журналы и трассы в регионе (R57)
   variables.tf  outputs.tf  prod.auto.tfvars
+  tests/              тесты конфигурации на mock-провайдерах (terraform test)
 ```
 
 - **Neon и Upstash** подключаются через их провайдеры Terraform, где это возможно. Иначе ресурсы создаются вручную, а строки подключения кладутся в Secret Manager.
 - **Gemini.** Аккаунт сервиса получает роль вызова моделей. Кеширование входов модели выключается для проекта до первой проверки ребёнка ([privacy.md](privacy.md), раздел 5.2). По документации это вызов API, а не настройка Terraform, поэтому его делает рецепт выкладки; способ сверяется с документацией перед реализацией.
 - **Образы — не дело Terraform.** Как в mathtrail-standalone, Terraform создаёт сервисы и jobs с начальным образом и игнорирует изменения образа (`lifecycle.ignore_changes`). Образы выкатывает CD (15.5).
-- **Трафик — тоже.** Блок `traffic` в сервисах не задаётся, а если провайдер его всё же сверяет, изменения игнорируются. Иначе `terraform apply` следующей выкладки снял бы закрепление трафика после отката раньше, чем выйдет новый образ. Поведение провайдера сверяется с его документацией.
+- **Трафик — тоже.** Блок `traffic` в сервисах не задаётся, а если провайдер его всё же сверяет, изменения игнорируются. Иначе `terraform apply` следующей выкладки снял бы закрепление трафика после отката раньше, чем выйдет новый образ. Сверено в T10: в провайдере 8.3.0 `traffic` — Optional и Computed, и без блока расхождений нет (R56).
 - **`prod.auto.tfvars` публичен** (репозиторий открытый). В нём нет ни секретов, ни персональных данных.
 
 ### 15.3. Сервисы Cloud Run
@@ -1825,7 +1828,7 @@ infra/terraform/
 | Переменная | Пример | Секрет |
 |---|---|---|
 | `CANVAS_ENV` | `prod` | нет |
-| `CANVAS_ALLOWED_ORIGINS` | `https://<id проекта>.web.app` (R55) | нет |
+| `CANVAS_ALLOWED_ORIGINS` | `https://mathtrail-canvas-prod.web.app` (R55) | нет |
 | `CANVAS_FIREBASE_PROJECT_ID` | `mathtrail-canvas-prod` | нет |
 | `CANVAS_DATABASE_URL` | `postgres://…/canvas?sslmode=require` | да |
 | `CANVAS_OPENFGA_URL` | `http://127.0.0.1:8088` (store и модель canvas-api находит сам, 12.3) | нет |
@@ -1864,7 +1867,7 @@ Centrifugo v6 получает секреты переменными окруж�
 
 ## 16. Наблюдаемость
 
-- **Трассы.** OpenTelemetry отправляет трассы в Cloud Trace. Спаны: входящий запрос, OpenFGA Check, проверка картинок, Neon, вызовы Gemini, публикация в Centrifugo. В атрибутах спанов — только UUID и коды: без картинок, прочитанного ответа и текста подсказок. Срок хранения — 30 дней ([privacy.md](privacy.md), раздел 4).
+- **Трассы.** OpenTelemetry отправляет трассы в Cloud Trace. Спаны: входящий запрос, OpenFGA Check, проверка картинок, Neon, вызовы Gemini, публикация в Centrifugo. В атрибутах спанов — только UUID и коды: без картинок, прочитанного ответа и текста подсказок. Срок хранения — 30 дней ([privacy.md](privacy.md), раздел 4). Трассы хранятся в `us-east4` (R57).
 - **Метрики:**
 
 | Метрика | Метки |
@@ -1883,7 +1886,7 @@ Centrifugo v6 получает секреты переменными окруж�
 
 Ложную тревогу — верный ответ, прочитанный как неверный, — по метрикам сервиса не видно: для сервиса это обычный `INCORRECT`. Её меряют eval-наборы (7.4), а в бете — сигналы О-17.
 
-- **Логи** — JSON через zap в Cloud Logging. Только UUID, коды, тайминги, `prompt_version` и ID моделей; каждый вызов модели пишет свои `prompt_version` и ID (7.4). Без прямых идентификаторов, картинок, прочитанного ответа и текста подсказок. Какие поля разрешены каждому событию лога, задаёт таблица в коде, а тест аудита проверяет, что других нет (product 12, критерии 7 и 8).
+- **Логи** — JSON через zap в Cloud Logging, в бакете `default-us-east4` (R57). Только UUID, коды, тайминги, `prompt_version` и ID моделей; каждый вызов модели пишет свои `prompt_version` и ID (7.4). Без прямых идентификаторов, картинок, прочитанного ответа и текста подсказок. Какие поля разрешены каждому событию лога, задаёт таблица в коде, а тест аудита проверяет, что других нет (product 12, критерии 7 и 8).
 - **Алерты:**
   - доля ошибок 5xx > 2% за 10 минут;
   - p95 до вердикта > 3 с;
@@ -1936,6 +1939,7 @@ deploy/
   openfga/model.fga       модель доступа
   centrifugo/config.json  конфигурация Centrifugo
 infra/terraform/          раздел 15.2
+infra/bootstrap.sh        разовый шаг: проект, бакет состояния, WIF (15.2, R56)
 web/                      SPA: React + Konva (R13)
   src/gen/                сгенерированный TS
 docs/                     эти документы

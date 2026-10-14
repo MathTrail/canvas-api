@@ -37,4 +37,4 @@ The documents are in Russian.
 Clickable prototypes from the design, each a single page that runs in a browser with no server. GitHub shows only their source, so open them from a checkout. They show where the product is heading; where they differ from the documents, the documents win.
 
 - [MathTrail Screens.html](docs/design/MathTrail%20Screens.html) — eighteen screens of the prototype.
-- [MathTrail Widget.html](docs/design/MathTrail%20Widget.html) — the olympiad coach, as one page.
+- [MathTrail Widget.html](https://mathtrail.app/en/coach/) — the olympiad coach, as one page.

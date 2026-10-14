@@ -411,8 +411,8 @@
   </section>
 
   <footer>
-    <p>Это сводка, а не источник: где она расходится со spec, журналом решений или RUN.md, правы они. Статусы — на 2026-10-13: сделаны T00–T07, T59 и T60, документы пересмотрены под поворот LLM-first (R37–R45).</p>
-    <p>Источники: docs/spec.md (разделы 2, 3, 12–20), docs/decisions.md (R01–R51), RUN.md (задачи эпика E1 и таблица 2), .devcontainer/Dockerfile и devcontainer.json, web/package.json, justfile и .github/; версии образца — reference/mathtrail-standalone.</p>
+    <p>Это сводка, а не источник: где она расходится со spec, журналом решений или RUN.md, правы они. Статусы — на 2026-10-14: сделаны T00–T10, T59 и T60, документы пересмотрены под поворот LLM-first (R37–R45).</p>
+    <p>Источники: docs/spec.md (разделы 2, 3, 12–20), docs/decisions.md (R01–R57), RUN.md (задачи эпика E1 и таблица 2), .devcontainer/Dockerfile и devcontainer.json, web/package.json, justfile и .github/; версии образца — reference/mathtrail-standalone.</p>
     <p>Цены и лимиты сервисов — из spec 3.3 на 2026-09-27, цены Gemini — на 2026-10-11; перед живым запуском их сверяют заново.</p>
   </footer>
 </div>
@@ -498,36 +498,36 @@
     ]},
     { id: "realtime", name: "Realtime", path: "Cloud Run · Upstash", note: "вердикт сразу, подсказка следом", rows: [
       { n: "Centrifugo", p: "centrifugo/centrifugo, свой сервис :8000", v: "v6.9.6", r: "WebSocket до клиента: события verdict и hint, история и восстановление после разрыва", s: "spec", ref: "R23 · spec 8.5 · E2" },
-      { n: "Upstash Redis", p: "rediss://", v: "Free, 500 тыс. команд в месяц", r: "Движок Centrifugo: история каналов и готовность к нескольким инстансам", s: "spec", ref: "spec 3.3 · S3 · E2" }
+      { n: "Upstash Redis", p: "rediss://", v: "Free, 500 тыс. команд в месяц", r: "Движок Centrifugo: история каналов и готовность к нескольким инстансам; Северная Вирджиния", s: "spec", ref: "spec 3.3 · R54 · S3 · E2" }
     ]},
     { id: "data", name: "Данные", path: "Neon · migrations/ · tasks/", note: "состояние вне процессов", rows: [
-      { n: "Neon Postgres", p: "базы canvas и openfga", v: "Free, 0,5 ГБ", r: "Данные приложения и хранилище OpenFGA; автопауза через 5 мин простоя", s: "spec", ref: "R08 · E2" },
+      { n: "Neon Postgres", p: "базы canvas и openfga", v: "Free, 0,5 ГБ", r: "Данные приложения и хранилище OpenFGA; автопауза через 5 мин простоя; регион aws-us-east-1", s: "spec", ref: "R08 · R54 · E2" },
       { n: "PostgreSQL в контейнере", p: "docker compose, образ по digest", v: "", r: "Локальный запуск и интеграционные тесты", s: "spec", ref: "E2" },
       { n: "Встроенные задачи", p: "tasks/*.json · go:embed", v: "", r: "Пять статичных задач в бинарнике, временно до каталога; ключ клиенту не отдаётся", s: "spec", ref: "R40 · spec 8.6 · E2" }
     ]},
     { id: "cloud", name: "Облако и поставка", path: "infra/terraform/ · .github/workflows/", note: "мерж в main → prod", rows: [
-      { n: "Cloud Run — сервисы", p: "canvas-api + сайдкар · Centrifugo", v: "min 0 · max 1", r: "Масштаб до нуля; рост — сменой max-instances без правки кода", s: "spec", ref: "R01 · spec 15.3" },
+      { n: "Cloud Run — сервисы", p: "canvas-api + сайдкар · Centrifugo", v: "min 0 · max 1", r: "Масштаб до нуля; рост — сменой max-instances без правки кода; us-east4, свои адреса run.app; canvas-api описан Terraform", s: "repo", ref: "R01 · R54 · R55 · spec 15.3 · T10" },
       { n: "Cloud Run — jobs", p: "canvas-migrate · openfga-migrate · cleanup · admin", v: "", r: "Миграции на новом образе до выкладки; ежедневная очистка; инвайты и согласие", s: "spec", ref: "R31 · spec 15.5" },
       { n: "Cloud Scheduler", v: "", r: "Запускает ежедневную очистку", s: "spec", ref: "spec 15.2 · E2" },
-      { n: "Artifact Registry", v: "", r: "Образы сервиса; ссылки только по digest, автоочистка", s: "spec", ref: "T10 · T11" },
+      { n: "Artifact Registry", v: "", r: "Образы сервиса в us-east4; ссылки только по digest; автоочистка — 5 последних, старше 30 дней удаляются", s: "repo", ref: "R56 · T10 · T11" },
       { n: "Secret Manager", v: "7 секретов", r: "URL баз, ключи Centrifugo, Upstash, секреты входа Apple и Google", s: "spec", ref: "spec 13 · R34" },
-      { n: "Firebase Hosting", v: "CDN", r: "Раздаёт SPA; API и Centrifugo — по своим адресам Cloud Run", s: "spec", ref: "R10 · T11" },
-      { n: "Terraform CLI", v: "1.16.3", r: "Весь проект как код; состояние в GCS", s: "repo", ref: "spec 15.2 · T10" },
-      { n: "Провайдеры Terraform", p: "google; google-beta — если нужен Firebase", v: "закрепит T10", r: "Точные версии и .terraform.lock.hcl в репозитории", s: "spec", ref: "spec 15.2 · T10" },
+      { n: "Firebase Hosting", v: "CDN", r: "Раздаёт SPA с https://mathtrail-canvas-prod.web.app; API и Centrifugo — по своим адресам Cloud Run; сайт описан Terraform", s: "repo", ref: "R10 · R55 · T10 · T11" },
+      { n: "Terraform CLI", v: "1.16.3", r: "Весь проект как код; состояние в GCS; проект, бакет и WIF — разовый bootstrap; tf-check в CI", s: "repo", ref: "spec 15.2 · R56 · T10" },
+      { n: "Провайдеры Terraform", p: "google; google-beta — для Firebase", v: "8.3.0", r: "Точные версии и .terraform.lock.hcl в репозитории; поднимаются руками", s: "repo", ref: "spec 15.2 · R56 · T10" },
       { n: "Neon и Upstash в Terraform", p: "их провайдеры", v: "", r: "Если провайдер есть и лицензия подходит; иначе руками по инструкции", s: "open", q: "выбор в E2", ref: "spec 15.2 · E2" },
       { n: "GitHub Actions", p: "actions по SHA", v: "", r: "CI на каждом PR и коммите main — в образе тулчейна по digest; подписанный релиз после зелёного CI на main и выкладка из его тега — T08, T11", s: "repo", ref: "R33, R45, R49 · T06, T08, T11" },
-      { n: "Workload Identity Federation", v: "", r: "CI входит в GCP без ключей сервисных аккаунтов", s: "spec", ref: "spec 15.5 · T10" },
+      { n: "Workload Identity Federation", v: "", r: "CI входит в GCP без ключей сервисных аккаунтов; пул и провайдер создаёт bootstrap", s: "repo", ref: "spec 15.5 · R56 · T10" },
       { n: "gcloud CLI", p: "на x86_64; на arm64 — из образа Google", v: "585.0.0", r: "jobs update и execute, services update в CD", s: "repo", ref: "spec 15.5 · T11" },
       { n: "firebase-tools", v: "закрепит T11", r: "firebase deploy --only hosting", s: "spec", ref: "T11" },
       { n: "Образ сервиса", p: "golang → gcr.io/distroless/static-debian13", v: "по digest", r: "Многоэтапная сборка: CGO_ENABLED=0, -trimpath, пользователь nonroot", s: "repo", ref: "T04" },
       { n: "cosign + gh release", p: "подпись без ключей, OIDC", v: "v3.1.3", r: "Подписанный релиз vX.Y.Z на каждом зелёном main: сервер amd64 и arm64, архив SPA, SHA256SUMS; выкладка идёт из его тега. Тем же cosign main подписывает образ тулчейна и сверяет подпись перед проверками", s: "repo", ref: "R40 standalone, R45, R52, R53 · T08" },
-      { n: "Бюджет GCP", p: "budget.tf", v: "50 / 90 / 100 %", r: "Оповещения о тратах проекта", s: "spec", ref: "spec 14.4 · T10" }
+      { n: "Бюджет GCP", p: "budget.tf", v: "$1 · 50 / 90 / 100 %", r: "Оповещения о тратах проекта", s: "repo", ref: "spec 14.4 · R56 · T10" }
     ]},
     { id: "obs", name: "Наблюдаемость", path: "internal/telemetry/", note: "в логах только UUID и коды", rows: [
       { n: "OpenTelemetry Go", p: "otel · otlptracehttp · otlpmetrichttp · GCP detector", v: "v1.46.0", r: "Трассы и метрики; экспорт на telemetry.googleapis.com, сброс до ответа", s: "sample", ref: "spec 16 · E2" },
-      { n: "Cloud Trace", v: "хранение 30 дней", r: "Спаны: запрос, OpenFGA, картинки, Neon, Gemini, Centrifugo", s: "spec", ref: "spec 16 · E2" },
-      { n: "Cloud Monitoring", v: "", r: "Метрики canvas_* и алерты: 5xx, p95 до вердикта, сбои чтения, доля запасных подсказок; алерт на число запросов — с Terraform", s: "spec", ref: "spec 16 · T10, E2" },
-      { n: "Cloud Logging", v: "", r: "JSON-логи zap, связанные с трассой; только UUID, коды и тайминги — без картинок и прочитанного ответа", s: "spec", ref: "spec 16 · E2" }
+      { n: "Cloud Trace", v: "хранение 30 дней", r: "Спаны: запрос, OpenFGA, картинки, Neon, Gemini, Centrifugo; хранятся в us-east4", s: "spec", ref: "spec 16 · R57 · E2" },
+      { n: "Cloud Monitoring", v: "", r: "Метрики canvas_* и алерты: 5xx, p95 до вердикта, сбои чтения, доля запасных подсказок; алерт на число запросов — alert.tf", s: "spec", ref: "spec 16 · R56 · T10, E2" },
+      { n: "Cloud Logging", v: "", r: "JSON-логи zap, связанные с трассой; только UUID, коды и тайминги — без картинок и прочитанного ответа; бакет default-us-east4, 30 дней", s: "spec", ref: "spec 16 · R57 · E2" }
     ]},
     { id: "quality", name: "Качество кода", path: "CI · .githooks/", note: "блокируют: патч Codecov, CodeQL, Trivy", rows: [
       { n: "golangci-lint", v: "2.14.0", r: "Конфиг v2: depguard, forbidigo, gocognit, interfacebloat", s: "repo", ref: "T04" },

@@ -33,6 +33,11 @@ GO_LICENSES := "github.com/google/go-licenses/v2@v2.0.1"
 # every other image this repository runs.
 TRIVY_IMAGE := "aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa"
 
+# The deployment, as Terraform describes it (spec 15.2), and the filter what
+# Terraform prints about it passes through (_tf-redact, below).
+TF_DIR := "infra/terraform"
+TF_REDACT := quote(just_executable()) + " --justfile " + quote(justfile()) + " _tf-redact"
+
 # What a dependency's license may be: permissive, and compatible with releasing
 # the result under MIT.
 ALLOWED_LICENSES := "MIT,BSD-2-Clause,BSD-3-Clause,Apache-2.0,ISC"
@@ -653,3 +658,75 @@ docker-build tag="canvas-api:dev":
 # Build the image and run it on port 8080
 docker-run tag="canvas-api:dev": (docker-build tag)
     docker run --rm -e PORT=8080 -p 8080:8080 {{ quote(tag) }}
+
+# -- Infrastructure ---------------------------------------------------------
+
+# Rewrite every Terraform file in the canonical format
+tf-fmt:
+    terraform -chdir={{ TF_DIR }} fmt -recursive
+
+# The check goes near no deployment: there is no backend and no credential, and
+# the tests run against mock providers, so nothing is read or made in a cloud.
+# The providers come exactly as the lock file names them, so one missing from
+# it fails here instead of being added on the way.
+# Fail if a Terraform file is not formatted, the configuration does not validate, or its tests fail
+tf-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    terraform -chdir={{ TF_DIR }} fmt -check -recursive -diff
+    terraform -chdir={{ TF_DIR }} init -backend=false -input=false -lockfile=readonly
+    terraform -chdir={{ TF_DIR }} validate
+    terraform -chdir={{ TF_DIR }} test
+
+# Run once, with TF_VAR_billing_account set, by someone who may create projects;
+# again only when infra/bootstrap.sh changes (docs/self-hosting.md).
+# Create the project, its state bucket and the identity the pipeline applies as
+bootstrap:
+    bash infra/bootstrap.sh
+
+# A plan only reads, so it takes no lock: a pull request's plan never stands in
+# the way of a delivery's apply. What it prints goes through _tf-redact.
+# Show what an apply would change in the deployment (needs credentials and TF_VAR_billing_account)
+ci-tf-plan: _tf-init
+    terraform -chdir={{ TF_DIR }} plan -input=false -no-color -lock=false 2>&1 | {{ TF_REDACT }}
+
+# An apply waits for a lock that another apply holds rather than failing at
+# once. A secret that a revision reads gets its pass before this one, so that
+# the revision finds a version of it (RUN.md, rule 13): there is no secret yet.
+# Apply the deployment's configuration (needs credentials and TF_VAR_billing_account)
+ci-tf-apply: _tf-init
+    terraform -chdir={{ TF_DIR }} apply -auto-approve -input=false -no-color -lock-timeout=5m 2>&1 | {{ TF_REDACT }}
+
+# Read after ci-tf-apply, in the same place, which has initialised the
+# configuration already. Each value is read into a variable first: inside the
+# echo, an output that failed would print an empty line and pass.
+# Print what a delivery reads from the deployment, as name=value lines
+ci-tf-outputs:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for name in deploy_service_account image_repository service_name region service_url hosting_url; do
+        value="$(terraform -chdir={{ TF_DIR }} output -raw "$name")"
+        echo "${name}=${value}"
+    done
+
+# The plan and the apply initialise the configuration the same way: against
+# the deployment's state, with the providers exactly as the lock file names
+# them.
+_tf-init:
+    terraform -chdir={{ TF_DIR }} init -backend-config=backend.hcl -input=false -lockfile=readonly 2>&1 | {{ TF_REDACT }}
+
+# A plan and an apply print what the state holds, and the budget's id holds the
+# billing account. GitHub masks a repository's secrets in what a workflow
+# prints, but nothing masks a terminal or a log copied out of one, so the
+# billing account and the operator's address are replaced by their names
+# before any line is shown. Both are replaced as text, never read as patterns.
+_tf-redact:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    billing="${TF_VAR_billing_account:-}"
+    email="${TF_VAR_operator_email:-}"
+    while IFS= read -r line || [ -n "$line" ]; do
+        if [ -n "$billing" ]; then line="${line//"$billing"/"<billing account>"}"; fi
+        if [ -n "$email" ]; then line="${line//"$email"/"<operator email>"}"; fi
+        printf '%s\n' "$line"
+    done

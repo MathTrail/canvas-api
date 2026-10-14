@@ -35,6 +35,7 @@
    - `just ci-licenses` и `just ci-vuln` — всегда (с T05);
    - `just ci-secrets`, `just ci-image-smoke` и `just ci-image-scan` — всегда (с T06);
    - `just release-version` и `just release-artifacts` — всегда (с T08);
+   - `just tf-check` — всегда (с T10);
    - `just ci-web` — если задача трогает `web/` (с T05);
    - `just load-lint` и `just load-test` — всегда; `just ci-load-smoke` — если задача трогает код сервера; `just ci-proto` — если трогает `proto/`; `just ci-integration` — если трогает хранилище, права, миграции или путь запроса. Эти рецепты приносят задачи эпика MVP (E2).
 
@@ -135,7 +136,7 @@
 | [x] | T07 | Анализ кода и витрина качества | я + Claude | — | T06 |
 | [x] | T08 | Релиз | Claude | — | T06 |
 | [x] | T09 | Решения для поставки | я + Claude | — | T01 |
-| [ ] | T10 | Terraform | Claude | да | T04, T09 |
+| [x] | T10 | Terraform | Claude | да | T04, T09 |
 | [ ] | T11 | CD | Claude | да | T06, T07, T08, T10 |
 | [ ] | T12 | Первый деплой | я + Claude | — | T11 |
 
@@ -1029,11 +1030,11 @@
   - **Документация, прочитана 2026-10-14:** Cloud Run «Mapping custom domains» (регионы, Preview), «Generative AI locations» (Gemini 3.x по регионам, глобальный адрес), Neon «Regions».
   - **Ревью `/code-review high`**, 9 замечаний: исправлено — примеры `CANVAS_ALLOWED_ORIGINS` и `CANVAS_GEMINI_LOCATION` в spec 15.4, CORS в spec 8.1, место хранения в уведомлении (privacy 6), «рабочее название» в CLAUDE.md, локальный origin Centrifugo и `authDomain` Firebase Auth в R55; отброшено — шапка журнала решений не перечисляет каждую запись (R52–R53 тоже не там), «docs/stack.html» в списке верно — из него ушёл Т-3; картинка README (`docs/design/app.png`) — отдельная просьба автора, не T09.
 - **Открыто:**
-  - ID проекта GCP и Firebase — в T10; из него выводятся точные адреса;
+  - ID проекта GCP и Firebase — в T10; из него выводятся точные адреса. Решено в T10: `mathtrail-canvas-prod` (R55);
   - `authDomain` и адрес обработчика входа у Google и Apple — задача эпика MVP, что приносит вход (R55);
   - регион Upstash (AWS `us-east-1` или GCP `us-east4`) сверить в консоли Upstash, когда его создаёт задача эпика MVP;
-  - для T10: бакет журналов `_Default` и хранилище трасс — в США, а не `global` (R54, privacy 4); вход по redirect требует, чтобы rewrites Hosting не перехватывали `/__/` (R55);
-  - `docs/stack.html`: строки Cloud Run, Neon, Upstash и Hosting не называют регион и адреса — дописать вместе с T10;
+  - для T10: бакет журналов `_Default` и хранилище трасс — в США, а не `global` (R54, privacy 4) — сделано в T10 (R57); вход по redirect требует, чтобы rewrites Hosting не перехватывали `/__/` (R55) — это T11;
+  - `docs/stack.html`: строки Cloud Run, Neon, Upstash и Hosting не называют регион и адреса — дописано в T10;
 - **Разделы:** product 3, 15; spec 2, 15.1, 20; privacy 12.
 
 #### T10. Terraform
@@ -1072,6 +1073,102 @@
 - **Как проверить:** `just tf-check` зелёный; `terraform plan` на моём проекте проходит без ошибок. `apply` делает пайплайн (T11–T12).
 - **Стоимость:** ожидается $0 в бесплатных лимитах; назвать всё, что может стоить денег.
 - **Не делать:** Neon, Upstash, секреты, сайдкар, Centrifugo и jobs — их добавляют задачи, которым они нужны.
+- **Сделано (2026-10-14)** — по утверждённому плану. Решения автора в планировании: ID проекта `mathtrail-canvas-prod`, бюджет $1, журналы и трассы в `us-east4` уже в T10 (R57), одна задача без разбиения.
+  - **`infra/bootstrap.sh`** — по образцу:
+    - проект «MathTrail Canvas», привязка к платёжному аккаунту, API — вместе с Observability, заранее;
+    - бакет состояния в `us-east4`;
+    - пул `canvas-api-github` и провайдер `github`. Условие: репозиторий, ID владельца 261630499 и единственный workflow — выкладка `deploy.yml` (T11), так что до T11 не войдёт никто. Повтор приводит условие к записанному (`update-oidc`);
+    - аккаунт `canvas-api-tf`: 12 ролей проекта, `storage.objectAdmin` на бакете, `billing.costsManager` на платёжном аккаунте;
+    - сверка валюты аккаунта с `budget_currency`; ID платёжного аккаунта скрипт не печатает;
+    - всё создаваемое ищется перед каждой попыткой (`ensure`), остальные вызовы повторяются: на свежем проекте права доходят не сразу.
+  - **`infra/terraform/`:**
+    - `versions.tf` — `google` и `google-beta` 8.3.0, `user_project_override`; lock для linux amd64 и arm64;
+    - `backend.hcl` и `prod.auto.tfvars`;
+    - `apis.tf`, `registry.tf`, `iam.tf`;
+    - `service_api.tf` — по spec 15.3: масштаб 0–1, параллельность 40, тайм-аут 30 с, boost, startup probe `/health` раз в секунду, `GOMEMLIMIT`;
+    - `firebase.tf`, `budget.tf`, `alert.tf` и `logging.tf` — sink `_Default` в бакет `default-us-east4`, место трасс `us-east4`;
+    - `variables.tf`, `outputs.tf`;
+    - 12 тестов `terraform test` на mock-провайдерах.
+  - **Рецепты:** `tf-fmt`, `tf-check`, `bootstrap`, `ci-tf-plan` (без блокировки состояния), `ci-tf-apply` (ждёт блокировку до 5 минут), `ci-tf-outputs`, `_tf-redact` (маскирует ID платёжного аккаунта и адрес оператора).
+  - **CI:** задание «Terraform» на раннере; `.github/actions/terraform` читает `ARG TERRAFORM_VERSION`. Экосистемы `terraform` в Dependabot нет — причина в шапке `.github/dependabot.yml` и в R56.
+  - **Документы:**
+    - `docs/self-hosting.md` — первая версия;
+    - R56, R57; R50 — «Release build» и «Terraform» среди обязательных проверок; R54; R55 — точные адреса;
+    - spec 15.1, 15.2, 15.4, 16, 18; privacy 4, 7, 8;
+    - `CLAUDE.md`, `CONTRIBUTING.md`, `SECURITY.md`, правило 7, `docs/stack.html`.
+  - **Сверх текста задачи, утверждено планом:**
+    - `tf-fmt` — повседневный рецепт, а в списке обязательных — только `tf-check`;
+    - журналы и трассы — сразу в `us-east4`;
+    - тесты конфигурации на mock-провайдерах;
+    - маскировка вывода плана;
+    - правка T12 ниже.
+  - **Живой прогон (2026-10-14).** Стоимость названа (≈ $0) и подтверждена автором. Автор вошёл в gcloud и положил ID платёжного аккаунта в `.env`, а bootstrap и план запускал Claude.
+    - Первый запуск: `INVALID_ARGUMENT` на чтении валюты — в `.env` был шаблон из инструкции. Вместо него подставлен единственный открытый аккаунт, ID не печатался.
+    - Второй: проект, биллинг, API и бакет созданы, затем PERMISSION_DENIED на создание пула. На свежем проекте права владельца доходят не сразу, и в скрипт добавлены повторы.
+    - Третий прошёл. Четвёртый, повторный, не создал ничего. Пятый — после ревью — положил на провайдер суженное условие пула; оно ACTIVE, ролей по-прежнему 12.
+    - У аккаунта Terraform ровно 12 перечисленных ролей проекта; провайдер ACTIVE.
+    - План: `27 to add, 0 to change, 0 to destroy`, ID платёжного аккаунта в выводе нет. С подставным адресом оператора — 29, и адрес показан как `(sensitive value)`.
+  - **Проверки:**
+    - зелёные `just ci-lint`, `ci-test`, `ci-mocks-check`, `ci-licenses`, `ci-vuln`, `ci-secrets`, `release-version`, `release-artifacts`, `ci-image-smoke canvas-api:dev ci-image-scan canvas-api:dev` и `tf-check`;
+    - actionlint 1.7.12 и `check-jsonschema` 0.34.1 для `ci.yml`, action и `dependabot.yml`; shellcheck 0.11.0 для bootstrap;
+    - bootstrap с поддельным `gcloud`: создание, повтор без создания, отказы, повтор привязки после ошибки, ID нигде не печатается;
+    - скрипт action — с поддельным окружением раннера.
+  - **Выключенные проверки** — 17, каждая сломана в копии и краснит:
+    - `count` алерта, порог в секунду;
+    - валидации образа, аккаунта, адреса и имени;
+    - доля `GOMEMLIMIT`, единицы `Mi`;
+    - период probe, порог бюджета 0.9, фильтр `_Default` (без строки и с опечаткой);
+    - имя сервиса короче шести символов у его аккаунтов и с дефисом на конце;
+    - формат файла, битая ссылка, провайдер без lock.
+
+    Fuzz нет, флейков не было.
+  - **Ревью `/code-review high`:**
+    - первый круг, 10 замечаний. Исправлено:
+      - подсказка про `.env`, который никто не читает;
+      - ID платёжного аккаунта в ошибках gcloud — теперь маскируется;
+      - тест фильтра `_Default` считал вхождения, а не сверял текст;
+      - комментарий о сайте Hosting не учитывал Firebase до 2026-10-15;
+      - запятая в CLAUDE.md, фраза о цене алертов;
+      - две копии `init` в рецептах — теперь `_tf-init`;
+      - имя бакета в тексте алерта — теперь ссылкой.
+
+      Отброшено: кеш провайдеров в CI и общий шаг чтения `ARG` (причины — в «Отвергнуто» R56);
+    - второй круг, 9 замечаний. Исправлено:
+      - условие пула пускало любой workflow репозитория, а задание релиза держит токен личности и собирает SPA сторонними пакетами; теперь только `deploy.yml`;
+      - комментарий о силе `serviceAccountAdmin`;
+      - повторы для привязки биллинга, API и бакета; создание через поиск перед каждой попыткой;
+      - валидация имени сервиса: длина его аккаунтов и дефис на конце.
+
+      Отброшено:
+      - `unique_writer_identity = false` у `_Default` не ломает apply: у живого sink writer identity пустой (проверено), и `false` ничего не меняет;
+      - кеш провайдеров и общий шаг `ARG` — повтор первого круга;
+      - вложенный `just` для маскировки — миллисекунды против секунд Terraform, а его backtick-переменные с запасными значениями упасть не могут.
+
+      Исправления второго круга прошли проверки, третьего ревью нет (CLAUDE.md).
+  - **Документация, прочитана 2026-10-14:**
+    - исходники и документация провайдеров `google` и `google-beta` 8.3.0 (Cloud Run v2, `logging_project_sink`, `logging_project_bucket_config`, Observability, `billing_budget`, Firebase);
+    - Cloud Run: health checks, адреса, масштаб;
+    - Cloud Logging: маршрутизация и фильтр `_Default`; Observability: место по умолчанию, роли, регионы;
+    - Cloud Billing API (`currencyCode`); Firebase Hosting: сайт по умолчанию;
+    - `gcloud` 585.0.0 `--help`;
+    - `action.yml` setup-terraform v4.0.1; исходник `cloud-run-hello`;
+    - цены Cloud Run и Cloud Monitoring.
+- **Открыто:**
+  - **шаги автора:**
+    - «Terraform» — в обязательные проверки ruleset «main», и «Release build», если его там ещё нет (R50);
+    - секрет `TF_VAR_billing_account` — до мержа T11: её мерж — первая выкладка. `TF_VAR_operator_email` — в T12;
+    - в `.env` лежит ID платёжного аккаунта; файл в `.gitignore`;
+  - **для T11:**
+    - `roles/resourcemanager.projectIamAdmin` аккаунту Terraform: роль выкладки Hosting выдаётся только на проект. Это правка bootstrap и его повтор;
+    - `.github/actions/terraform` — переиспользовать;
+    - сайт Hosting — в `firebase.json`, rewrites не перехватывают `/__/` (R55);
+    - `TF_VAR_operator_email` — и в план, и в apply;
+    - WIF по окружению — решение автора, тоже повтор bootstrap. Сейчас условие пула пускает `deploy.yml` с любой ветки, в том числе из PR, который его поменял;
+    - имя `deploy.yml` — часть условия пула: другое имя требует правки bootstrap;
+  - **для T12:** после первой выкладки `just ci-tf-plan` пуст — это доказательство для `ignore_changes` и `traffic`. Первый apply может потребовать одного повтора. Firebase может потребовать принять условия, если addFirebase откажет;
+  - T35 (черновик E2) пишет, что API Agent Platform включила T10. Это не так: его включит задача, которая выключает кеш входов (privacy 5.2). Поправить при разбиении E2;
+  - SonarCloud начнёт смотреть `infra/**` — по правилу 3 перед T11;
+  - провайдеры 8.3.0 отстают от 8.7.0 (2026-10-13) — поднять руками, вместе с lock.
 - **Разделы:** spec 3.4, 14.4, 15.1–15.3; R32, R34; standalone: R26, R29, R32, R33, R266.
 
 #### T11. CD
@@ -1125,11 +1222,11 @@
 - **Цель:** сервис и SPA живут на своих адресах, и разворачивает их пайплайн, а не руки.
 - **Сделать:**
   - **Я** — дела без API, каждое один раз:
-    - `TF_VAR_billing_account=… just bootstrap`; напечатанные строки — в `infra/ci.env`;
+    - bootstrap сделан в T10, его строки уже в `infra/ci.env`. Повторить `just bootstrap` — только если скрипт менялся (`docs/self-hosting.md`);
     - секрет репозитория `TF_VAR_billing_account`;
     - секрет репозитория `TF_VAR_operator_email` — почта для алерта (T10). Без неё алерт не создаётся;
     - Firebase: принять условия, если этого не может Terraform;
-    - адреса из T09: подтверждение владения доменом и DNS-записи для Hosting и API.
+    - своих доменов нет (R55): адреса — `run.app` и `web.app`, DNS не нужен.
   - Первый прогон — мерж в `main`: CI, затем релиз и выкладка (R45).
   - **Claude:**
     - чек-лист первой поставки в `docs/self-hosting.md`, по образцу:

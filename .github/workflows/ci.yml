@@ -294,6 +294,27 @@ jobs:
               just release-artifacts
           fi
 
+  # The deployment's configuration: formatted, valid against the providers its
+  # lock file names, and true to its own tests, which run against mock
+  # providers. On the runner, because the toolchain image has no Terraform:
+  # the development image adds it in the stage on top. Nothing here signs in
+  # anywhere, so the job's token reads the code and holds no identity token —
+  # Dependabot's pull requests run it too, and the federated pool admits any
+  # workflow of this repository.
+  terraform:
+    name: Terraform
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/just
+      - uses: ./.github/actions/terraform
+      - run: just tf-check
+
   sonar:
     name: Static analysis
     needs: [test, web]
