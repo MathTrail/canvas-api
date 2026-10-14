@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/MathTrail/canvas-api/actions/workflows/ci.yml/badge.svg)](https://github.com/MathTrail/canvas-api/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/MathTrail/canvas-api/actions/workflows/codeql.yml/badge.svg)](https://github.com/MathTrail/canvas-api/actions/workflows/codeql.yml)
+[![Release](https://img.shields.io/github/v/release/MathTrail/canvas-api)](https://github.com/MathTrail/canvas-api/releases/latest)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/MathTrail/canvas-api)](https://github.com/MathTrail/canvas-api/blob/main/go.mod)
 [![codecov](https://codecov.io/gh/MathTrail/canvas-api/branch/main/graph/badge.svg)](https://codecov.io/gh/MathTrail/canvas-api)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15460/badge)](https://www.bestpractices.dev/projects/15460)

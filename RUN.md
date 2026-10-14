@@ -34,6 +34,7 @@
    - `just ci-lint`, `just ci-test` и `just ci-mocks-check` — всегда (с T04);
    - `just ci-licenses` и `just ci-vuln` — всегда (с T05);
    - `just ci-secrets`, `just ci-image-smoke` и `just ci-image-scan` — всегда (с T06);
+   - `just release-version` и `just release-artifacts` — всегда (с T08);
    - `just ci-web` — если задача трогает `web/` (с T05);
    - `just load-lint` и `just load-test` — всегда; `just ci-load-smoke` — если задача трогает код сервера; `just ci-proto` — если трогает `proto/`; `just ci-integration` — если трогает хранилище, права, миграции или путь запроса. Эти рецепты приносят задачи эпика MVP (E2).
 
@@ -132,7 +133,7 @@
 | [x] | T05 | Web-тулчейн | Claude | да | T04 |
 | [x] | T06 | CI | Claude | — | T04, T05 |
 | [x] | T07 | Анализ кода и витрина качества | я + Claude | — | T06 |
-| [ ] | T08 | Релиз | Claude | — | T06 |
+| [x] | T08 | Релиз | Claude | — | T06 |
 | [ ] | T09 | Решения для поставки | я + Claude | — | T01 |
 | [ ] | T10 | Terraform | Claude | да | T04, T09 |
 | [ ] | T11 | CD | Claude | да | T06, T07, T08, T10 |
@@ -991,6 +992,19 @@
   - `cosign verify-blob` проходит;
   - `/health` локальной сборки показывает версию из `git describe`;
   - кнопка релиза на другой ветке ничего не публикует.
+- **Сделано (2026-10-14):**
+  - **`.github/workflows/release.yml`** («Release», задание «Build, sign and publish»): `workflow_run` после успешного CI на `main` только от push этого репозитория; кнопка — только на `main` и только при успешном прогоне CI этого коммита (первый шаг, API запусков, `actions: read`). Concurrency `release`, без отмены, `queue: max`. Сборка на раннере без кешей, подпись `cosign sign-blob --bundle` (v3.1.3), `gh release create --target … --generate-notes [--notes-start-tag …]`, `--latest` и выход `newest` — по одному чтению вершины `main`. Коммит с тегом `v*` второй раз не выпускается.
+  - **`justfile`:** `release-version` (линия из `release.yml` по умолчанию, строгий SemVer, отказы — по задаче); `release-artifacts` — `canvas-api-server_<v>_linux_{amd64,arm64}`, `canvas-web_<v>.tar.gz` (детерминированный архив), `SHA256SUMS`.
+  - **Т-17 по решению автора — R53:** `ci-toolchain-image signed` на `main` принимает только образ с подписью `ci.yml@refs/heads/main` и аннотацией хеша стадии, иначе собирает заново; digest — из вывода своего `docker push`; `ci-toolchain-sign` и задание «Toolchain image signature» (только `main`, `continue-on-error`).
+  - **`ci.yml`:** cosign в «Toolchain image» на `main`, задания «Toolchain image signature» и «Release build».
+  - **Документы:** R52, R53, дополнены R49 и R51; spec 15.5 и 20 (Т-17 решён); `SECURITY.md` — проверка релиза из образа cosign по digest; плашка релиза в `README.md`; `CLAUDE.md`, `CONTRIBUTING.md`, правило 7 — `release-version` и `release-artifacts`; `docs/stack.html`, `docs/openssf-best-practices.md`, `.github/dependabot.yml`.
+  - **Проверки:** зелёные `ci-lint`, `ci-test`, `ci-mocks-check`, `ci-licenses`, `ci-vuln`, `ci-secrets`, `ci-web`, `ci-image-smoke`, `ci-image-scan`, `release-version`, `release-artifacts`. actionlint 1.7.12 и схема SchemaStore — единственное замечание на `queue: max`, которого они ещё не знают (R52). `release-version` проверен в пробном репозитории на всех отказах и на `$(…)` в версии; рецепты тулчейна — на локальном реестре с поддельным cosign во всех ветках; архив SPA из двух сборок совпал; команда `verify-blob` из `SECURITY.md` проверена на релизе образца и отвергла подменённый файл.
+  - **Документация, прочитана 2026-10-14:** docs.github.com — `concurrency` (`queue`), события `workflow_run` и `workflow_dispatch`, REST «List workflow runs for a workflow»; `gh api --help`, `gh release create --help` (gh 2.101.0); `cosign … --help` из образа v3.1.3, его исходники и release notes v3.0.1 и v3.1.3; `action.yml` cosign-installer v4.1.2.
+  - **Ревью `/code-review high`:** первый круг — 10 замечаний; исправлено: подпись тулчейна не была привязана к его определению (старый подписанный образ можно было подставить под новый тег), старый коммит становился Latest, права файлов в архиве зависели от umask, устаревшие комментарии в `ci.yml` и R49, неточность о `cancel-in-progress` в R52, комментарий о кнопке; отброшено: `v*` и выражение прошлого тега — так в тексте задачи; разница окружений «Release build» и релиза — намеренная (Т-17), комментарий поправлен. Второй круг — 10; исправлено: два чтения вершины `main`, дата в openssf-документе, это тело задачи; остальное — ниже, третьего ревью нет.
+- **Открыто:**
+  - шаги автора: внести «Release build» в обязательные проверки ruleset «main»; после мержа — релиз `v0.1.0` с файлами и `.sigstore.json`, `verify-blob` из `SECURITY.md`, кнопка на другой ветке ничего не публикует; Scorecard `Dangerous-Workflow` и SonarCloud `githubactions:S7631` на `release.yml` ожидаемы (R51);
+  - предложение: включить неизменяемые релизы и правило ruleset на теги `v*`;
+  - из второго круга ревью: версия с кнопки выше линии (например, `v1.0.0` при `0.1`) потом роняет «Release build», пока не поднят `RELEASE_LINE` — так и в образце (R149 standalone), но стоит решить, отказывать ли ей; `imagetools inspect`, упавший по сети, читается как «не опубликован» и ведёт к пересборке; `release-artifacts` сверяет версию после сборки SPA; вызов `cosign verify` повторён в двух рецептах; «Toolchain image signature» идёт на каждом push `main`, даже когда подписывать нечего.
 - **Разделы:** R33, R45; standalone: R40, R149, R154.
 
 #### T09. Решения для поставки

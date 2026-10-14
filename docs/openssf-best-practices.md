@@ -4,7 +4,7 @@
 
 Файл держится в актуальном виде: когда ответ на критерий меняется, меняется и строка. Плашку подтверждают заново, а не получают один раз.
 
-Статусы — на 2026-10-13, после T07. Критерий, который ещё не выполнен, назван так и ссылается на задачу, которая его закроет. [Анкета проекта 15460](https://www.bestpractices.dev/en/projects/15460/passing/edit) заполняется по этой таблице. Каждый критерий с требованием MUST выполнен или неприменим, поэтому уровень passing достижим уже сейчас. Не выполнены только `version_semver` и `version_tags` — оба SUGGESTED, их закрывает релиз (T08).
+Статусы — на 2026-10-14, после T08. Критерий, который ещё не выполнен, назван так и ссылается на задачу, которая его закроет. [Анкета проекта 15460](https://www.bestpractices.dev/en/projects/15460/passing/edit) заполняется по этой таблице. Каждый критерий с требованием MUST выполнен или неприменим, поэтому уровень passing достижим уже сейчас. `version_semver` и `version_tags` (оба SUGGESTED) закрывает релиз T08: они выполнены с первым релизом `v0.1.0` после его мержа.
 
 Идентификаторы критериев и ответы — как в анкете: Met, Unmet, N/A.
 
@@ -30,9 +30,9 @@
 |---|---|---|
 | `repo_public`, `repo_track`, `repo_interim`, `repo_distributed` | Met | публичный git-репозиторий на GitHub; каждое изменение — через PR |
 | `version_unique` | Met | версия и коммит вшиваются в бинарник при сборке ([`internal/version`](../internal/version), `justfile`), и `/health` их называет |
-| `version_semver` | Unmet | SUGGESTED. Теги `vMAJOR.MINOR.PATCH` вводит релиз (T08, R45) |
-| `version_tags` | Unmet | SUGGESTED. Тег ставит workflow релиза на каждом зелёном `main` (T08) |
-| `release_notes` | N/A | критерий разрешает N/A сервису, который не переиспользуют в других местах и поставляют непрерывно, — это canvas-api: каждый мерж в `main` выкатывается (R32, R45). Подписанные релизы T08 придут с заметками `gh release create --generate-notes` |
+| `version_semver` | Met | SUGGESTED. Релизы — `vMAJOR.MINOR.PATCH`, номер выдаёт `just release-version` (T08, R52) |
+| `version_tags` | Met | SUGGESTED. Тег ставит `release.yml` на каждом зелёном `main` (T08, R52) |
+| `release_notes` | N/A | критерий разрешает N/A сервису, который не переиспользуют в других местах и поставляют непрерывно, — это canvas-api: каждый мерж в `main` выкатывается (R32, R45). Подписанные релизы T08 выходят с заметками `gh release create --generate-notes` |
 | `release_notes_vulns` | N/A | по формулировке критерия: заметок о релизах ещё нет, и публично известных уязвимостей не исправлялось |
 
 ## Сообщения об ошибках
@@ -65,7 +65,7 @@
 | `crypto_published`, `crypto_call`, `crypto_floss`, `crypto_keylength`, `crypto_working`, `crypto_weaknesses`, `crypto_random` | N/A | криптографии в коде пока нет: сервер отвечает только на `/health`. Эпик MVP приносит её готовыми библиотеками, своей не будет: вход проверяет Firebase Admin SDK, PIN хешируется argon2id из `golang.org/x/crypto`, токены Centrifugo подписываются HS256 секретом из Secret Manager, случайное — из `crypto/rand` (spec 3.2, 12). Тогда строки становятся Met |
 | `crypto_pfs` | N/A | сервис ещё не выкачен (T12). Тогда TLS завершает фронтенд Google, а до Neon, Upstash и Gemini тоже идёт TLS (spec 13) |
 | `crypto_password_storage` | N/A | паролей нет: вход через Google или Apple. От PIN детского режима сервер будет хранить только хеш argon2id, а PIN — барьер интерфейса, а не граница безопасности (spec 12.2, R07) |
-| `delivery_mitm`, `delivery_unsigned` | Met | всё по HTTPS. Образы закреплены по digest, actions — по коммиту, модули Go проверяет checksum database, пакеты npm — хеш реестра. Подпись релизов cosign приходит с T08 |
+| `delivery_mitm`, `delivery_unsigned` | Met | всё по HTTPS. Образы закреплены по digest, actions — по коммиту, модули Go проверяет checksum database, пакеты npm — хеш реестра. Каждый файл релиза подписан cosign без ключей, проверка — в `SECURITY.md` (T08, R52) |
 | `vulnerabilities_fixed_60_days`, `vulnerabilities_critical_fixed` | Met | `govulncheck`, `npm audit` по пакетам SPA и Trivy по образу сервиса роняют проверки (R48, R49); Dependabot предлагает обновления раз в неделю |
 | `no_leaked_credentials` | Met | `gitleaks` по всей истории и по незакоммиченному на каждом PR (R49); секреты живут в Secret Manager |
 

@@ -521,7 +521,7 @@
       { n: "gcloud CLI", p: "на x86_64; на arm64 — из образа Google", v: "585.0.0", r: "jobs update и execute, services update в CD", s: "repo", ref: "spec 15.5 · T11" },
       { n: "firebase-tools", v: "закрепит T11", r: "firebase deploy --only hosting", s: "spec", ref: "T11" },
       { n: "Образ сервиса", p: "golang → gcr.io/distroless/static-debian13", v: "по digest", r: "Многоэтапная сборка: CGO_ENABLED=0, -trimpath, пользователь nonroot", s: "repo", ref: "T04" },
-      { n: "cosign + gh release", p: "подпись без ключей, OIDC", v: "v3.1.3", r: "Подписанный релиз vX.Y.Z на каждом зелёном main: бинарники, SPA, SHA256SUMS; выкладка идёт из его тега", s: "sample", ref: "R40 standalone, R45 · T08" },
+      { n: "cosign + gh release", p: "подпись без ключей, OIDC", v: "v3.1.3", r: "Подписанный релиз vX.Y.Z на каждом зелёном main: сервер amd64 и arm64, архив SPA, SHA256SUMS; выкладка идёт из его тега. Тем же cosign main подписывает образ тулчейна и сверяет подпись перед проверками", s: "repo", ref: "R40 standalone, R45, R52, R53 · T08" },
       { n: "Бюджет GCP", p: "budget.tf", v: "50 / 90 / 100 %", r: "Оповещения о тратах проекта", s: "spec", ref: "spec 14.4 · T10" }
     ]},
     { id: "obs", name: "Наблюдаемость", path: "internal/telemetry/", note: "в логах только UUID и коды", rows: [

@@ -75,7 +75,7 @@ export function satisfies(
 ): boolean {
 	const tokens = expression.match(/\(|\)|[^\s()]+/g) ?? [];
 	// The tokens that are never a name: neither a license nor an exception.
-	const syntax = ["(", ")", "AND", "OR", "WITH"];
+	const syntax: ReadonlySet<string> = new Set(["(", ")", "AND", "OR", "WITH"]);
 	let at = 0;
 
 	// Each operand is read before the operator's result is decided, so that
@@ -107,14 +107,14 @@ export function satisfies(
 			}
 			return met;
 		}
-		if (token === undefined || syntax.includes(token)) {
+		if (token === undefined || syntax.has(token)) {
 			throw new SyntaxError(`a license expected, ${token ?? "the end"} found`);
 		}
 		if (tokens[at] === "WITH") {
 			// The exception is a name too: an operator or a parenthesis in its
 			// place is a sentence that does not parse.
 			const exception = tokens[at + 1];
-			if (exception === undefined || syntax.includes(exception)) {
+			if (exception === undefined || syntax.has(exception)) {
 				throw new SyntaxError(
 					`an exception expected, ${exception ?? "the end"} found`,
 				);
