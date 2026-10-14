@@ -5,9 +5,23 @@ output "project_id" {
   value       = var.project_id
 }
 
+# Cloud Run answers at two addresses: one made of the service's name, the
+# project's number and the region, which can be written down before the service
+# exists, and one with a random part, which is what uri holds. The first is the
+# address everything else names, and a service that does not report it stops
+# the apply here rather than leaving a delivery an empty address to check.
+locals {
+  regional_urls = [for url in google_cloud_run_v2_service.api.urls : url if endswith(url, ".${var.region}.run.app")]
+}
+
 output "service_url" {
   description = "The service's own address on run.app, the one the SPA calls."
-  value       = google_cloud_run_v2_service.api.uri
+  value       = one(local.regional_urls)
+
+  precondition {
+    condition     = length(local.regional_urls) == 1
+    error_message = "Cloud Run reports no address of the service made of its name, the project's number and the region."
+  }
 }
 
 output "hosting_url" {

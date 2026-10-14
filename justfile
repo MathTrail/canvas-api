@@ -789,6 +789,94 @@ _tf-redact:
         printf '%s\n' "$line"
     done
 
+# What Cloud Run counted of the deployed service within a window — 30m, 2h, 1d,
+# a month at most — as Cloud Monitoring keeps it: the processor and the memory
+# its instances were allocated, which is what the free tier is counted in, the
+# requests that reached them, the time they were billed for, and the most
+# instances that served in one minute. Each series is summed a minute at a
+# time; the instances are taken on average over each minute and added up across
+# revisions, so that counts taken at different moments of a minute never add
+# up to more than ran at once. The window is set against a month's free tier
+# for request-based billing: 180,000 vCPU-seconds, 360,000 GiB-seconds and two
+# million requests (Google Cloud's Free Tier, read 2026-10-14). The free tier
+# is the billing account's, shared by all its projects, so what is left of it
+# can be less than this shows.
+#
+# A minute is shown up to two minutes after it ends, so a window that ends now
+# may leave out its last minutes. A month of minutes is one page of the API's
+# answer, which holds up to 100,000 points. The project is read from the
+# configuration as infra/bootstrap.sh reads it, and refused, as there, while it
+# is still a template's. The token rides in a header read from a file
+# descriptor, never on the command line. Numbers are written with a decimal
+# point whatever the locale, since jq hands them over so.
+# What the deployed service used of Cloud Run within a window, against a month's free tier
+usage since="1d" service="canvas-api":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export LC_ALL=C
+    if ! command -v gcloud > /dev/null; then
+        echo "usage: there is no gcloud here; the development image installs it on x86_64 only, and Cloud Shell has it" >&2
+        exit 1
+    fi
+    since={{ quote(since) }}
+    service={{ quote(service) }}
+    if [[ ! "$since" =~ ^[1-9][0-9]{0,4}[mhd]$ ]]; then
+        echo "usage: a window is whole minutes, hours or days, such as 30m, 2h or 1d, not ${since}" >&2
+        exit 1
+    fi
+    case "$since" in
+    *m) seconds=$(( ${since%m} * 60 )) ;;
+    *h) seconds=$(( ${since%h} * 3600 )) ;;
+    *d) seconds=$(( ${since%d} * 86400 )) ;;
+    esac
+    if (( seconds > 31 * 86400 )); then
+        echo "usage: a window is a month at most, 31d, not ${since}" >&2
+        exit 1
+    fi
+    if [[ ! "$service" =~ ^[a-z]([a-z0-9-]{0,47}[a-z0-9])?$ ]]; then
+        echo "usage: ${service} is not the name of a Cloud Run service" >&2
+        exit 1
+    fi
+    named={{ quote(TF_DIR / "prod.auto.tfvars") }}
+    project=$(sed -n 's/^[[:space:]]*project_id[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$named" | head -1)
+    if [[ -z "$project" || "$project" == REPLACE* ]]; then
+        echo "usage: project_id is not filled in yet in ${named}" >&2
+        exit 1
+    fi
+    token=$(gcloud auth print-access-token)
+    now=$(date -u +%s)
+    end=$(date -u -d "@${now}" +%Y-%m-%dT%H:%M:%SZ)
+    start=$(date -u -d "@$(( now - seconds ))" +%Y-%m-%dT%H:%M:%SZ)
+    series() {
+        curl -fsS --max-time 30 -G "https://monitoring.googleapis.com/v3/projects/${project}/timeSeries" \
+            -H @<(printf 'Authorization: Bearer %s\n' "$token") \
+            --data-urlencode "filter=metric.type=\"run.googleapis.com/$1\" AND resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${service}\"${3:+ AND $3}" \
+            --data-urlencode "interval.startTime=${start}" \
+            --data-urlencode "interval.endTime=${end}" \
+            --data-urlencode "aggregation.alignmentPeriod=60s" \
+            --data-urlencode "aggregation.perSeriesAligner=$2" \
+            --data-urlencode "aggregation.crossSeriesReducer=REDUCE_SUM" \
+            --data-urlencode "view=FULL"
+    }
+    # A count arrives as a string, a measure as a number, and a point that
+    # carries neither counts as nothing.
+    values='[.timeSeries[]?.points[]?.value | (.doubleValue // ((.int64Value // "0") | tonumber))]'
+    vcpu=$(series container/cpu/allocation_time ALIGN_SUM | jq "${values} | add // 0")
+    gib=$(series container/memory/allocation_time ALIGN_SUM | jq "${values} | add // 0")
+    requests=$(series request_count ALIGN_SUM | jq "${values} | add // 0")
+    billed=$(series container/billable_instance_time ALIGN_SUM | jq "${values} | add // 0")
+    instances=$(series container/instance_count ALIGN_MEAN 'metric.labels.state="active"' | jq "${values} | max // 0")
+    share() { awk -v used="$1" -v free="$2" 'BEGIN { printf "%.3f %%", 100 * used / free }'; }
+    echo "Cloud Run, the service ${service} of ${project}, from ${start} to ${end}, as Cloud Monitoring counts it:"
+    echo
+    echo "| | Used | Of a month's free tier |"
+    echo "|---|---:|---:|"
+    echo "| vCPU-seconds | $(printf '%.1f' "$vcpu") | $(share "$vcpu" 180000) |"
+    echo "| GiB-seconds | $(printf '%.1f' "$gib") | $(share "$gib" 360000) |"
+    echo "| Requests | $(printf '%.0f' "$requests") | $(share "$requests" 2000000) |"
+    echo "| Instance-seconds billed | $(printf '%.1f' "$billed") | |"
+    echo "| Most instances that served in one minute | $(printf '%.1f' "$instances") | |"
+
 # -- Delivery ---------------------------------------------------------------
 
 # A delivery rolls out a release, named by its tag: the server and the SPA that
@@ -918,6 +1006,40 @@ ci-release-fetch version commit file dir:
     (cd "$scratch" && sha256sum --check --strict <<< "$line")
     mkdir -p "$dir"
     mv "$scratch/$file" "$dir/$file"
+
+# A job borrows its identity through the federated pool, and the binding that
+# lends it may be seconds old: the apply of the same delivery makes it when the
+# identity is new, and IAM takes typically two minutes, at times seven or more,
+# to put a new binding in force (IAM's documentation, read 2026-10-14). Until
+# then the identity's token is refused, and so would be the push or the publish
+# after it. So the job asks for a token until it gets one, for eight minutes by
+# the clock, and a refusal on the way — the binding not in force yet, an outage
+# of a moment — is asked again. What the exchange of GitHub's token itself
+# refuses — a pool or a provider that is not there, a token the pool's
+# condition does not admit — is no matter of time, and is shown at once. An
+# identity that does not exist is refused as one not lent yet is, and is waited
+# out with it.
+# Wait until the identity this job borrowed can get a token
+ci-identity-ready:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    deadline=$(( SECONDS + 480 ))
+    attempt=1
+    while ! refusal=$(gcloud auth print-access-token 2>&1 > /dev/null); do
+        if [[ "$refusal" =~ invalid_(grant|target|request|client|scope)|unauthorized_client|unsupported_grant_type ]]; then
+            echo "$refusal" >&2
+            exit 1
+        fi
+        if (( SECONDS >= deadline )); then
+            echo "$refusal" >&2
+            echo "ci-identity-ready: the identity still gets no token after eight minutes" >&2
+            exit 1
+        fi
+        echo "identity: no token yet (attempt ${attempt})" >&2
+        attempt=$(( attempt + 1 ))
+        sleep 15
+    done
+    echo "ci-identity-ready: the identity can sign in"
 
 # The image of a release is the runtime around the server that release built
 # and signed, never one built again: what is rolled out is what was released,

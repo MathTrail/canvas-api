@@ -1,6 +1,6 @@
 # Развёртывание canvas-api
 
-T10 — облако как код и разовый bootstrap, T11 — выкладка пайплайном, откат и возврат. Первый деплой и его чек-лист добавит T12, полностью документ допишет T57. Решения, на которых всё держится, — R54–R58 в [decisions.md](decisions.md).
+T10 — облако как код и разовый bootstrap, T11 — выкладка пайплайном, откат и возврат, T12 — чек-лист первой выкладки и расход сервиса (`just usage`). Полностью документ допишет T57. Решения, на которых всё держится, — R54–R58 в [decisions.md](decisions.md).
 
 ## Что делается руками
 
@@ -93,9 +93,10 @@ TF_VAR_billing_account=… just ci-tf-plan
 2. **The cloud, as the release describes it** — окружение `prod`: `just ci-tf-apply` из коммита тега.
 3. **The server of the release** — окружение `prod`:
    - сервер amd64 из релиза, подпись `SHA256SUMS` проверена (`just ci-release-fetch`);
+   - вход аккаунтом деплоя, и ожидание, пока он даст токен (`ci-identity-ready`, до 8 минут): привязку нового аккаунта создаёт apply этой же выкладки, а IAM вводит её в силу обычно за 2 минуты, иногда за 7 и дольше (документация IAM, прочитана 2026-10-14);
    - образ вокруг него, проверка `/health` до push, push, ревизия по digest и трафик на неё (`ci-image-push`, `ci-deploy`);
    - smoke: `/health` по адресу сервиса называет релиз и коммит (`ci-smoke`).
-4. **The SPA of the release** — окружение `prod-hosting`, свой аккаунт: архив SPA из релиза, `firebase deploy`, затем страница сайта сверяется с архивом (`ci-hosting-deploy`, `ci-hosting-check`).
+4. **The SPA of the release** — окружение `prod-hosting`, свой аккаунт и то же ожидание его входа: архив SPA из релиза, `firebase deploy`, затем страница сайта сверяется с архивом (`ci-hosting-deploy`, `ci-hosting-check`).
 
 Кнопка — Actions → Deploy → Run workflow на `main`: выкатывает релиз на вершине `main`, а если его нет — ничего. На другой ветке она падает в первом задании. Упавшую выкладку повторяют «Re-run failed jobs» в прогоне «Release and deploy»; повторная попытка сначала проверяет, что `main` всё ещё стоит на коммите релиза.
 
@@ -108,7 +109,63 @@ TF_VAR_billing_account=… just ci-tf-plan
 - бюджет и, если задан адрес, алерт;
 - бакет журналов в регионе и перенаправление `_Default`, место хранения трасс.
 
-Первая выкладка может потребовать одного повтора — «Re-run failed jobs»: только что включённые API и только что созданные аккаунты и привязки видны не сразу.
+Привязку, которая одалживает аккаунт, задания выкладки ждут сами. Роли, которые тот же apply выдаёт новому аккаунту, обычно успевают за это время; если какая-то не успела, шаг, которому она нужна, получает 403. Тогда, как и после отказа только что включённого API, выкладку повторяют «Re-run failed jobs». Первая выкладка этого развёртывания прошла со второй попытки, ещё без ожидания: аккаунт деплоя входил через 5 секунд после создания своей привязки и получил 403 (`docs/live/01-first-deploy.md`).
+
+## Первая выкладка: чек-лист
+
+Выкладка закончена, когда каждый пункт ниже ответил «да». Команды — из devcontainer на x86_64 или из Cloud Shell, с учётными данными человека, у которого есть права на проект. ID платёжного аккаунта берётся из переменной окружения и на экран не попадает.
+
+1. **`/health` называет выкаченный релиз и коммит.** Рецепт сверяет, что короткий коммит в ответе — начало полного коммита тега:
+
+   ```bash
+   just ci-smoke https://canvas-api-796865465273.us-east4.run.app <версия> "$(git rev-parse '<версия>^{commit}')"
+   ```
+
+2. **Строка старта в журнале называет ту же версию и коммит.** Её пишет только сервер, выкаченный CD; начальный образ `hello` её не пишет:
+
+   ```bash
+   gcloud logging read 'resource.type="cloud_run_revision" AND jsonPayload.message="startup"' \
+     --project=mathtrail-canvas-prod --bucket=default-us-east4 --location=us-east4 --view=_AllLogs \
+     --freshness=1d --limit=5 \
+     --format='value(timestamp,resource.labels.revision_name,jsonPayload.version,jsonPayload.commit)'
+   ```
+
+3. **Автоочистка Artifact Registry действует:** политики `keep-recent` (5 версий) и `delete-old` (30 дней), без пробного режима. Поля `cleanupPolicyDryRun` в ответе нет, пока оно не `true`:
+
+   ```bash
+   gcloud artifacts repositories describe canvas-api --location=us-east4 --project=mathtrail-canvas-prod \
+     --format='yaml(cleanupPolicies,cleanupPolicyDryRun)'
+   ```
+
+4. **Бюджет есть и смотрит на этот проект:** `canvas-api spend`, 1 USD в месяц, `projects/<номер проекта>`, пороги 0.5, 0.9 и 1.0. На платёжном аккаунте могут быть бюджеты и других проектов — нужна строка с номером этого. Поле `name` в вывод не берётся: в нём ID платёжного аккаунта. Ошибка gcloud тоже называет аккаунт, поэтому её вывод маскируется:
+
+   ```bash
+   gcloud billing budgets list --billing-account="$TF_VAR_billing_account" \
+     --billing-project=mathtrail-canvas-prod \
+     --format='table(displayName,amount.specifiedAmount.units,amount.specifiedAmount.currencyCode,budgetFilter.projects.list(),thresholdRules.thresholdPercent.list())' \
+     2>&1 | sed "s/${TF_VAR_billing_account}/<billing account>/g"
+   ```
+
+5. **Алерт нагрузки и его канал есть**, если задан `TF_VAR_operator_email`. Без адреса их нет, и это тоже ответ. Адрес канала не печатается: маска `fields` берёт только имя, вид и то, включён ли канал.
+
+   ```bash
+   gcloud monitoring policies list --project=mathtrail-canvas-prod \
+     --format='value(displayName,enabled,notificationChannels.len())'
+   curl -fsS -H @<(printf 'Authorization: Bearer %s\n' "$(gcloud auth print-access-token)") \
+     "https://monitoring.googleapis.com/v3/projects/mathtrail-canvas-prod/notificationChannels?fields=notificationChannels(displayName,type,enabled)"
+   ```
+
+6. **SPA отдаёт страницу без кеша, и её скрипт называет релиз:**
+
+   ```bash
+   curl -fsS -D - -o /dev/null https://mathtrail-canvas-prod.web.app/ | grep -i '^cache-control'
+   script=$(curl -fsS https://mathtrail-canvas-prod.web.app/ | grep -oE '/assets/index-[A-Za-z0-9_-]+\.js' | head -1)
+   curl -fsS "https://mathtrail-canvas-prod.web.app${script}" | grep -c '<версия>'
+   ```
+
+7. **Конфигурация совпадает с облаком.** Выкладка, которой нечего менять, пишет `Apply complete! Resources: 0 added, 0 changed, 0 destroyed`. План вручную (выше) не печатает строки `Plan:`: меняться могут только выходы.
+
+8. **Расход — в бесплатных лимитах:** `just usage 1d` — vCPU-секунды, ГиБ-секунды и запросы сервиса против бесплатного лимита месяца. Лимит — платёжного аккаунта, общий для всех его проектов, поэтому свободного остатка может быть меньше, чем показано.
 
 ## Откат и возврат
 
@@ -187,7 +244,7 @@ gcloud logging read 'resource.type="cloud_run_revision"' --project=mathtrail-can
 Ожидается $0 в бесплатных лимитах. Бюджет $1 пишет на 50, 90 и 100 %, но трат не останавливает.
 
 - **Бакет состояния** в `us-east4` — доли цента в месяц: регион вне бесплатных у Cloud Storage.
-- **Cloud Run** — сверх бесплатных лимитов. Они считаются на платёжный аккаунт и делятся со всеми его проектами (spec 14.4). `us-east4` — Tier 1.
+- **Cloud Run** — сверх бесплатных лимитов. Они считаются на платёжный аккаунт и делятся со всеми его проектами (spec 14.4). `us-east4` — Tier 1. Что сервис израсходовал против лимита месяца, показывает `just usage <окно>`.
 - **Artifact Registry** — сверх 0,5 ГБ. Автоочистка держит 5 последних образов и удаляет старше 30 дней. Container Scanning API не включается: он стоит $0.26 за каждый образ.
 - **Cloud Logging** — сверх 50 ГиБ в месяц на проект и при хранении дольше 30 дней.
 - **Cloud Trace** — сверх 2,5 млн спанов в месяц.

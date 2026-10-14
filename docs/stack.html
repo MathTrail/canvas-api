@@ -527,7 +527,7 @@
     { id: "obs", name: "Наблюдаемость", path: "internal/telemetry/", note: "в логах только UUID и коды", rows: [
       { n: "OpenTelemetry Go", p: "otel · otlptracehttp · otlpmetrichttp · GCP detector", v: "v1.46.0", r: "Трассы и метрики; экспорт на telemetry.googleapis.com, сброс до ответа", s: "sample", ref: "spec 16 · E2" },
       { n: "Cloud Trace", v: "хранение 30 дней", r: "Спаны: запрос, OpenFGA, картинки, Neon, Gemini, Centrifugo; хранятся в us-east4", s: "spec", ref: "spec 16 · R57 · E2" },
-      { n: "Cloud Monitoring", v: "", r: "Метрики canvas_* и алерты: 5xx, p95 до вердикта, сбои чтения, доля запасных подсказок; алерт на число запросов — alert.tf", s: "spec", ref: "spec 16 · R56 · T10, E2" },
+      { n: "Cloud Monitoring", v: "", r: "Метрики canvas_* и алерты: 5xx, p95 до вердикта, сбои чтения, доля запасных подсказок; алерт на число запросов — alert.tf; just usage читает метрики Cloud Run против бесплатного лимита", s: "spec", ref: "spec 16 · R56 · T10, T12, E2" },
       { n: "Cloud Logging", v: "", r: "JSON-логи zap, связанные с трассой; только UUID, коды и тайминги — без картинок и прочитанного ответа; бакет default-us-east4, 30 дней", s: "spec", ref: "spec 16 · R57 · E2" }
     ]},
     { id: "quality", name: "Качество кода", path: "CI · .githooks/", note: "блокируют: патч Codecov, CodeQL, Trivy", rows: [
