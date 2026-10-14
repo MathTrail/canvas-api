@@ -76,6 +76,41 @@ run "the_service_size_and_start_stay_as_chosen" {
   }
 }
 
+# The address a delivery checks and shows is the one made of the service's name,
+# the project's number and the region, not the one with a random part.
+run "the_service_url_is_the_one_by_project_number" {
+  command = plan
+
+  override_resource {
+    target          = google_cloud_run_v2_service.api
+    override_during = plan
+    values = {
+      uri  = "https://canvas-api-a1b2c3d4e5-uk.a.run.app"
+      urls = ["https://canvas-api-a1b2c3d4e5-uk.a.run.app", "https://canvas-api-123456789012.us-east4.run.app"]
+    }
+  }
+
+  assert {
+    condition     = output.service_url == "https://canvas-api-123456789012.us-east4.run.app"
+    error_message = "The service's address is the one made of its name, the project's number and the region."
+  }
+}
+
+run "a_service_without_its_regional_address_is_refused" {
+  command = plan
+
+  override_resource {
+    target          = google_cloud_run_v2_service.api
+    override_during = plan
+    values = {
+      uri  = "https://canvas-api-a1b2c3d4e5-uk.a.run.app"
+      urls = ["https://canvas-api-a1b2c3d4e5-uk.a.run.app"]
+    }
+  }
+
+  expect_failures = [output.service_url]
+}
+
 run "memory_in_mebibytes_counts_too" {
   command = plan
 
@@ -112,6 +147,13 @@ run "the_default_sink_keeps_its_filter" {
   assert {
     condition     = google_logging_project_sink.default.filter == "NOT LOG_ID(\"cloudaudit.googleapis.com/activity\") AND NOT LOG_ID(\"externalaudit.googleapis.com/activity\") AND NOT LOG_ID(\"cloudaudit.googleapis.com/system_event\") AND NOT LOG_ID(\"externalaudit.googleapis.com/system_event\") AND NOT LOG_ID(\"cloudaudit.googleapis.com/access_transparency\") AND NOT LOG_ID(\"externalaudit.googleapis.com/access_transparency\")"
     error_message = "The _Default sink keeps the filter Cloud Logging created it with, word for word."
+  }
+
+  # A sink whose bucket is in its own project has no writer identity, and the
+  # provider reads that as a unique one: anything else is a change in every plan.
+  assert {
+    condition     = google_logging_project_sink.default.unique_writer_identity
+    error_message = "The _Default sink asks for a unique writer identity, which is how the provider reads a sink with none."
   }
 }
 

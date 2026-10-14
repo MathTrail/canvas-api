@@ -18,10 +18,13 @@ resource "google_logging_project_bucket_config" "logs" {
 # The `_Default` sink, sent to the bucket above with the filter it was created
 # with, word for word: everything the `_Required` sink does not take. The
 # configuration takes the sink over rather than creating one, and a destroy
-# leaves it where it is. The bucket is in the sink's own project, so the sink
-# writes with no identity of its own, as the project's `_Default` does now (seen
-# 2026-10-14); asking for a unique one would only make an identity nobody
-# needs.
+# leaves it where it is.
+#
+# The bucket is in the sink's own project, and such a sink has no writer
+# identity whatever it asks for (Cloud Logging's API reference, read
+# 2026-10-14). The provider reads a sink with no writer identity as one with a
+# unique identity, so that is what is written here: written false, every plan
+# would show a change that no apply makes (the provider's source, 8.3.0).
 resource "google_logging_project_sink" "default" {
   name        = "_Default"
   destination = "logging.googleapis.com/projects/${var.project_id}/locations/${var.region}/buckets/${google_logging_project_bucket_config.logs.bucket_id}"
@@ -33,7 +36,7 @@ resource "google_logging_project_sink" "default" {
     "NOT LOG_ID(\"cloudaudit.googleapis.com/access_transparency\")",
     "NOT LOG_ID(\"externalaudit.googleapis.com/access_transparency\")",
   ])
-  unique_writer_identity = false
+  unique_writer_identity = true
 }
 
 # Traces are kept in the bucket `_Trace`, which the platform makes with the

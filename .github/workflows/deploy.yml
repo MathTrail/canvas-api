@@ -235,6 +235,10 @@ jobs:
           workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ needs.infra.outputs.deploy_service_account }}
       - uses: ./.github/actions/gcloud
+      # The binding that lends this identity may be seconds old: the apply of
+      # this very delivery makes it when the identity is new.
+      - name: The identity can sign in
+        run: just ci-identity-ready
       # Read into a variable first: inside the echo, a push that failed would
       # leave the step green, and the next one would roll out an empty
       # reference.
@@ -292,6 +296,11 @@ jobs:
         with:
           workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ needs.infra.outputs.hosting_service_account }}
+      # gcloud only to ask for a token, as the job above does: the binding that
+      # lends this identity may be seconds old too.
+      - uses: ./.github/actions/gcloud
+      - name: The identity can sign in
+        run: just ci-identity-ready
       - uses: ./.github/actions/firebase
       - name: Publish the SPA
         env:
