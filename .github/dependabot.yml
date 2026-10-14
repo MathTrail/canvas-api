@@ -2,7 +2,9 @@
 # nothing else, because every version in this repository is exact. What the
 # justfile pins — the scanners and the tools run from their modules — and what
 # the development image installs from its ARGs are raised by hand: no
-# ecosystem here reads them.
+# ecosystem here reads them. So are Terraform's providers and their lock file:
+# Dependabot would lock them with a Terraform of its own, and the configuration
+# accepts only the one the development image installs (R56).
 #
 # Every ecosystem waits three days after a release before proposing it. That is
 # Dependabot's own default, written down because CI counts on it: a release
