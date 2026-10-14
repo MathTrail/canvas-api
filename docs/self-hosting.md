@@ -182,13 +182,13 @@ curl -fsS https://canvas-api-796865465273.us-east4.run.app/health
 
 Пока трафик закреплён, новые ревизии его не получают (документация Cloud Run, прочитана 2026-10-14). Следующая выкладка возвращает его на новую ревизию сама (`ci-deploy`).
 
-**SPA.** Выпуски сайта, новые сверху, с номером релиза в сообщении; прошлый выпуск — снова в live:
+**SPA.** Выпуски сайта, новые сверху, с их версией, временем и видом: выкладка пишет выпуск `DEPLOY` с номером релиза в сообщении, а откат и возврат — `ROLLBACK` без сообщения, поэтому нужная версия ищется по строкам `DEPLOY`. `hosting:clone` берёт версию и снова делает её live:
 
 ```bash
-curl -fsS -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+curl -fsS -H @<(printf 'Authorization: Bearer %s\n' "$(gcloud auth print-access-token)") \
   -H "x-goog-user-project: mathtrail-canvas-prod" \
-  "https://firebasehosting.googleapis.com/v1beta1/sites/mathtrail-canvas-prod/releases?pageSize=5" \
-  | jq -r '.releases[] | "\(.version.name | split("/") | last)  \(.releaseTime)  \(.message // "")"'
+  "https://firebasehosting.googleapis.com/v1beta1/sites/mathtrail-canvas-prod/releases?pageSize=20" \
+  | jq -r '.releases[] | "\((.version.name // "-") | split("/") | last)  \(.releaseTime)  \(.type)  \(.message // "")"'
 GOOGLE_CLOUD_QUOTA_PROJECT=mathtrail-canvas-prod firebase hosting:clone \
   mathtrail-canvas-prod@<версия> mathtrail-canvas-prod:live --project mathtrail-canvas-prod
 ```
@@ -203,7 +203,7 @@ GOOGLE_CLOUD_QUOTA_PROJECT=mathtrail-canvas-prod firebase hosting:clone \
   mathtrail-canvas-prod@<версия последнего релиза> mathtrail-canvas-prod:live --project mathtrail-canvas-prod
 ```
 
-Откат и возврат проверяет T12 на второй выкладке: после первой прошлая ревизия — образ `hello`, а прошлого выпуска SPA нет.
+Откат и возврат проверены 2026-10-14 этими командами: на второй выкладке сервис и SPA вернулись к v0.1.3, а затем к v0.1.4, около полуминуты в каждую сторону (`docs/live/01-first-deploy.md`).
 
 ## Переменные
 
