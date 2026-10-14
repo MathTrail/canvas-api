@@ -134,7 +134,7 @@
 | [x] | T06 | CI | Claude | — | T04, T05 |
 | [x] | T07 | Анализ кода и витрина качества | я + Claude | — | T06 |
 | [x] | T08 | Релиз | Claude | — | T06 |
-| [ ] | T09 | Решения для поставки | я + Claude | — | T01 |
+| [x] | T09 | Решения для поставки | я + Claude | — | T01 |
 | [ ] | T10 | Terraform | Claude | да | T04, T09 |
 | [ ] | T11 | CD | Claude | да | T06, T07, T08, T10 |
 | [ ] | T12 | Первый деплой | я + Claude | — | T11 |
@@ -1021,6 +1021,19 @@
     - что уходит в CORS и в `client.allowed_origins` Centrifugo.
   - **Записи:** решения — в `docs/decisions.md` со следующими свободными номерами; поправки — в product 15, spec 15 и 20, privacy 12.
 - **Как проверить:** Т-3, П-4 и О-9 переехали в решённые; у T10 есть все вводные.
+- **Сделано (2026-10-14)** — решения автора, перенесены в документы:
+  - **Т-3 и П-4 → R54:** весь контур в `us-east4`. Gemini — региональный адрес `us-east4`, не глобальный; Neon — `aws-us-east-1`; Upstash — Северная Вирджиния. Данные беты — в США; ЕС и Великобритания — отдельным решением (SCC/DPF, П-2, П-3).
+  - **О-9 → R55:** название «MathTrail Canvas»; canvas-api и Centrifugo — по своим `*.run.app`; SPA — `https://<id проекта>.web.app`, он один в CORS и `client.allowed_origins` (локально ещё `http://localhost:5173` при `CANVAS_ENV=local`).
+  - **Документы:** product 15 (О-9 в решённых, шапка), spec 7.1, 15.1 и 20 (Т-3 решён), privacy 5 и 12 (П-4 решён), `docs/stack.html`.
+  - **По правилу 3:** релиз T08 `v0.1.0` вышел (прогон `release.yml` успешен); новых алертов CodeQL нет, алерт Scorecard Dangerous-Workflow на `release.yml` ожидаем (R51), остальные — из списка R51.
+  - **Документация, прочитана 2026-10-14:** Cloud Run «Mapping custom domains» (регионы, Preview), «Generative AI locations» (Gemini 3.x по регионам, глобальный адрес), Neon «Regions».
+  - **Ревью `/code-review high`**, 9 замечаний: исправлено — примеры `CANVAS_ALLOWED_ORIGINS` и `CANVAS_GEMINI_LOCATION` в spec 15.4, CORS в spec 8.1, место хранения в уведомлении (privacy 6), «рабочее название» в CLAUDE.md, локальный origin Centrifugo и `authDomain` Firebase Auth в R55; отброшено — шапка журнала решений не перечисляет каждую запись (R52–R53 тоже не там), «docs/stack.html» в списке верно — из него ушёл Т-3; картинка README (`docs/design/app.png`) — отдельная просьба автора, не T09.
+- **Открыто:**
+  - ID проекта GCP и Firebase — в T10; из него выводятся точные адреса;
+  - `authDomain` и адрес обработчика входа у Google и Apple — задача эпика MVP, что приносит вход (R55);
+  - регион Upstash (AWS `us-east-1` или GCP `us-east4`) сверить в консоли Upstash, когда его создаёт задача эпика MVP;
+  - для T10: бакет журналов `_Default` и хранилище трасс — в США, а не `global` (R54, privacy 4); вход по redirect требует, чтобы rewrites Hosting не перехватывали `/__/` (R55);
+  - `docs/stack.html`: строки Cloud Run, Neon, Upstash и Hosting не называют регион и адреса — дописать вместе с T10;
 - **Разделы:** product 3, 15; spec 2, 15.1, 20; privacy 12.
 
 #### T10. Terraform

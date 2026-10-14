@@ -384,6 +384,38 @@ Centrifugo сохраняет роль из R23. Событие `verdict` ухо
 
 — `justfile` (`ci-toolchain-image`, `ci-toolchain-sign`), `.github/workflows/ci.yml` (`toolchain`, `toolchain-signature`), `.github/dependabot.yml`; spec 20; R49, R52.
 
+**R54. Весь контур — в регионе США `us-east4` (Северная Вирджиния); закрывает Т-3 и П-4.** Решение автора 2026-10-14 (T09):
+- Cloud Run — сервисы и jobs — и Artifact Registry: `us-east4`;
+- Gemini вызывается в регионе `us-east4` (`CANVAS_GEMINI_LOCATION`), а не через глобальный адрес: глобальный адрес отправляет запрос в любой регион, и место обработки не узнать (документация Google, «Generative AI locations», прочитана 2026-10-14). Модели Т-5 (3.5 Flash-Lite, 3.1 Flash-Lite, 3.8 Flash) в `us-east4` есть;
+- Neon: `aws-us-east-1` — та же агломерация, задержка до базы около 1–2 мс. У Neon регионы только в AWS (документация Neon, прочитана 2026-10-14);
+- Upstash Redis — в Северной Вирджинии же; точный регион (AWS `us-east-1` или GCP `us-east4`) сверяется в консоли Upstash, когда задача эпика MVP его создаёт.
+
+П-4: в бете только семьи из США (product 3), поэтому данные хранятся и обрабатываются в США. Семьи из ЕС и Великобритании до этого — отдельное решение с SCC/DPF, DPIA и договорами (П-2, П-3).
+
+— *Почему:* проверка делает несколько запросов к Neon, и каждый метр до базы — в каждом из них; `us-east4` — регион GCP рядом с регионом Neon. Domain mapping Cloud Run в `us-east4` тоже есть, если он понадобится (R55).
+
+— *Отвергнуто:*
+- `us-central1`, как в образце (R27 standalone): ближайший Neon — `aws-us-east-2` (Огайо), около 15–20 мс на каждый запрос к базе;
+- `us-east1`: Neon дальше, чем у `us-east4`;
+- регион ЕС — аудитория беты в США.
+
+— spec 7.1, 15.1, 20; privacy 5, 12; product 3.
+
+**R55. Название — «MathTrail Canvas»; API — по прямому адресу `run.app`, SPA — по адресу Hosting `web.app`; закрывает О-9.** Решение автора 2026-10-14 (T09):
+- продукт называется MathTrail Canvas — в интерфейсе, текстах и политике конфиденциальности; `canvas-api` остаётся именем сервиса;
+- canvas-api и Centrifugo отвечают по своим адресам Cloud Run `*.run.app` с управляемым SSL, без своего домена (spec 2, «Периметр», MVP);
+- SPA — по адресу Firebase Hosting `https://<id проекта>.web.app`. Только он уходит в CORS canvas-api и в `client.allowed_origins` Centrifugo; второй адрес Hosting, `*.firebaseapp.com`, — нет: SPA открывают по одному адресу. Для локальной разработки canvas-api добавляет `http://localhost:5173` только при `CANVAS_ENV=local` (spec 8.1), а Centrifugo получает его только в локальном конфиге запуска, не в том, что уходит в prod.
+
+Следствие для входа (эпик MVP): `authDomain` Firebase Auth — тот же `<id проекта>.web.app`, а адрес `https://<id проекта>.web.app/__/auth/handler` регистрируется у Google и в Services ID Apple. Иначе вход по redirect на iPad в Safari теряет пользователя: `firebaseapp.com` для `web.app` — чужой сайт, и его хранилище браузер блокирует.
+
+Точные адреса появятся вместе с ID проекта: его называет T10, и адреса выводятся из него и из выходов Terraform.
+
+— *Почему:* свой домен не нужен закрытой бете по приглашениям, а domain mapping Cloud Run в Preview, и Google не рекомендует его для production из-за задержек (документация Cloud Run, прочитана 2026-10-14).
+
+— *Отвергнуто:* domain mapping, как в образце (R27 standalone), и свой домен у Hosting — до публичного запуска; MathTrail Notebook и просто MathTrail.
+
+— spec 2, 8.1, 15; product 15; RUN.md (T10, T11).
+
 ## Идентификация и доступ
 
 **R14. Для Firebase используем Admin SDK (`firebase.google.com/go/v4`).** Через него проверяем ID token и App Check и удаляем пользователей. `golang-jwt/jwt/v5` нужен только для подписи токенов Centrifugo. `keyfunc` не используется.
