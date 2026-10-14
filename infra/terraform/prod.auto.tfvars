@@ -24,6 +24,10 @@ github_owner_id   = "261630499"
 # are exchanged for Google ones.
 workload_identity_pool_id = "canvas-api-github"
 
+# How GitHub begins the subject of this repository's tokens: its owner and its
+# name, each with its numeric id, which no later owner of either name is given.
+github_oidc_subject_prefix = "repo:MathTrail@261630499/canvas-api@1390897704"
+
 # What a month of the project may cost before mail goes out, at 50, 90 and 100
 # percent of it (spec 14.4). The currency is the billing account's own: a
 # budget in another one is refused, and infra/bootstrap.sh compares the two.

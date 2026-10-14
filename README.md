@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/MathTrail/canvas-api/actions/workflows/ci.yml/badge.svg)](https://github.com/MathTrail/canvas-api/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/MathTrail/canvas-api/actions/workflows/codeql.yml/badge.svg)](https://github.com/MathTrail/canvas-api/actions/workflows/codeql.yml)
+[![Release and deploy](https://github.com/MathTrail/canvas-api/actions/workflows/release.yml/badge.svg)](https://github.com/MathTrail/canvas-api/actions/workflows/release.yml)
 [![Release](https://img.shields.io/github/v/release/MathTrail/canvas-api)](https://github.com/MathTrail/canvas-api/releases/latest)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/MathTrail/canvas-api)](https://github.com/MathTrail/canvas-api/blob/main/go.mod)
 [![codecov](https://codecov.io/gh/MathTrail/canvas-api/branch/main/graph/badge.svg)](https://codecov.io/gh/MathTrail/canvas-api)
@@ -33,6 +34,7 @@ The documents are in Russian.
 - [docs/spec.md](docs/spec.md) — how it is built: architecture, the sheet and the check images, the answer check, the draft analysis, the AI tutor, the API, data, security and deployment.
 - [docs/privacy.md](docs/privacy.md) — children's data: what is collected and kept, what the external AI service receives, parental consent, deletion and retention.
 - [docs/decisions.md](docs/decisions.md) — the decision log: what was decided, why, and what was rejected.
+- [docs/self-hosting.md](docs/self-hosting.md) — how it is deployed: the one-time bootstrap, the delivery of every release, rollback and return.
 - [docs/stack.html](docs/stack.html) — the technology stack, layer by layer, with versions and what is still to be chosen. Open the file from a checkout in a browser: GitHub shows only its source.
 - [RUN.md](RUN.md) — the implementation plan, in epics: the current epic broken into small tasks, run and reviewed one at a time, and the later epics.
 

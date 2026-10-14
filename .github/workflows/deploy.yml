@@ -1,0 +1,303 @@
+# Continuous delivery: brings the cloud up to what a release describes, rolls a
+# revision of the service onto the server that release signed, and publishes
+# its SPA to Firebase Hosting (R32, R45, R58).
+#
+# Every step is a pinned action or a recipe of the justfile, so the same
+# commands work from a laptop. No key exists anywhere: each job borrows a
+# federated identity, and each identity is lent to the jobs of one GitHub
+# environment alone, by the subject GitHub gives them. The jobs that change
+# prod run in prod and the one that publishes the SPA in prod-hosting, and only
+# main may run in either (infra/terraform/iam.tf).
+name: Deploy
+
+on:
+  # The release just published, from release.yml, which calls this only while
+  # main still ends at that release's commit.
+  workflow_call:
+    inputs:
+      version:
+        description: "The release to deliver, as its tag names it."
+        type: string
+        required: true
+    secrets:
+      TF_VAR_billing_account:
+        required: true
+      TF_VAR_operator_email:
+        required: false
+  # By hand, on main alone: delivers the release at the tip of main, and
+  # nothing when there is none there.
+  workflow_dispatch:
+  # A pull request is shown what an apply would change, and nothing is applied.
+  pull_request:
+    paths:
+      - "infra/**"
+      - ".github/workflows/deploy.yml"
+      - ".github/actions/**"
+      - "justfile"
+
+permissions:
+  contents: read
+
+# One delivery at a time, and none cancelled halfway: an apply or a roll-out
+# cut short leaves a state nobody decided on. A delivery that waits gives way
+# to a newer one, which delivers a newer release. A pull request's plan reads
+# and changes nothing, so it waits for no delivery and keeps no delivery
+# waiting; a new push to the pull request replaces its plan still running. The
+# button pressed on another branch delivers nothing, and waits in a group of
+# its own, so that it cannot push out a delivery of main waiting in this one.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('cd-plan-{0}', github.event.pull_request.number) || github.ref == 'refs/heads/main' && 'cd' || format('cd-{0}', github.ref) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # The plan reads the state, and the state holds what the deployment signs in
+  # with (R34), so it is shown only to a pull request of a branch of this
+  # repository, which only its owner can push: never to a fork, and never to
+  # Dependabot, whose pull requests change the versions of the actions this job
+  # would run with the Terraform identity before anybody has read them.
+  plan:
+    name: What an apply would change
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/just
+      - uses: ./.github/actions/deployment-target
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_TERRAFORM_SERVICE_ACCOUNT }}
+      - uses: ./.github/actions/terraform
+      # Into the run's summary as well as its log, where a reviewer of the
+      # pull request finds it. The step fails as the plan did, once the plan
+      # is shown.
+      - name: Plan
+        env:
+          TF_VAR_billing_account: ${{ secrets.TF_VAR_billing_account }}
+          TF_VAR_operator_email: ${{ secrets.TF_VAR_operator_email }}
+        run: |
+          plan="$RUNNER_TEMP/plan.txt"
+          status=0
+          just ci-tf-plan > "$plan" || status=$?
+          cat "$plan"
+          {
+              echo "### What an apply would change"
+              echo
+              echo '```'
+              cat "$plan"
+              echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+  # Which release goes out, read before anything signs in: a run that delivers
+  # nothing is green, and says why.
+  target:
+    name: Which release
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      commit: ${{ steps.release.outputs.commit }}
+      deliver: ${{ steps.release.outputs.deliver }}
+    steps:
+      # Asked before anything of the repository is fetched. GitHub would keep
+      # a run on another branch out of both environments anyway; this says so
+      # in a word, before a job is even started.
+      - name: Whether this run may deliver
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [ "$GITHUB_REF" != refs/heads/main ]; then
+              echo "::error::A delivery runs from main alone, and this run is on ${GITHUB_REF}."
+              exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/just
+      - id: release
+        env:
+          VERSION: ${{ inputs.version }}
+        run: just ci-release-target "$VERSION" >> "$GITHUB_OUTPUT"
+      - name: Why nothing is delivered
+        if: steps.release.outputs.deliver != 'true'
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          if [ -n "$VERSION" ]; then
+              echo "::notice::main has moved on past ${VERSION}: the release of its tip delivers itself, and this one is not delivered."
+          else
+              echo "::notice::No release is at the tip of main, so nothing is delivered."
+          fi
+
+  # Each job below checks out the commit the release's tag names, so that the
+  # configuration — Terraform, firebase.json, the Dockerfile — is the
+  # release's own. "Re-run failed jobs" runs a job again with what the first
+  # attempt decided, however long ago that was, so on a later attempt each job
+  # first asks whether main still ends at that commit.
+  infra:
+    name: The cloud, as the release describes it
+    needs: target
+    if: needs.target.outputs.deliver == 'true'
+    environment: prod
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      project_id: ${{ steps.tf.outputs.project_id }}
+      deploy_service_account: ${{ steps.tf.outputs.deploy_service_account }}
+      hosting_service_account: ${{ steps.tf.outputs.hosting_service_account }}
+      image_repository: ${{ steps.tf.outputs.image_repository }}
+      service_name: ${{ steps.tf.outputs.service_name }}
+      region: ${{ steps.tf.outputs.region }}
+      service_url: ${{ steps.tf.outputs.service_url }}
+      hosting_url: ${{ steps.tf.outputs.hosting_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.target.outputs.commit }}
+          persist-credentials: false
+      - uses: ./.github/actions/just
+      - name: Whether main still ends at the release
+        if: github.run_attempt != '1'
+        env:
+          COMMIT: ${{ needs.target.outputs.commit }}
+        run: just ci-release-current "$COMMIT"
+      - uses: ./.github/actions/deployment-target
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_TERRAFORM_SERVICE_ACCOUNT }}
+      - uses: ./.github/actions/terraform
+      - name: Apply
+        env:
+          # The two facts about the deployment that are not written in the
+          # repository: the account that pays, and where the alert is mailed.
+          TF_VAR_billing_account: ${{ secrets.TF_VAR_billing_account }}
+          TF_VAR_operator_email: ${{ secrets.TF_VAR_operator_email }}
+        run: just ci-tf-apply
+      - id: tf
+        name: What the jobs after this one need
+        run: just ci-tf-outputs >> "$GITHUB_OUTPUT"
+
+  # The server goes out before the SPA, and is checked before the SPA goes out:
+  # a new page in front of a service that does not answer would break what
+  # works now (R58).
+  deploy:
+    name: The server of the release
+    needs: [target, infra]
+    environment:
+      name: prod
+      url: ${{ needs.infra.outputs.service_url }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      VERSION: ${{ needs.target.outputs.version }}
+      COMMIT: ${{ needs.target.outputs.commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.target.outputs.commit }}
+          persist-credentials: false
+      - uses: ./.github/actions/just
+      - name: Whether main still ends at the release
+        if: github.run_attempt != '1'
+        run: just ci-release-current "$COMMIT"
+      # Fetched and checked before anything signs in: nothing the release did
+      # not sign gets as far as the identity.
+      - name: The server the release signed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: just ci-release-fetch "$VERSION" "$COMMIT" "canvas-api-server_${VERSION}_linux_amd64" "$RUNNER_TEMP/release"
+      - uses: ./.github/actions/deployment-target
+      # A narrower identity than the one that applied the configuration: it
+      # may push an image and roll a revision, and nothing else.
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ needs.infra.outputs.deploy_service_account }}
+      - uses: ./.github/actions/gcloud
+      # Read into a variable first: inside the echo, a push that failed would
+      # leave the step green, and the next one would roll out an empty
+      # reference.
+      - id: image
+        name: The image of the release
+        env:
+          REPOSITORY: ${{ needs.infra.outputs.image_repository }}
+        run: |
+          reference="$(just ci-image-push "$RUNNER_TEMP/release/canvas-api-server_${VERSION}_linux_amd64" "$VERSION" "$COMMIT" "$REPOSITORY/server")"
+          echo "reference=$reference" >> "$GITHUB_OUTPUT"
+      - name: Roll out the revision
+        env:
+          SERVICE: ${{ needs.infra.outputs.service_name }}
+          REGION: ${{ needs.infra.outputs.region }}
+          IMAGE: ${{ steps.image.outputs.reference }}
+        run: just ci-deploy "$SERVICE" "$REGION" "$IMAGE"
+      - name: What answers is the release
+        env:
+          SERVICE_URL: ${{ needs.infra.outputs.service_url }}
+        run: just ci-smoke "$SERVICE_URL" "$VERSION" "$COMMIT"
+
+  # An environment of its own, because this job runs a large program of
+  # somebody else's, the Firebase CLI, with an identity: the identity it can
+  # borrow publishes the SPA, and reaches neither the service nor the
+  # configuration.
+  hosting:
+    name: The SPA of the release
+    needs: [target, infra, deploy]
+    environment:
+      name: prod-hosting
+      url: ${{ needs.infra.outputs.hosting_url }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      VERSION: ${{ needs.target.outputs.version }}
+      COMMIT: ${{ needs.target.outputs.commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.target.outputs.commit }}
+          persist-credentials: false
+      - uses: ./.github/actions/just
+      - name: Whether main still ends at the release
+        if: github.run_attempt != '1'
+        run: just ci-release-current "$COMMIT"
+      - name: The SPA the release signed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: just ci-release-fetch "$VERSION" "$COMMIT" "canvas-web_${VERSION}.tar.gz" "$RUNNER_TEMP/release"
+      - uses: ./.github/actions/deployment-target
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ needs.infra.outputs.hosting_service_account }}
+      - uses: ./.github/actions/firebase
+      - name: Publish the SPA
+        env:
+          PROJECT: ${{ needs.infra.outputs.project_id }}
+        run: just ci-hosting-deploy "$RUNNER_TEMP/release/canvas-web_${VERSION}.tar.gz" "$PROJECT" "$VERSION"
+      - name: What the site serves is the release
+        env:
+          HOSTING_URL: ${{ needs.infra.outputs.hosting_url }}
+        run: just ci-hosting-check "$HOSTING_URL"

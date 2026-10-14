@@ -11,7 +11,11 @@
 # that failed, say — and only then is a version asked for on it used; it works
 # on main alone, and only once the checks have passed on that commit (R33, R45,
 # R52).
-name: Release
+#
+# A release that is still the newest of main is then delivered to prod, by
+# deploy.yml, within this same run: its status, here, is the status of the
+# whole way from a green main to prod (R45, R58).
+name: Release and deploy
 
 on:
   workflow_run:
@@ -186,3 +190,21 @@ jobs:
           if [ "$newest" != true ]; then
               echo "main ends at $tip now: $TARGET is released, and is not the newest of main"
           fi
+
+  # Only while main still ends at the commit just released: a release of an
+  # older commit — one whose checks finished late, or were run again — would
+  # roll prod back (R45). The delivery is given the two secrets it needs, by
+  # name, and none of the others this repository keeps (R58).
+  deploy:
+    name: Deploy
+    needs: release
+    if: needs.release.outputs.newest == 'true'
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/deploy.yml
+    with:
+      version: ${{ needs.release.outputs.version }}
+    secrets:
+      TF_VAR_billing_account: ${{ secrets.TF_VAR_billing_account }}
+      TF_VAR_operator_email: ${{ secrets.TF_VAR_operator_email }}

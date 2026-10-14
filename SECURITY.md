@@ -43,7 +43,7 @@ The service is still being built, in the order [`RUN.md`](RUN.md) sets; this is 
 
 ## Supported versions
 
-There is one: the newest commit of `main`. There is no maintenance branch — a fix goes to `main`. Every merge to `main` whose checks are green is published as a signed release. The delivery is still being set up: once it is, each release is deployed from its tag, and the service names the release it runs.
+There is one: the newest commit of `main`. There is no maintenance branch — a fix goes to `main`. Every merge to `main` whose checks are green is published as a signed release, and a release that is still the newest commit of `main` is deployed at once: the server and the SPA it signed, with the configuration of the commit its tag names. The service names the release it runs at `/health`.
 
 ## Checking that a release is ours
 
@@ -60,6 +60,8 @@ sha256sum --check --ignore-missing SHA256SUMS
 ```
 
 The first command says the sums were signed by this repository's release workflow, run on `main`; the second, that each file downloaded beside them is the one they describe — on macOS, `shasum -a 256 --check --ignore-missing SHA256SUMS` does the same. A release cut from another branch names that branch in its certificate instead, and fails the first command as written.
+
+The delivery runs the same check before anything reaches production, and one more: it adds `--certificate-github-workflow-sha` with the commit the release's tag names, so that the signed files of one release cannot pass for another's (`just ci-release-fetch`).
 
 ## How this is kept honest
 

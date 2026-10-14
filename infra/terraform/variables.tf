@@ -59,6 +59,16 @@ variable "workload_identity_pool_id" {
   }
 }
 
+variable "github_oidc_subject_prefix" {
+  description = "How GitHub begins the subject of this repository's tokens: the owner and the repository, each with its numeric id, as `gh api repos/OWNER/NAME/actions/oidc/customization/sub --jq .sub_claim_prefix` prints it. A job's subject goes on to name the environment it runs in, so an identity bound to one subject is lent to the jobs of one environment alone (R58)."
+  type        = string
+
+  validation {
+    condition     = can(regex("^repo:[^/@]+@[0-9]+/[^/@]+@[0-9]+$", var.github_oidc_subject_prefix)) && startswith(var.github_oidc_subject_prefix, "repo:${replace(var.github_repository, "/", "@${var.github_owner_id}/")}@")
+    error_message = "github_oidc_subject_prefix is repo:OWNER@OWNER_ID/NAME@REPOSITORY_ID, for the github_repository and github_owner_id given."
+  }
+}
+
 variable "service_name" {
   description = "The name of the Cloud Run service, and the prefix of everything named after it, its identities among them."
   type        = string
@@ -66,7 +76,7 @@ variable "service_name" {
 
   validation {
     condition     = can(regex("^[a-z][a-z0-9-]{0,20}[a-z0-9]$", var.service_name))
-    error_message = "service_name is 2 to 22 lowercase letters, digits and hyphens, starting with a letter and ending with a letter or digit: Cloud Run names a service so, and the identities named after it take up to seven characters more, of 6 to 30."
+    error_message = "service_name is 2 to 22 lowercase letters, digits and hyphens, starting with a letter and ending with a letter or digit: Cloud Run names a service so, and the identities named after it take up to eight characters more, of 6 to 30."
   }
 }
 

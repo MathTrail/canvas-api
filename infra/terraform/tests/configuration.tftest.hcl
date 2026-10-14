@@ -173,3 +173,53 @@ run "a_service_name_ending_in_a_hyphen_is_refused" {
 
   expect_failures = [var.service_name]
 }
+
+# Each identity is lent to the jobs of one environment, and to nobody else: the
+# delivery's to prod, the SPA's publisher to prod-hosting (R58).
+run "each_identity_is_lent_to_one_environment" {
+  command = plan
+
+  assert {
+    condition     = google_service_account_iam_member.deployer_from_github.member == "principal://iam.googleapis.com/projects/123456789012/locations/global/workloadIdentityPools/canvas-api-github/subject/repo:MathTrail@261630499/canvas-api@1390897704:environment:prod"
+    error_message = "The deployment identity is lent to the jobs of the environment prod alone."
+  }
+
+  assert {
+    condition     = google_service_account_iam_member.hosting_from_github.member == "principal://iam.googleapis.com/projects/123456789012/locations/global/workloadIdentityPools/canvas-api-github/subject/repo:MathTrail@261630499/canvas-api@1390897704:environment:prod-hosting"
+    error_message = "The publishing identity is lent to the jobs of the environment prod-hosting alone."
+  }
+}
+
+# The roles the identity that applies this configuration may grant on the
+# project, and no others: the condition in infra/bootstrap.sh names the same two.
+run "the_publisher_holds_two_project_roles" {
+  command = plan
+
+  assert {
+    condition     = toset(keys(google_project_iam_member.hosting)) == toset(["roles/firebasehosting.admin", "roles/serviceusage.apiKeysViewer"])
+    error_message = "The publishing identity holds Hosting's role and the reading of API keys, and nothing else on the project."
+  }
+}
+
+run "a_subject_prefix_of_another_repository_is_refused" {
+  command = plan
+
+  variables {
+    github_oidc_subject_prefix = "repo:MathTrail@261630499/mathtrail-standalone@1373391176"
+  }
+
+  expect_failures = [var.github_oidc_subject_prefix]
+}
+
+# The identity that applies this configuration may grant on the project only
+# the roles its condition in infra/bootstrap.sh lists. A role granted here and
+# not listed there would pass every other check and be refused at the apply,
+# after the merge (docs/self-hosting.md).
+run "the_publisher_holds_what_bootstrap_lets_the_configuration_grant" {
+  command = plan
+
+  assert {
+    condition     = toset(keys(google_project_iam_member.hosting)) == toset(regexall("roles/[A-Za-z.]+", regex("hasOnly\\(\\[([^\\]]*)\\]\\)", file("../bootstrap.sh"))[0]))
+    error_message = "The roles granted on the project are the ones the condition in infra/bootstrap.sh lets the Terraform identity grant: change both together, and run bootstrap again before the merge."
+  }
+}

@@ -40,6 +40,11 @@ output "deploy_service_account" {
   value       = google_service_account.deployer.email
 }
 
+output "hosting_service_account" {
+  description = "The identity the SPA is published with."
+  value       = google_service_account.hosting.email
+}
+
 output "log_bucket" {
   description = "The bucket the project's logs are kept in, in its region (R57)."
   value       = google_logging_project_bucket_config.logs.bucket_id

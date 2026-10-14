@@ -1,6 +1,6 @@
 # Развёртывание canvas-api
 
-Первая версия (T10): облако как код и разовый bootstrap. Выкладку пайплайном добавляет T11, первый деплой и его чек-лист — T12; полностью документ дописывает T57. Решения, на которых всё держится, — R54–R57 в [decisions.md](decisions.md).
+T10 — облако как код и разовый bootstrap, T11 — выкладка пайплайном, откат и возврат. Первый деплой и его чек-лист добавит T12, полностью документ допишет T57. Решения, на которых всё держится, — R54–R58 в [decisions.md](decisions.md).
 
 ## Что делается руками
 
@@ -9,8 +9,9 @@
 1. **Bootstrap** — `just bootstrap`. Создаёт то, без чего пайплайну не войти в облако: проект, привязку к платёжному аккаунту, бакет состояния, федеративный пул с провайдером GitHub и аккаунт Terraform с его ролями.
 2. **`infra/ci.env`** — две строки, которые печатает bootstrap, коммитятся в репозиторий.
 3. **Секреты репозитория** (Settings → Secrets and variables → Actions):
-   - `TF_VAR_billing_account` — ID платёжного аккаунта, нужен каждому плану и apply пайплайна;
+   - `TF_VAR_billing_account` — ID платёжного аккаунта. Нужен каждому плану и apply пайплайна, без него выкладка не начнётся;
    - `TF_VAR_operator_email` — адрес для алерта нагрузки. Необязателен: без него алерта нет.
+4. **Окружения GitHub** `prod` и `prod-hosting` (Settings → Environments → New environment), до первой выкладки. В каждом: «Deployment branches and tags» → «Selected branches and tags» → правило `main`. Ни ревьюеров, ни секретов в них нет. Окружение, которого нет, GitHub создаёт сам при первом задании — без правила, и тогда «только `main`» держал бы один текст workflow (R58).
 
 Всё остальное — проект, сервис, Firebase, бюджет, алерт, журналы — описывает Terraform в `infra/terraform/`, а применяет пайплайн. Руками в консоли ничего не настраивается: следующий apply вернул бы настройку как было.
 
@@ -18,7 +19,7 @@
 
 - Платёжный аккаунт Google Cloud и право привязывать к нему проекты. Его ID — `gcloud billing accounts list`.
 - Право создавать проекты.
-- Devcontainer на x86_64: gcloud ставится только туда (R28 standalone). На arm64 те же команды запускаются из Cloud Shell или из образа `google-cloud-cli`.
+- Devcontainer на x86_64: gcloud и Firebase CLI ставятся только туда (R28 standalone, R58). На arm64 те же команды запускаются из Cloud Shell, где есть оба.
 
 ## 1. Описать развёртывание
 
@@ -26,11 +27,17 @@
 
 | Файл | Что в нём |
 |---|---|
-| `infra/terraform/prod.auto.tfvars` | ID проекта, регион, репозиторий и числовой ID его владельца, пул, бюджет и его валюта |
+| `infra/terraform/prod.auto.tfvars` | ID проекта, регион, репозиторий и числовой ID его владельца, пул, начало subject токенов GitHub, бюджет и его валюта |
 | `infra/terraform/backend.hcl` | бакет состояния и префикс |
 | `infra/ci.env` | две строки из вывода bootstrap |
 
-Своя копия меняет здесь ID проекта (он глобально уникален), бакет состояния, репозиторий и ID владельца — `https://api.github.com/users/<владелец>`. Адрес SPA выводится из ID проекта: `https://<ID проекта>.web.app` (R55).
+Своя копия меняет здесь:
+- ID проекта: он глобально уникален;
+- бакет состояния;
+- репозиторий и ID владельца — `https://api.github.com/users/<владелец>`;
+- начало subject — `gh api repos/<владелец>/<репозиторий>/actions/oidc/customization/sub --jq .sub_claim_prefix`.
+
+Адрес SPA выводится из ID проекта: `https://<ID проекта>.web.app` (R55).
 
 ## 2. Bootstrap
 
@@ -41,7 +48,9 @@ just bootstrap
 ```
 
 - Повтор безопасен: всё, что скрипт создаёт, он перед каждой попыткой ищет. Условие провайдера пула приводится к записанному в скрипте.
-- Пул пускает один workflow — выкладку, `.github/workflows/deploy.yml` (T11). Ни проверки, ни релиз не могут одолжить ни аккаунт Terraform, ни аккаунт деплоя, а до появления `deploy.yml` не может никто (R56).
+- Пул пускает один workflow — выкладку, `.github/workflows/deploy.yml`. Ни проверки, ни релиз не могут одолжить ни один аккаунт (R56).
+- Аккаунт Terraform одалживают только задания окружения `prod` и план на PR — по subject их токенов (R58). Привязку «весь репозиторий», которую ставил bootstrap T10, повтор снимает.
+- `roles/resourcemanager.projectIamAdmin` выдаётся с условием: выдавать и отзывать на проекте аккаунт Terraform может только две роли выкладки SPA.
 - ID платёжного аккаунта скрипт не печатает и в ошибках gcloud заменяет его на `<billing account>`: вывод можно вставлять куда угодно.
 - `just` не читает `.env`. Если ID лежит там строкой `TF_VAR_billing_account=…`, его экспортирует `set -a; . ./.env; set +a`.
 - До всего остального скрипт сверяет валюту платёжного аккаунта с `budget_currency`: бюджет в чужой валюте отклоняется, и иначе это выяснилось бы только на первом apply.
@@ -53,12 +62,19 @@ just bootstrap
 ```bash
 gcloud projects get-iam-policy <ID проекта> --flatten=bindings \
   --filter="bindings.members:serviceAccount:canvas-api-tf@<ID проекта>.iam.gserviceaccount.com" \
-  --format='value(bindings.role)'
+  --format='value(bindings.role, bindings.condition.title)'
+```
+
+Кто может его одолжить — два subject, `…:environment:prod` и `…:pull_request`:
+
+```bash
+gcloud iam service-accounts get-iam-policy canvas-api-tf@<ID проекта>.iam.gserviceaccount.com \
+  --project=<ID проекта> --flatten='bindings[].members' --format='value(bindings.members)'
 ```
 
 ## 3. План вручную
 
-Пайплайн строит план сам (T11), но его можно построить и из контейнера, своими учётными данными:
+Пайплайн строит план сам — на каждом PR, который трогает `infra/`, `deploy.yml`, actions или `justfile`, в summary прогона. Его можно построить и из контейнера, своими учётными данными:
 
 ```bash
 gcloud auth application-default login --no-launch-browser
@@ -69,18 +85,68 @@ TF_VAR_billing_account=… just ci-tf-plan
 - Весь вывод проходит через маскировку: ID платёжного аккаунта и адрес заменяются на `<billing account>` и `<operator email>`. ID бюджета содержит ID аккаунта, и без маскировки он попадал бы в строки `Refreshing state…`.
 - План не берёт блокировку состояния, поэтому не мешает apply пайплайна. Apply ждёт чужую блокировку до 5 минут.
 
-## Порядок применения
+## Выкладка
 
-Apply делает пайплайн, в порядке R31: подписанный релиз → `just ci-tf-apply` → образ → новая ревизия → Hosting → smoke (T11). Первый apply создаёт:
+Каждый мерж в `main` с зелёным CI выпускает подписанный релиз, и прогон «Release and deploy» тут же выкатывает его — если `main` всё ещё стоит на коммите релиза (R45, R58). Выкладка — `.github/workflows/deploy.yml`, задание за заданием:
+
+1. **Which release** — какой релиз и выкатывать ли. Если `main` ушёл дальше, прогон зелёный с notice, а выкатывает новый релиз его собственный прогон.
+2. **The cloud, as the release describes it** — окружение `prod`: `just ci-tf-apply` из коммита тега.
+3. **The server of the release** — окружение `prod`:
+   - сервер amd64 из релиза, подпись `SHA256SUMS` проверена (`just ci-release-fetch`);
+   - образ вокруг него, проверка `/health` до push, push, ревизия по digest и трафик на неё (`ci-image-push`, `ci-deploy`);
+   - smoke: `/health` по адресу сервиса называет релиз и коммит (`ci-smoke`).
+4. **The SPA of the release** — окружение `prod-hosting`, свой аккаунт: архив SPA из релиза, `firebase deploy`, затем страница сайта сверяется с архивом (`ci-hosting-deploy`, `ci-hosting-check`).
+
+Кнопка — Actions → Deploy → Run workflow на `main`: выкатывает релиз на вершине `main`, а если его нет — ничего. На другой ветке она падает в первом задании. Упавшую выкладку повторяют «Re-run failed jobs» в прогоне «Release and deploy»; повторная попытка сначала проверяет, что `main` всё ещё стоит на коммите релиза.
+
+Первый apply создаёт:
 
 - API проекта, Artifact Registry с автоочисткой;
-- аккаунты сервиса и деплоя, свою узкую роль деплоя и привязку WIF;
+- аккаунты сервиса, деплоя и выкладки SPA, свою узкую роль деплоя, две роли Hosting и привязки WIF по окружениям;
 - Cloud Run `canvas-api` на начальном образе Google `hello` — он отвечает на любой путь, в том числе на `/health`, пока CD не выкатит свой образ;
 - Firebase в проекте и сайт Hosting;
 - бюджет и, если задан адрес, алерт;
 - бакет журналов в регионе и перенаправление `_Default`, место хранения трасс.
 
-Первый apply может потребовать одного повтора — «Re-run failed jobs»: только что включённый API и только что созданный аккаунт видны не сразу.
+Первая выкладка может потребовать одного повтора — «Re-run failed jobs»: только что включённые API и только что созданные аккаунты и привязки видны не сразу.
+
+## Откат и возврат
+
+Откат — трафиком на прошлую ревизию и прошлым выпуском Hosting, а не `terraform apply` (spec 15.5). SPA и API откатываются вместе. Команды — из devcontainer на x86_64 или из Cloud Shell, с учётными данными человека, у которого есть права на проект (`gcloud auth login` и `gcloud auth application-default login`).
+
+**Сервис.** Ревизии, новые сверху; закрепить трафик за прошлой и проверить, что отвечает её релиз:
+
+```bash
+gcloud run revisions list --service=canvas-api --region=us-east4 --project=mathtrail-canvas-prod
+gcloud run services update-traffic canvas-api --region=us-east4 --project=mathtrail-canvas-prod \
+  --to-revisions=<ревизия>=100
+curl -fsS https://canvas-api-796865465273.us-east4.run.app/health
+```
+
+Пока трафик закреплён, новые ревизии его не получают (документация Cloud Run, прочитана 2026-10-14). Следующая выкладка возвращает его на новую ревизию сама (`ci-deploy`).
+
+**SPA.** Выпуски сайта, новые сверху, с номером релиза в сообщении; прошлый выпуск — снова в live:
+
+```bash
+curl -fsS -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+  -H "x-goog-user-project: mathtrail-canvas-prod" \
+  "https://firebasehosting.googleapis.com/v1beta1/sites/mathtrail-canvas-prod/releases?pageSize=5" \
+  | jq -r '.releases[] | "\(.version.name | split("/") | last)  \(.releaseTime)  \(.message // "")"'
+GOOGLE_CLOUD_QUOTA_PROJECT=mathtrail-canvas-prod firebase hosting:clone \
+  mathtrail-canvas-prod@<версия> mathtrail-canvas-prod:live --project mathtrail-canvas-prod
+```
+
+`firebase` берёт учётные данные `application-default`, а API Hosting с учётными данными человека требует проект квоты — его задаёт `GOOGLE_CLOUD_QUOTA_PROJECT` (документация Firebase, прочитана 2026-10-14).
+
+**Возврат** — кнопкой выкладки: она выкатывает релиз на вершине `main` целиком, сервис и SPA, и возвращает трафик на новую ревизию. Вручную — то же в обратную сторону:
+
+```bash
+gcloud run services update-traffic canvas-api --region=us-east4 --project=mathtrail-canvas-prod --to-latest
+GOOGLE_CLOUD_QUOTA_PROJECT=mathtrail-canvas-prod firebase hosting:clone \
+  mathtrail-canvas-prod@<версия последнего релиза> mathtrail-canvas-prod:live --project mathtrail-canvas-prod
+```
+
+Откат и возврат проверяет T12 на второй выкладке: после первой прошлая ревизия — образ `hello`, а прошлого выпуска SPA нет.
 
 ## Переменные
 
@@ -88,6 +154,7 @@ Apply делает пайплайн, в порядке R31: подписанны
 |---|---|---|---|
 | `project_id`, `region` | `prod.auto.tfvars` | — | проект (он же проект Firebase) и регион всего контура (R54) |
 | `github_repository`, `github_owner_id`, `workload_identity_pool_id` | `prod.auto.tfvars` | — | чьи workflow могут выкатывать и через какой пул |
+| `github_oidc_subject_prefix` | `prod.auto.tfvars` | — | как GitHub начинает subject токенов репозитория: владелец и репозиторий с их числовыми ID; по нему и окружению аккаунты одалживаются (R58) |
 | `budget_amount`, `budget_currency` | `prod.auto.tfvars` | — | месячный бюджет; валюта — платёжного аккаунта |
 | `billing_account` | `TF_VAR_billing_account` | — | платёжный аккаунт; `sensitive` |
 | `operator_email` | `TF_VAR_operator_email` | пусто | адрес алерта нагрузки; `sensitive`; пусто — алерта нет |
@@ -126,6 +193,7 @@ gcloud logging read 'resource.type="cloud_run_revision"' --project=mathtrail-can
 - **Cloud Trace** — сверх 2,5 млн спанов в месяц.
 - **Алерты Cloud Monitoring** — бесплатны по меньшей мере до 2027-09-01: плату начнут брать не раньше этой даты, около $0.35 в месяц за метрику в условии.
 - **Firebase Hosting** — сверх бесплатной квоты Spark, которую тариф Blaze сохраняет.
+- **Выкладка** — ничего сверх этого: GitHub Actions бесплатны для публичного репозитория, каждая выкладка добавляет один образ в реестр и одну ревизию. Ревизия без трафика при min 0 не стоит ничего.
 
 ## Когда меняется bootstrap
 
@@ -139,12 +207,13 @@ gcloud logging read 'resource.type="cloud_run_revision"' --project=mathtrail-can
 
 Убранную из списка роль скрипт не отзывает. Это делается руками: `gcloud projects remove-iam-policy-binding <ID проекта> --member=… --role=…`.
 
+Особый случай — роль, которую конфигурация выдаёт на проект, как две роли выкладки SPA. Аккаунт Terraform может выдать только роли из условия своего `projectIamAdmin`, поэтому новая роль сначала попадает в выражение `hasOnly([...])` в bootstrap. Иначе apply получит 403 на её выдаче. Повтор заменяет прежнее условие новым, а не добавляет второе: IAM различает привязки по условию, и старое продолжало бы действовать.
+
 Уже известные изменения:
 
-- `roles/resourcemanager.projectIamAdmin` — T11: роль выкладки Hosting выдаётся только на уровне проекта;
 - `roles/secretmanager.admin` — с первым секретом (эпик MVP);
-- WIF по окружению вместо всего репозитория — решение автора в T11: сейчас условие пускает `deploy.yml` с любой ветки, в том числе из PR этого репозитория;
-- переименование `deploy.yml` — оно часть условия пула.
+- переименование `deploy.yml` — оно часть условия пула;
+- переименование окружения `prod` — оно часть subject, по которому аккаунт Terraform одалживается.
 
 ## Удаление развёртывания
 
