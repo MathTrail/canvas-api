@@ -515,12 +515,13 @@
       { n: "Terraform CLI", v: "1.16.3", r: "Весь проект как код; состояние в GCS; проект, бакет и WIF — разовый bootstrap; tf-check в CI", s: "repo", ref: "spec 15.2 · R56 · T10" },
       { n: "Провайдеры Terraform", p: "google; google-beta — для Firebase", v: "8.3.0", r: "Точные версии и .terraform.lock.hcl в репозитории; поднимаются руками", s: "repo", ref: "spec 15.2 · R56 · T10" },
       { n: "Neon и Upstash в Terraform", p: "их провайдеры", v: "", r: "Если провайдер есть и лицензия подходит; иначе руками по инструкции", s: "open", q: "выбор в E2", ref: "spec 15.2 · E2" },
-      { n: "GitHub Actions", p: "actions по SHA", v: "", r: "CI на каждом PR и коммите main — в образе тулчейна по digest; подписанный релиз после зелёного CI на main и выкладка из его тега — T08, T11", s: "repo", ref: "R33, R45, R49 · T06, T08, T11" },
-      { n: "Workload Identity Federation", v: "", r: "CI входит в GCP без ключей сервисных аккаунтов; пул и провайдер создаёт bootstrap", s: "repo", ref: "spec 15.5 · R56 · T10" },
-      { n: "gcloud CLI", p: "на x86_64; на arm64 — из образа Google", v: "585.0.0", r: "jobs update и execute, services update в CD", s: "repo", ref: "spec 15.5 · T11" },
-      { n: "firebase-tools", v: "закрепит T11", r: "firebase deploy --only hosting", s: "spec", ref: "T11" },
-      { n: "Образ сервиса", p: "golang → gcr.io/distroless/static-debian13", v: "по digest", r: "Многоэтапная сборка: CGO_ENABLED=0, -trimpath, пользователь nonroot", s: "repo", ref: "T04" },
-      { n: "cosign + gh release", p: "подпись без ключей, OIDC", v: "v3.1.3", r: "Подписанный релиз vX.Y.Z на каждом зелёном main: сервер amd64 и arm64, архив SPA, SHA256SUMS; выкладка идёт из его тега. Тем же cosign main подписывает образ тулчейна и сверяет подпись перед проверками", s: "repo", ref: "R40 standalone, R45, R52, R53 · T08" },
+      { n: "GitHub Actions", p: "actions по SHA", v: "", r: "CI на каждом PR и коммите main — в образе тулчейна по digest; подписанный релиз после зелёного CI на main и его выкладка в том же прогоне; план Terraform на PR", s: "repo", ref: "R33, R45, R49, R58 · T06, T08, T11" },
+      { n: "Окружения GitHub", p: "prod · prod-hosting", v: "только main", r: "Задания, которые меняют prod, и выкладка SPA; по их subject аккаунты и одалживаются", s: "repo", ref: "R58 · T11" },
+      { n: "Workload Identity Federation", v: "", r: "Выкладка входит в GCP без ключей: пул пускает только deploy.yml, каждый аккаунт одалживается по subject окружения; пул и провайдер создаёт bootstrap", s: "repo", ref: "spec 15.5 · R56 · R58 · T10, T11" },
+      { n: "gcloud CLI", p: "на x86_64; на arm64 — из образа Google", v: "585.0.0", r: "services update и update-traffic в CD, откат трафиком; jobs update и execute — с jobs", s: "repo", ref: "spec 15.5 · R58 · T11" },
+      { n: "firebase-tools", p: "автономный бинарник, x86_64", v: "15.33.0", r: "firebase deploy --only hosting в CD; откат — hosting:clone прошлого выпуска", s: "repo", ref: "R58 · T11" },
+      { n: "Образ сервиса", p: "golang → gcr.io/distroless/static-debian13", v: "по digest", r: "Многоэтапная сборка: CGO_ENABLED=0, -trimpath, пользователь nonroot; в prod — тот же distroless вокруг подписанного сервера релиза", s: "repo", ref: "T04 · R58" },
+      { n: "cosign + gh release", p: "подпись без ключей, OIDC", v: "v3.1.3", r: "Подписанный релиз vX.Y.Z на каждом зелёном main: сервер amd64 и arm64, архив SPA, SHA256SUMS. Выкладка берёт его файлы, проверив подпись и коммит. Тем же cosign main подписывает образ тулчейна и сверяет подпись перед проверками", s: "repo", ref: "R40 standalone, R45, R52, R53, R58 · T08, T11" },
       { n: "Бюджет GCP", p: "budget.tf", v: "$1 · 50 / 90 / 100 %", r: "Оповещения о тратах проекта", s: "repo", ref: "spec 14.4 · R56 · T10" }
     ]},
     { id: "obs", name: "Наблюдаемость", path: "internal/telemetry/", note: "в логах только UUID и коды", rows: [
@@ -536,6 +537,7 @@
       { n: "govulncheck · npm audit", v: "govulncheck v1.8.0", r: "Уязвимости: код Go, который сервис достигает; пакеты, из которых собрана SPA, — high и выше", s: "repo", ref: "R48 · T05" },
       { n: "gitleaks", v: "v8.30.1", r: "Секреты по всей истории репозитория; ложная тревога — узким исключением в .gitleaks.toml", s: "repo", ref: "R49 · T06" },
       { n: "Trivy", p: "из образа по digest", v: "0.75.0", r: "Скан образа сервиса: HIGH и CRITICAL, у которых есть исправление; читает сохранённую копию образа, без сокета Docker; блокирует мерж", s: "repo", ref: "R49 · T06" },
+      { n: "actionlint", p: "из образа по digest, с shellcheck", v: "1.7.12", r: "Workflow так, как их прочтёт GitHub: ключи, выражения, входы и секреты вызова release.yml → deploy.yml, скрипты шагов workflow (скрипты composite actions — нет); исключение — только в .github/actionlint.yaml. Держит мерж, когда задание «Workflows» внесено в обязательные проверки ruleset", s: "repo", ref: "R58 · T11" },
       { n: "CodeQL", p: "codeql-action v4.38.3", v: "security-extended", r: "Статический анализ Go и TypeScript на каждом PR и раз в неделю; находки High и выше блокируют мерж", s: "repo", ref: "R50 · T07" },
       { n: "SonarCloud", p: "+ SonarQube for IDE", v: "MathTrail_canvas-api", r: "Анализ и витрина качества; только сообщает и не останавливает релиз", s: "repo", ref: "R50 · R31 standalone · T07" },
       { n: "Codecov", v: "патч ≥ 90 %", r: "Покрытие Go и web; патч блокирует мерж, общее покрытие только сообщает", s: "repo", ref: "R50 · T07" },
@@ -553,7 +555,7 @@
       { n: "vegeta", p: "github.com/tsenart/vegeta/v12", v: "v12.13.0", r: "Темп и перцентили нагрузочного инструмента tools/load", s: "sample", ref: "E2" },
       { n: "Playwright", p: "из образа по digest", v: "", r: "e2e на синтетических штрихах: ответ, Check, вердикт; обрыв сети и перезагрузка", s: "spec", ref: "spec 17 · E2" }
     ]},
-    { id: "dev", name: "Среда разработки", path: ".devcontainer/ · justfile", note: "только внутри контейнера", foot: "Terraform, gcloud, golangci-lint и mockery ставятся отсюда же — они в разделах «Облако и поставка» и «Качество кода».", rows: [
+    { id: "dev", name: "Среда разработки", path: ".devcontainer/ · justfile", note: "только внутри контейнера", foot: "Terraform, gcloud, firebase-tools, golangci-lint и mockery ставятся отсюда же — они в разделах «Облако и поставка» и «Качество кода».", rows: [
       { n: "Go", v: "1.27.2", r: "Тулчейн сервиса; та же версия в go.mod", s: "repo", ref: "Dockerfile · go.mod" },
       { n: "Node.js", v: "24.21.0", r: "Тулчейн SPA", s: "repo", ref: "Dockerfile" },
       { n: "just", v: "1.58.0", r: "Вход для всех команд; ci-* — то, что вызывает CI", s: "repo", ref: "Dockerfile" },

@@ -1,8 +1,7 @@
 # A public reading of how this repository is run: whether its dependencies are
 # pinned, whether its workflows hand out more permission than they need, whether
 # a branch can be pushed to without review. It measures practices, not code, and
-# it blocks nothing — the badge in the README is the point (R50). The findings no
-# change can close are answered once, in the decision log (R51).
+# it blocks nothing — the badge in the README is the point.
 #
 # Publishing the results holds this file to the Scorecard API's rules: no
 # environment or defaults at the top, nothing but read permission there, and

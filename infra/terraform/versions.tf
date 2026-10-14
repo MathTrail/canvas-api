@@ -7,7 +7,7 @@
 # Two providers at one version. Firebase's resources are in the beta provider
 # alone, and the two are released together, so they move together — by hand,
 # with the Terraform the development image installs, since Dependabot would
-# lock them with a Terraform of its own (R56).
+# lock them with a Terraform of its own.
 
 terraform {
   required_version = "1.16.3"

@@ -24,7 +24,7 @@ import (
 )
 
 // The service answers its health probe and nothing else. /healthz is not the
-// probe (R30), and HEAD is answered wherever GET is, since a probe may ask
+// probe, and HEAD is answered wherever GET is, since a probe may ask
 // either way.
 func TestRoutes(t *testing.T) {
 	t.Parallel()

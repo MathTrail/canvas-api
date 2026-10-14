@@ -3,7 +3,7 @@
 # the list, because they are what enables the rest: infra/bootstrap.sh turns
 # them on before this configuration can be applied at all. The APIs of what
 # comes later — Secret Manager, the models, App Check — are turned on by the
-# change that first uses them (RUN.md, rule 13).
+# change that first uses them.
 
 locals {
   apis = [
@@ -17,13 +17,13 @@ locals {
     "iam.googleapis.com",
     "sts.googleapis.com",
     "iamcredentials.googleapis.com",
-    # Firebase in the project, and the Hosting site the SPA is served from (R10).
+    # Firebase in the project, and the Hosting site the SPA is served from.
     "firebase.googleapis.com",
     "firebasehosting.googleapis.com",
     # The spend alert, and the load alert.
     "billingbudgets.googleapis.com",
     "monitoring.googleapis.com",
-    # Where the logs and the traces are kept (R57). The bootstrap turns
+    # Where the logs and the traces are kept. The bootstrap turns
     # Observability on already, long before its settings are written; it is
     # named here as well, because this is the list of what the configuration
     # stands on.

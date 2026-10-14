@@ -1,6 +1,6 @@
-# Firebase in the project, and the site the SPA is served from (R10, R55).
-# Sign-in and App Check join it with the epic that brings them. Both resources
-# exist in the beta provider alone (R56).
+# Firebase in the project, and the site the SPA is served from.
+# Sign-in and App Check join it with the change that brings them. Both resources
+# exist in the beta provider alone.
 
 resource "google_firebase_project" "this" {
   provider = google-beta
@@ -9,7 +9,7 @@ resource "google_firebase_project" "this" {
 }
 
 # Named after the project, which is what makes the SPA's address
-# https://<project>.web.app (R55). Either way it ends up the project's default
+# https://<project>.web.app. Either way it ends up the project's default
 # site: a project given Firebase after 2026-10-15 gets no site until one is
 # made, and the first one made becomes the default; one given Firebase before
 # that date got its default site at once, under the project's id, and this

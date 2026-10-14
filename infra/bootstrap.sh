@@ -2,12 +2,15 @@
 # Creates the few things that cannot be created by the pipeline that needs them:
 # the project, the bucket its state lives in, and the federated identity the
 # pipeline signs in as. Everything else about the deployment is Terraform, and
-# Terraform runs in the pipeline (R56).
+# Terraform runs in the pipeline.
 #
 # Safe to run again: every step checks before it creates, and the pool's
-# provider is brought back to the condition written here. What it cannot undo
+# provider is brought back to the condition written here. What it does not undo
 # is a grant: a role taken out of the list below stays granted until it is
-# removed by hand (docs/self-hosting.md).
+# removed by hand (docs/self-hosting.md). It takes back two things alone: the
+# binding that once lent the Terraform identity to every job of the
+# repository, and the role of the project's policy held under any condition
+# but the one written below.
 #
 # It reads the deployment's facts from infra/terraform/, so there is one place
 # where they are written down, and prints at the end the two lines that a
@@ -50,6 +53,21 @@ retry() {
     "$@" > /dev/null
 }
 
+# A read, tried as often as a change above, that hands on what it printed. A
+# read that keeps failing stops the script: read as nothing there, it would
+# skip a step without a word.
+retry_read() {
+    local attempt output
+    for attempt in 1 2 3 4; do
+        if output="$("$@" 2> /dev/null)"; then
+            printf '%s\n' "$output"
+            return 0
+        fi
+        sleep $((attempt * 3))
+    done
+    "$@"
+}
+
 # Makes a thing unless it is there, and looks again before every new try: a
 # create refused on this side may still have succeeded on the other, and the
 # next try then finds it instead of failing on it. The first argument asks
@@ -75,6 +93,7 @@ region="$(hcl_value region "$tfvars")"
 repository="$(hcl_value github_repository "$tfvars")"
 owner_id="$(hcl_value github_owner_id "$tfvars")"
 pool="$(hcl_value workload_identity_pool_id "$tfvars")"
+subject_prefix="$(hcl_value github_oidc_subject_prefix "$tfvars")"
 currency="$(hcl_value budget_currency "$tfvars")"
 bucket="$(hcl_value bucket "$backend")"
 
@@ -83,6 +102,7 @@ require region "$region"
 require github_repository "$repository"
 require github_owner_id "$owner_id"
 require workload_identity_pool_id "$pool"
+require github_oidc_subject_prefix "$subject_prefix"
 require budget_currency "$currency"
 require bucket "$bucket"
 
@@ -175,7 +195,7 @@ retry billing_hidden gcloud billing projects link "$project" --billing-account="
 # this script exists rather than one more Terraform file. Observability is
 # here for another reason: its settings refuse requests for a while after the
 # API is enabled, so it is enabled long before the apply that sets where the
-# traces are kept (R57).
+# traces are kept.
 echo "==> the APIs this script and the first apply need"
 retry gcloud services enable \
     serviceusage.googleapis.com \
@@ -202,7 +222,7 @@ ensure pool_exists make_pool
 # the delivery, from whichever ref it runs: no other workflow of the
 # repository can borrow either identity behind the pool, the release among
 # them, whose job builds with third-party packages while it holds an identity
-# token of its own for signing. Until the delivery exists, nothing can (R56).
+# token of its own for signing. Until the delivery exists, nothing can.
 # A provider that exists already is given the same mapping and condition
 # again, so that what is written here is what holds.
 echo "==> pool provider github"
@@ -232,13 +252,15 @@ ensure identity_exists make_identity
 # Firebase to the project and makes the SPA's Hosting site. The two Monitoring
 # roles make the load alert, where a deployment names its operator. The last
 # two keep the logs and the traces in the deployment's region: a log bucket
-# and the sink that fills it, and where traces are stored (R57).
+# and the sink that fills it, and where traces are stored.
 #
-# None of them may change who holds what in the project itself. Service
-# accounts are the exception: the configuration makes them and says who may act
-# as them, and the role that allows it allows it for every account of the
-# project, this one included. That is the power the pool's condition guards:
-# only the delivery's workflow can borrow this identity (R56).
+# None of them may change who holds what in the project itself; the one role
+# that may is granted after them, under a condition. Service accounts are the
+# exception: the configuration makes them and says who may act as them, and
+# the role that allows it allows it for every account of the project, this one
+# included. That is the power the bindings at the end guard: only the jobs of
+# the delivery's environment, and a pull request's plan, can borrow this
+# identity.
 echo "==> what it may do"
 for role in \
     roles/serviceusage.serviceUsageAdmin \
@@ -275,14 +297,88 @@ retry billing_hidden gcloud billing accounts add-iam-policy-binding "$billing" \
     --quiet
 echo "    roles/billing.costsManager on the billing account"
 
+# Who holds what in the project may be changed for two roles alone: the ones
+# the SPA's publisher holds, which Hosting grants on the project and on nothing
+# narrower. Without the condition this role would make the identity the
+# project's owner in all but name; with it, a grant or a revocation of any other
+# role is refused (IAM's "Set limits on granting roles", read 2026-10-14). The
+# condition goes in from a file, since the commas in it would split it on the
+# command line. A role the configuration comes to grant on the project joins
+# this list first, in the same change, and the script is run again before the
+# merge (docs/self-hosting.md).
+#
+# IAM tells bindings apart by their condition, so a list written anew would be
+# granted beside the one before it, and a role taken out of the list would stay
+# grantable under the old binding. So the role is held under this expression
+# alone: under any other, or none, it is taken back first, and when it is held
+# under this one, nothing is touched. The title and the description grant
+# nothing and are not compared, so a change to them alone is not carried to a
+# project that holds the role already. A policy read in its first version names
+# a role held under a condition with a suffix, so the role is matched as a
+# prefix.
+admin_role=roles/resourcemanager.projectIamAdmin
+expression="api.getAttribute('iam.googleapis.com/modifiedGrantsByRole', []).hasOnly(['roles/firebasehosting.admin', 'roles/serviceusage.apiKeysViewer'])"
+condition_file="$(mktemp)"
+trap 'rm -f "$condition_file"' EXIT
+cat > "$condition_file" <<CONDITION
+expression: ${expression}
+title: The publisher's roles alone
+description: Grants and revokes on the project only the roles the SPA's publisher holds.
+CONDITION
+held="$(retry_read gcloud projects get-iam-policy "$project" \
+    --flatten='bindings[].members' \
+    --format='value(bindings.role,bindings.members,bindings.condition.expression)' \
+    | awk -F '\t' -v role="$admin_role" -v member="serviceAccount:${service_account}" \
+        'index($1, role) == 1 && $2 == member { print "held under: " $3 }')"
+if [[ "$held" != "held under: ${expression}" ]]; then
+    if [[ -n "$held" ]]; then
+        retry gcloud projects remove-iam-policy-binding "$project" \
+            --member="serviceAccount:${service_account}" \
+            --role="$admin_role" \
+            --all \
+            --quiet
+        echo "    ${admin_role} under another condition: taken back"
+    fi
+    retry gcloud projects add-iam-policy-binding "$project" \
+        --member="serviceAccount:${service_account}" \
+        --role="$admin_role" \
+        --condition-from-file="$condition_file" \
+        --quiet
+fi
+echo "    ${admin_role}, for the publisher's two roles alone"
+
+# The jobs that apply the configuration run in the environment prod, which only
+# main may run in, and a pull request's plan runs in none: GitHub names each in
+# the subject of the job's token, and this identity is lent to those two
+# subjects alone.
 echo "==> who may borrow it"
 project_number="$(gcloud projects describe "$project" --format='value(projectNumber)')"
-principal="principalSet://iam.googleapis.com/projects/${project_number}/locations/global/workloadIdentityPools/${pool}/attribute.repository/${repository}"
-retry gcloud iam service-accounts add-iam-policy-binding "$service_account" \
-    --project="$project" \
-    --member="$principal" \
-    --role=roles/iam.workloadIdentityUser \
-    --quiet
+subject="principal://iam.googleapis.com/projects/${project_number}/locations/global/workloadIdentityPools/${pool}/subject/${subject_prefix}"
+for member in "${subject}:environment:prod" "${subject}:pull_request"; do
+    retry gcloud iam service-accounts add-iam-policy-binding "$service_account" \
+        --project="$project" \
+        --member="$member" \
+        --role=roles/iam.workloadIdentityUser \
+        --quiet
+    echo "    ${member##*/subject/}"
+done
+
+# The binding that came before them lent this identity to every job of the
+# repository. It is taken back once the two above hold, and only if it is
+# there, so that a run again changes nothing. The policy is read first and
+# searched second: inside the test, a read that failed would look like a
+# policy without the binding.
+everyone="principalSet://iam.googleapis.com/projects/${project_number}/locations/global/workloadIdentityPools/${pool}/attribute.repository/${repository}"
+borrowers="$(retry_read gcloud iam service-accounts get-iam-policy "$service_account" --project="$project" \
+    --flatten='bindings[].members' --format='value(bindings.members)')"
+if grep -qxF "$everyone" <<< "$borrowers"; then
+    retry gcloud iam service-accounts remove-iam-policy-binding "$service_account" \
+        --project="$project" \
+        --member="$everyone" \
+        --role=roles/iam.workloadIdentityUser \
+        --quiet
+    echo "    every job of the repository: taken back"
+fi
 
 provider="projects/${project_number}/locations/global/workloadIdentityPools/${pool}/providers/github"
 

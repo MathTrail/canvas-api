@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/MathTrail/canvas-api/actions/workflows/ci.yml/badge.svg)](https://github.com/MathTrail/canvas-api/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/MathTrail/canvas-api/actions/workflows/codeql.yml/badge.svg)](https://github.com/MathTrail/canvas-api/actions/workflows/codeql.yml)
+[![Release and deploy](https://github.com/MathTrail/canvas-api/actions/workflows/release.yml/badge.svg)](https://github.com/MathTrail/canvas-api/actions/workflows/release.yml)
 [![Release](https://img.shields.io/github/v/release/MathTrail/canvas-api)](https://github.com/MathTrail/canvas-api/releases/latest)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/MathTrail/canvas-api)](https://github.com/MathTrail/canvas-api/blob/main/go.mod)
 [![codecov](https://codecov.io/gh/MathTrail/canvas-api/branch/main/graph/badge.svg)](https://codecov.io/gh/MathTrail/canvas-api)
@@ -21,6 +22,10 @@ MathTrail Canvas is a math tutor for children in grades 1–6. A child solves a 
 
 The picture is a concept from the design: it shows where the product is heading, further than the MVP goes.
 
+## The MathTrail core
+
+[mathtrail-standalone](https://github.com/MathTrail/mathtrail-standalone) is the core of MathTrail: a free, open-source app for Claude and ChatGPT that turns an adult's own chat into an olympiad maths trainer for grades 1–6, with checked tasks in any language, a diagnosis of the child's mistake and a memory of how they are progressing. Canvas takes its service skeleton, development environment, CI/CD and Terraform, but runs on its own: it shares neither tasks nor data with the core.
+
 ## Documents
 
 The documents are in Russian.
@@ -29,12 +34,12 @@ The documents are in Russian.
 - [docs/spec.md](docs/spec.md) — how it is built: architecture, the sheet and the check images, the answer check, the draft analysis, the AI tutor, the API, data, security and deployment.
 - [docs/privacy.md](docs/privacy.md) — children's data: what is collected and kept, what the external AI service receives, parental consent, deletion and retention.
 - [docs/decisions.md](docs/decisions.md) — the decision log: what was decided, why, and what was rejected.
+- [docs/self-hosting.md](docs/self-hosting.md) — how it is deployed: the one-time bootstrap, the delivery of every release, rollback and return.
 - [docs/stack.html](docs/stack.html) — the technology stack, layer by layer, with versions and what is still to be chosen. Open the file from a checkout in a browser: GitHub shows only its source.
 - [RUN.md](RUN.md) — the implementation plan, in epics: the current epic broken into small tasks, run and reviewed one at a time, and the later epics.
 
 ## Design
 
-Clickable prototypes from the design, each a single page that runs in a browser with no server. GitHub shows only their source, so open them from a checkout. They show where the product is heading; where they differ from the documents, the documents win.
+It shows where the product is heading; where it differs from the documents, the documents win.
 
-- [MathTrail Screens.html](docs/design/MathTrail%20Screens.html) — eighteen screens of the prototype.
-- [MathTrail Widget.html](https://mathtrail.app/en/coach/) — the olympiad coach, as one page.
+- [The olympiad coach](https://mathtrail.app/en/coach/) — live on mathtrail.app.

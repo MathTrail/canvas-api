@@ -1,0 +1,13 @@
+# What actionlint reports and GitHub accepts, waived with its reason. Each
+# waiver is held to one file and one message, so the same finding anywhere else
+# still fails the check.
+paths:
+  # The release queues its waiting runs with concurrency's `queue: max`, a key
+  # GitHub documents and accepts — every release so far ran with it — and
+  # actionlint 1.7.12 does not know yet. Without the queue, a second waiting
+  # release would push out the first, and a commit of main merged in between
+  # would be left without its release. Once an actionlint that knows the key is
+  # pinned, this waiver hides nothing and goes.
+  .github/workflows/release.yml:
+    ignore:
+      - 'unexpected key "queue" for "concurrency" section'

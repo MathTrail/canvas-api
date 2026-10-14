@@ -15,7 +15,7 @@ coverage:
     # New and changed lines are held to a higher standard than the average of
     # everything written before them: this is the number that decides whether
     # a change arrives with the tests that prove it, and the ruleset of main
-    # requires it (R50).
+    # requires it.
     patch:
       default:
         target: 90%
@@ -29,7 +29,7 @@ coverage:
 
 # Code that is generated, not written, measures nothing about the tests that
 # come with a change: the mocks mockery writes beside the interfaces they stand
-# in for, and the Go and TypeScript buf generates from proto/ (spec 18). All of
+# in for, and the Go and TypeScript buf generates from proto/. All of
 # it is committed, and all of it would count as untested lines. A package of
 # helpers that tests share goes here too when one arrives: like any test, it
 # measures rather than being measured.

@@ -2,16 +2,19 @@
 # the SPA as Firebase Hosting serves it, the sums of what was built, and a
 # signature for each of them. What matters is that anybody can check that a
 # file came from this repository, from this workflow run on main, at the commit
-# the release's tag points at (R52).
+# the release's tag points at.
 #
 # Nobody tags anything by hand: the version is the next patch of the line the
 # releases are numbered in, and the tag is created with the release. A number
 # of its own comes from raising RELEASE_LINE in the change that deserves it. The
 # button releases the tip of main when no release has yet — after a release run
 # that failed, say — and only then is a version asked for on it used; it works
-# on main alone, and only once the checks have passed on that commit (R33, R45,
-# R52).
-name: Release
+# on main alone, and only once the checks have passed on that commit.
+#
+# A release that is still the newest of main is then delivered to prod, by
+# deploy.yml, within this same run: its status, here, is the status of the
+# whole way from a green main to prod.
+name: Release and deploy
 
 on:
   workflow_run:
@@ -45,7 +48,7 @@ jobs:
     # before it published before it can work out the next. Every one waits its
     # turn, up to a hundred, rather than the newest pushing out the one that
     # waited before it, so each commit of main gets its release however fast
-    # the merges come (R52).
+    # the merges come.
     concurrency:
       group: release
       cancel-in-progress: false
@@ -158,7 +161,7 @@ jobs:
       # main is read once, and the answer serves twice. Latest is the release
       # of the newest of main: an older commit whose checks finished late comes
       # out under a higher number, and GitHub would otherwise call it Latest by
-      # that number. And only the newest of main is delivered (R45), so the
+      # that number. And only the newest of main is delivered, so the
       # output newest says the same thing the release page does.
       - name: Publish the release
         id: newest
@@ -186,3 +189,21 @@ jobs:
           if [ "$newest" != true ]; then
               echo "main ends at $tip now: $TARGET is released, and is not the newest of main"
           fi
+
+  # Only while main still ends at the commit just released: a release of an
+  # older commit — one whose checks finished late, or were run again — would
+  # roll prod back. The delivery is given the two secrets it needs, by
+  # name, and none of the others this repository keeps.
+  deploy:
+    name: Deploy
+    needs: release
+    if: needs.release.outputs.newest == 'true'
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/deploy.yml
+    with:
+      version: ${{ needs.release.outputs.version }}
+    secrets:
+      TF_VAR_billing_account: ${{ secrets.TF_VAR_billing_account }}
+      TF_VAR_operator_email: ${{ secrets.TF_VAR_operator_email }}

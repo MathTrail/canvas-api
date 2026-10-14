@@ -1,6 +1,6 @@
 # The one deployment this repository delivers to. Terraform loads the file by
 # itself, because of its name, and it is public like the rest of the
-# repository: nothing here is a secret or names a person (spec 15.2). Changing
+# repository: nothing here is a secret or names a person. Changing
 # where this repository deploys is a pull request, not a setting in somebody's
 # console.
 #
@@ -9,8 +9,8 @@
 # environment instead, as TF_VAR_billing_account and TF_VAR_operator_email.
 
 # The project is the Firebase project too, and its id names the SPA's address,
-# https://mathtrail-canvas-prod.web.app (R55). Every service, the images and the
-# logs live in one region (R54).
+# https://mathtrail-canvas-prod.web.app. Every service, the images and the
+# logs live in one region.
 project_id = "mathtrail-canvas-prod"
 region     = "us-east4"
 
@@ -24,8 +24,12 @@ github_owner_id   = "261630499"
 # are exchanged for Google ones.
 workload_identity_pool_id = "canvas-api-github"
 
+# How GitHub begins the subject of this repository's tokens: its owner and its
+# name, each with its numeric id, which no later owner of either name is given.
+github_oidc_subject_prefix = "repo:MathTrail@261630499/canvas-api@1390897704"
+
 # What a month of the project may cost before mail goes out, at 50, 90 and 100
-# percent of it (spec 14.4). The currency is the billing account's own: a
-# budget in another one is refused, and infra/bootstrap.sh compares the two.
+# percent of it. The currency is the billing account's own: a budget in another
+# one is refused, and infra/bootstrap.sh compares the two.
 budget_amount   = "1"
 budget_currency = "USD"

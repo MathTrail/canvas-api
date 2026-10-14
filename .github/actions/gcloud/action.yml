@@ -1,0 +1,25 @@
+name: gcloud
+description: Installs the Google Cloud CLI at the version this repository pins for it.
+
+runs:
+  using: composite
+  steps:
+    - id: version
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # The version lives where the development image installs it, as the
+        # default of an ARG, so it is written down once and read from there.
+        dockerfile="$GITHUB_WORKSPACE/.devcontainer/Dockerfile"
+        version="$(sed -n 's/^ARG GCLOUD_VERSION=//p' "$dockerfile")"
+        if [ -z "$version" ]; then
+            echo "gcloud: $dockerfile pins no GCLOUD_VERSION" >&2
+            exit 1
+        fi
+        echo "gcloud $version"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+
+    - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+      with:
+        version: ${{ steps.version.outputs.version }}

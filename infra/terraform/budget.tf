@@ -10,7 +10,7 @@ resource "google_billing_budget" "spend" {
   # Only this project's charges, and only what is actually charged: the free
   # allowance arrives as a credit and is subtracted before this is measured.
   # The allowance is the billing account's, shared with every project on it, so
-  # this one can be charged before it has used any (spec 14.4).
+  # this one can be charged before it has used any.
   budget_filter {
     projects        = ["projects/${data.google_project.this.number}"]
     calendar_period = "MONTH"
@@ -23,7 +23,7 @@ resource "google_billing_budget" "spend" {
     }
   }
 
-  # Half of it, nine tenths of it, and all of it (spec 14.4).
+  # Half of it, nine tenths of it, and all of it.
   threshold_rules {
     threshold_percent = 0.5
   }

@@ -80,11 +80,10 @@ func run(ctx context.Context, addr string, log io.Writer) error {
 	return serve(ctx, newServer(), listener)
 }
 
-// startup is the one line the service logs until the MVP epic brings its
-// logger: which build is starting, and where it listens. Its first keys are
-// the ones Cloud Logging reads a structured entry by and the logger will write
-// (CLAUDE.md, "Logging"), so that a deployment's log names the release and the
-// commit it runs.
+// startup is the one line the service logs until it gets a logger of its
+// own: which build is starting, and where it listens. Its first keys are the
+// ones Cloud Logging reads a structured entry by and the logger will write, so
+// that a deployment's log names the release and the commit it runs.
 type startup struct {
 	Severity string `json:"severity"`
 	Message  string `json:"message"`
@@ -149,7 +148,7 @@ func serve(ctx context.Context, server *http.Server, listener net.Listener) erro
 func routes() http.Handler {
 	mux := http.NewServeMux()
 	// /health rather than /healthz: Cloud Run's front end intercepts paths
-	// that end in z (R30).
+	// that end in z.
 	mux.HandleFunc("GET /health", health)
 	return mux
 }
@@ -165,7 +164,7 @@ type healthBody struct {
 
 // health says the process is up and serving, and which build it is: the
 // delivery reads the commit here to know that the revision it rolled out is
-// the one that answers (T11), so no cache on the way may answer for it. It
+// the one that answers, so no cache on the way may answer for it. It
 // checks nothing else on purpose: a probe that reached for a dependency would
 // turn that dependency's outage into restarts of this service.
 func health(w http.ResponseWriter, _ *http.Request) {

@@ -1,0 +1,25 @@
+name: deployment target
+description: Puts what a workflow needs before it can sign in to Google into the environment, read from the file that records it.
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+
+        # The pool and the identity a workflow signs in through, which have to
+        # be known before there is any state to read them from: the two lines
+        # infra/bootstrap.sh prints. A line that is missing would leave the
+        # sign-in with an empty value, and its error would say nothing of why.
+        target="$GITHUB_WORKSPACE/infra/ci.env"
+        for name in GCP_WORKLOAD_IDENTITY_PROVIDER GCP_TERRAFORM_SERVICE_ACCOUNT; do
+            if ! grep -qE "^${name}=.+" "$target"; then
+                echo "deployment-target: $target names no $name; put there the two lines infra/bootstrap.sh prints" >&2
+                exit 1
+            fi
+        done
+
+        # Comments and blank lines are dropped: the environment file accepts
+        # neither.
+        grep -E '^[A-Z][A-Z0-9_]*=' "$target" >> "$GITHUB_ENV"

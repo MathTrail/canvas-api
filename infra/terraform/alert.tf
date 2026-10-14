@@ -1,8 +1,8 @@
-# The load alert (R266 standalone). The spend alert hears of a burst only once
-# Billing has counted it, hours later; this one reads the platform's own count
-# of the service's requests, which costs nothing to keep, and mails the operator
-# while the burst lasts and again once it is over. A deployment that names no
-# operator gets neither the channel nor the alert.
+# The load alert. The spend alert hears of a burst only once Billing has counted
+# it, hours later; this one reads the platform's own count of the service's
+# requests, which costs nothing to keep, and mails the operator while the burst
+# lasts and again once it is over. A deployment that names no operator gets
+# neither the channel nor the alert.
 #
 # The address is a person's, so it is no part of the public description of the
 # deployment: it arrives as TF_VAR_operator_email, and every plan prints it as
