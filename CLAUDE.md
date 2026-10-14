@@ -15,7 +15,7 @@ Clean Architecture, SOLID and KISS are the defaults, and they serve readability 
 
 ## The project
 
-MathTrail Canvas (a working name, О-9) is a maths tutor for children in grades 1–6. The child solves a task by hand, with a stylus or a finger, on a squared draft sheet and writes the final answer in an answer box. On Check, an AI reads the answer, a program compares it with the task's key, and the child sees what was read. When the answer is wrong, the tutor looks at the draft, frames the place where the reasoning went wrong over the child's own strokes and asks one short guiding question. It never gives the answer. `canvas-api` is the name of the service, not of the product.
+MathTrail Canvas (the name settled by R55, О-9) is a maths tutor for children in grades 1–6. The child solves a task by hand, with a stylus or a finger, on a squared draft sheet and writes the final answer in an answer box. On Check, an AI reads the answer, a program compares it with the task's key, and the child sees what was read. When the answer is wrong, the tutor looks at the draft, frames the place where the reasoning went wrong over the child's own strokes and asks one short guiding question. It never gives the answer. `canvas-api` is the name of the service, not of the product.
 
 The MVP is a closed, free beta for families (R05, R06). The parent owns the account and is always the subject of access; the child works on the parent's device, in child mode behind a PIN (R07). There are five static tasks from the mockup, kept in `tasks/` until a catalog exists (R40).
 
