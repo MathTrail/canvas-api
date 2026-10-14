@@ -42,7 +42,7 @@ EXPOSE 8080
 ENTRYPOINT ["/server"]
 
 # The image a delivery rolls out: the runtime around the server a release
-# signed, which the delivery has checked before it gets here (R58). The binary
+# signed, which the delivery has checked before it gets here. The binary
 # arrives in a build context of its own, named binary and holding it alone as
 # server; downloaded, it has no execute bit, so it is given one here. Built
 # only when asked for by name, --target release.

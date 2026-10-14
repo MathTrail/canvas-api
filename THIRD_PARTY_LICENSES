@@ -13,7 +13,7 @@ BSD-3-Clause  std                                            https://github.com/
 The npm packages below are what the SPA is built from: every package its
 lockfile needs outside development, and every package one of those names
 as an optional companion, used or not. Firebase Hosting serves the SPA, so
-neither the server's binary nor its image carries any of them (R10). Each
+neither the server's binary nor its image carries any of them. Each
 line is a license, the package at the exact version in
 web/package-lock.json, and the page of that version in the npm registry.
 

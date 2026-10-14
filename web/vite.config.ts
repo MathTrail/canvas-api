@@ -1,9 +1,9 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-// The SPA, built into web/dist for Firebase Hosting to serve (R10). The plugin
+// The SPA, built into web/dist for Firebase Hosting to serve. The plugin
 // compiles JSX and, in the dev server, refreshes an edited component in place
-// rather than reloading the page (R47). It compiles with React's automatic
+// rather than reloading the page. It compiles with React's automatic
 // runtime unless told otherwise, which is what "react-jsx" in tsconfig.json
 // says to the type checker and to the tests, which never load this file. It is
 // told nothing, so that both stay at that default: a change to how JSX is

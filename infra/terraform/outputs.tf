@@ -6,12 +6,12 @@ output "project_id" {
 }
 
 output "service_url" {
-  description = "The service's own address on run.app, the one the SPA calls (R55)."
+  description = "The service's own address on run.app, the one the SPA calls."
   value       = google_cloud_run_v2_service.api.uri
 }
 
 output "hosting_url" {
-  description = "The address the SPA is served at (R55)."
+  description = "The address the SPA is served at."
   value       = google_firebase_hosting_site.spa.default_url
 }
 
@@ -46,6 +46,6 @@ output "hosting_service_account" {
 }
 
 output "log_bucket" {
-  description = "The bucket the project's logs are kept in, in its region (R57)."
+  description = "The bucket the project's logs are kept in, in its region."
   value       = google_logging_project_bucket_config.logs.bucket_id
 }

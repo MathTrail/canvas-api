@@ -2,7 +2,7 @@
 # taken from a request or a file ends up, and whether it reaches somewhere it
 # must not. The linter's own security checks stay where they are; this one sees
 # what a single file cannot. Its findings hold a merge through the ruleset of
-# main, which requires CodeQL's code scanning results (R50).
+# main, which requires CodeQL's code scanning results.
 name: CodeQL
 
 on:
@@ -20,7 +20,7 @@ permissions:
 
 # As in CI: a new push to a pull request replaces the run of the one before,
 # and every commit of main is analysed in a run of its own, since a group holds
-# at most one waiting run and would drop the commits in between (R49).
+# at most one waiting run and would drop the commits in between.
 concurrency:
   group: codeql-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}

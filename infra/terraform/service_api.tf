@@ -1,4 +1,4 @@
-# The API service, canvas-api (spec 15.3). One container for now: the OpenFGA
+# The API service, canvas-api. One container for now: the OpenFGA
 # sidecar joins it with the storage. Which image it serves is the deployment's
 # to say, not this file's.
 
@@ -12,7 +12,7 @@ resource "google_cloud_run_v2_service" "api" {
   location = var.region
 
   # The SPA calls it from the families' browsers, over the public internet, at
-  # its own address on run.app (R55).
+  # its own address on run.app.
   ingress = "INGRESS_TRAFFIC_ALL"
 
   # Nothing here is lost with the service: the data lives elsewhere, and the
@@ -21,7 +21,7 @@ resource "google_cloud_run_v2_service" "api" {
   deletion_protection = false
 
   # Down to nothing when nobody is asking, and up to a small ceiling, which
-  # bounds how fast a burst can spend the free allowance (spec 15.3). Set for
+  # bounds how fast a burst can spend the free allowance. Set for
   # the whole service: Cloud Run keeps a revision's own scaling only for the
   # services that had it before.
   scaling {
@@ -44,18 +44,18 @@ resource "google_cloud_run_v2_service" "api" {
         }
 
         # Billed per request: an instance that is holding no request holds no
-        # CPU, so a request finishes its work before it answers (R23).
+        # CPU, so a request finishes its work before it answers.
         cpu_idle = true
 
-        # A starting instance gets the processor at full speed (spec 14.2).
+        # A starting instance gets the processor at full speed.
         startup_cpu_boost = true
       }
 
       # An instance gets its first request once its health answers. The probe
-      # asks every second from the start, as the sidecar's does (spec 14.2):
-      # with the platform's ten seconds between tries, an instance that missed
-      # the first one would wait ten more, against a cold start of three. Thirty
-      # tries leave it half a minute to come up.
+      # asks every second from the start, as the sidecar's does: with the
+      # platform's ten seconds between tries, an instance that missed the first
+      # one would wait ten more, against a cold start of three. Thirty tries
+      # leave it half a minute to come up.
       startup_probe {
         http_get {
           path = "/health"
@@ -80,11 +80,11 @@ resource "google_cloud_run_v2_service" "api" {
   depends_on = [google_project_service.enabled]
 
   # The deployment owns which image is served, and this configuration owns
-  # everything around it (R29 standalone): without the first line the two would
-  # take turns. The deployment's gcloud also writes itself into the service as
-  # its client, which nothing here sets either. Traffic is not described at
-  # all: the provider computes it when no block names it, so a rollback by
-  # traffic is not undone by the next apply (spec 15.2).
+  # everything around it: without the first line the two would take turns. The
+  # deployment's gcloud also writes itself into the service as its client, which
+  # nothing here sets either. Traffic is not described at all: the provider
+  # computes it when no block names it, so a rollback by traffic is not undone
+  # by the next apply.
   lifecycle {
     ignore_changes = [
       client,
@@ -95,7 +95,7 @@ resource "google_cloud_run_v2_service" "api" {
 }
 
 # Anyone may call it: what decides whether a caller gets anything is the
-# service's own checks (spec 8.1).
+# service's own checks.
 resource "google_cloud_run_v2_service_iam_member" "public" {
   location = google_cloud_run_v2_service.api.location
   name     = google_cloud_run_v2_service.api.name

@@ -57,7 +57,7 @@ firebase-debug.log*
 firebase-debug.*.log*
 
 # Claude Code's settings of one person on one machine, such as the narrow
-# permission of a live run, which is deleted once the run is over (CLAUDE.md).
+# permission of a live run, which is deleted once the run is over.
 .claude/settings.local.json
 
 # Reference copies of other repositories: read-only material, never committed.

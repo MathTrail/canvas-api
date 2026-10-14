@@ -44,9 +44,10 @@ run "an_operator_gets_the_alert" {
   }
 }
 
-# The size and the start of the service are spec 15.3's, and the runtime is
-# told nine tenths of the memory.
-run "the_service_is_sized_as_the_spec_says" {
+# The size of the service and the way it starts are chosen numbers, and the
+# runtime is told nine tenths of the memory: a change to any of them is made
+# on purpose, here as well.
+run "the_service_size_and_start_stay_as_chosen" {
   command = plan
 
   assert {
@@ -93,7 +94,7 @@ run "the_budget_mails_at_half_nine_tenths_and_all" {
 
   assert {
     condition     = [for rule in google_billing_budget.spend.threshold_rules : rule.threshold_percent] == [0.5, 0.9, 1.0]
-    error_message = "The spend alert mails at 50, 90 and 100 percent of the budget (spec 14.4)."
+    error_message = "The spend alert mails at 50, 90 and 100 percent of the budget."
   }
 }
 
@@ -175,7 +176,7 @@ run "a_service_name_ending_in_a_hyphen_is_refused" {
 }
 
 # Each identity is lent to the jobs of one environment, and to nobody else: the
-# delivery's to prod, the SPA's publisher to prod-hosting (R58).
+# delivery's to prod, the SPA's publisher to prod-hosting.
 run "each_identity_is_lent_to_one_environment" {
   command = plan
 

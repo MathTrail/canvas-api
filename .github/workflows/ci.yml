@@ -6,8 +6,8 @@
 #
 # A check a merge waits for comes from a workflow that always starts: one held
 # back by a filter on paths leaves its checks waiting for good, and the pull
-# request with them (R231 standalone). So nothing here filters on paths, and
-# work that only some changes need is skipped by a step inside its job.
+# request with them. So nothing here filters on paths, and work that only some
+# changes need is skipped by a step inside its job.
 name: CI
 
 on:
@@ -23,7 +23,7 @@ permissions:
 # only its newest commit can be merged. On main every commit gets a run of its
 # own: a group holds at most one waiting run and drops the one that waited
 # before it, which would leave a commit of main unchecked, and every commit of
-# main is one a release is cut from (R45).
+# main is one a release is cut from.
 concurrency:
   group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -57,9 +57,9 @@ jobs:
     timeout-minutes: 30
     # The one job that publishes the image: it is built and published here when
     # nothing is published yet for its definition, or, on main, when main did
-    # not sign what is (R53); the job after it only adds the signature. A pull request from a fork
-    # gets a token that cannot publish, and runs on what is published already
-    # (R20 standalone).
+    # not sign what is; the job after it only adds the signature. A pull request
+    # from a fork gets a token that cannot publish, and runs on what is
+    # published already.
     permissions:
       contents: read
       packages: write
@@ -71,7 +71,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/just
       # A push is main's, and main runs its checks only in an image it signed
-      # itself; cosign is what reads the signature (R53).
+      # itself; cosign is what reads the signature.
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
         if: github.event_name == 'push'
         with:
@@ -94,7 +94,7 @@ jobs:
   # the identity it is made with, and it runs nothing but cosign. A signature
   # that failed — an outage of Sigstore — fails no check: the image was built
   # by this very run, and the next run of main builds it again and signs it
-  # then (R53).
+  # then.
   toolchain-signature:
     name: Toolchain image signature
     needs: toolchain
@@ -170,7 +170,7 @@ jobs:
       - run: just ci-test
       # Codecov holds the changed lines to 90% through its patch status, which
       # the ruleset of main requires; the upload itself fails nothing, so that
-      # a run with no token to upload with, or an outage, is no red test (R50).
+      # a run with no token to upload with, or an outage, is no red test.
       - name: Send the coverage profile to Codecov
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
@@ -224,7 +224,7 @@ jobs:
 
   # No cache: while .mockery.yaml names no interface, the check builds nothing,
   # and a cache with nothing in it only warns on every run that there was
-  # nothing to save. The first interface brings *go-cache back (R49).
+  # nothing to save. The first interface brings *go-cache back.
   mocks:
     name: Generated mocks
     needs: toolchain
@@ -269,7 +269,7 @@ jobs:
 
   # The recipes a release is cut with, run here with the version release.yml
   # would publish, so that a change that breaks them cannot merge and leave
-  # main without its release. The release itself builds on the runner (R52).
+  # main without its release. The release itself builds on the runner.
   # Nothing built here leaves the job. The whole history: the version is read
   # from the tags.
   release:
@@ -300,7 +300,7 @@ jobs:
   # the development image adds it in the stage on top. Nothing here signs in
   # anywhere, so the job's token reads the code and holds no identity token:
   # Dependabot's pull requests run it too. What an apply would change is shown
-  # by deploy.yml, the one workflow the federated pool admits (R58).
+  # by deploy.yml, the one workflow the federated pool admits.
   terraform:
     name: Terraform
     runs-on: ubuntu-24.04
@@ -315,15 +315,33 @@ jobs:
       - uses: ./.github/actions/terraform
       - run: just tf-check
 
+  # The workflows themselves, read as GitHub will read them, the call from
+  # release.yml to deploy.yml among them. On the runner: actionlint runs from
+  # its image, and the toolchain image has no Docker client. It pulls no
+  # package of this repository, so its token reads the code alone.
+  workflows:
+    name: Workflows
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/just
+      - uses: ./.github/actions/docker-mirror
+      - run: just ci-workflows
+
   sonar:
     name: Static analysis
     needs: [test, web]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    # SonarCloud reports and gates nothing (R31 standalone), and so may not stop
-    # a release either, which waits for this whole run to be green (R45). A
-    # failed analysis — no token on main, an outage — turns this job red for
-    # anyone to see, and leaves the run green (R50).
+    # SonarCloud reports and gates nothing, and so may not stop a release
+    # either, which waits for this whole run to be green. A failed analysis — no
+    # token on main, an outage — turns this job red for anyone to see, and
+    # leaves the run green.
     continue-on-error: true
     # A third party's scanner runs here with a token of ours, so the job's own
     # token reads the code and nothing else: no package of this repository.

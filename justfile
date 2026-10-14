@@ -13,12 +13,11 @@ TOOLCHAIN_IMAGE := "ghcr.io/mathtrail/canvas-api/toolchain"
 # Who signs that image: the workflow of the checks, run for a commit of main. A
 # run for a pull request carries the pull request's ref in its certificate, and
 # no run of a fork is this repository's at all, so neither signs as main. The
-# issuer is GitHub's, whose short-lived tokens the certificate is given for
-# (R53).
+# issuer is GitHub's, whose short-lived tokens the certificate is given for.
 TOOLCHAIN_SIGNER := "https://" + MODULE + "/.github/workflows/ci.yml@refs/heads/main"
 GITHUB_ISSUER := "https://token.actions.githubusercontent.com"
-# Who signs a release: the release workflow, run for a commit of main (R52).
-# A delivery rolls out nothing it did not sign (R58).
+# Who signs a release: the release workflow, run for a commit of main.
+# A delivery rolls out nothing it did not sign.
 RELEASE_SIGNER := "https://" + MODULE + "/.github/workflows/release.yml@refs/heads/main"
 # The repository on GitHub, as gh names it.
 REPOSITORY := trim_start_match(MODULE, "github.com/")
@@ -37,6 +36,9 @@ GO_LICENSES := "github.com/google/go-licenses/v2@v2.0.1"
 # The image the runtime image is scanned with, pinned by tag and digest like
 # every other image this repository runs.
 TRIVY_IMAGE := "aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa"
+# The image the workflows are checked with. It carries the shellcheck that
+# actionlint runs on the script of every step of a workflow.
+ACTIONLINT_IMAGE := "rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667"
 # The image a release's signature is checked with: the cosign the release signs
 # with, run as SECURITY.md runs it.
 COSIGN_IMAGE := "ghcr.io/sigstore/cosign/cosign:v3.1.3@sha256:9e5c2f2edc34351160407ca3416c61855bdf9403c3c5936e0f0be7fc261611b8"
@@ -51,8 +53,8 @@ RELEASE_TAG := '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
 # short form of it, as long as it has to be to name one commit.
 HEALTH_MATCHES := '.status == "ok" and .version == $version and (.commit | type == "string" and test("^[0-9a-f]{7,40}$")) and (.commit as $short | $commit | startswith($short))'
 
-# The deployment, as Terraform describes it (spec 15.2), and the filter what
-# Terraform prints about it passes through (_tf-redact, below).
+# The deployment, as Terraform describes it, and the filter what Terraform
+# prints about it passes through (_tf-redact, below).
 TF_DIR := "infra/terraform"
 TF_REDACT := quote(just_executable()) + " --justfile " + quote(justfile()) + " _tf-redact"
 
@@ -62,8 +64,7 @@ ALLOWED_LICENSES := "MIT,BSD-2-Clause,BSD-3-Clause,Apache-2.0,ISC"
 # The npm packages allowed a license outside that list, as name=license. Each is
 # a tool that builds the SPA and ends up in nothing that is shipped, and it is
 # allowed only while it stays a development dependency. lightningcss, under
-# MPL-2.0, is the CSS minifier the SPA's bundler cannot be installed without
-# (R48).
+# MPL-2.0, is the CSS minifier the SPA's bundler cannot be installed without.
 NPM_LICENSE_EXCEPTIONS := "lightningcss=MPL-2.0"
 
 # The build identity, stamped into the binary at link time. Computed once per
@@ -119,10 +120,10 @@ build:
 # A version asked for is the one published. Otherwise it is the next patch of
 # the line the releases are numbered in, MAJOR.MINOR, or the line's first when
 # none of it is out yet; the line is the one release.yml names, unless another
-# is given (R149 standalone). Refused: a version that is not vMAJOR.MINOR.PATCH,
-# one already released, and one that would come out below the newest release —
-# from a line older than it, or asked for so — since each would number the
-# releases out of order or twice.
+# is given. Refused: a version that is not vMAJOR.MINOR.PATCH, one already
+# released, and one that would come out below the newest release — from a line
+# older than it, or asked for so — since each would number the releases out of
+# order or twice.
 #
 # A commit is released once. When it carries a tag of the form a release takes,
 # v*, nothing is printed and nothing is published, so a button pressed again,
@@ -185,7 +186,7 @@ release-version $line="" $requested="":
 # the build uses. It reaches the script through the environment, never as its
 # text: a version asked for is typed by a person, and the name of a tag may hold
 # $ and parentheses. The SPA is built first, naming the same version: Firebase
-# Hosting serves it, and no binary carries it (R10).
+# Hosting serves it, and no binary carries it.
 # Build the release artifacts into dist/: the server for every architecture, the SPA as Hosting serves it, and the sums of what was built
 release-artifacts $version=VERSION: (web-build version)
     #!/usr/bin/env bash
@@ -289,7 +290,7 @@ _license-list:
     The npm packages below are what the SPA is built from: every package its
     lockfile needs outside development, and every package one of those names
     as an optional companion, used or not. Firebase Hosting serves the SPA, so
-    neither the server's binary nor its image carries any of them (R10). Each
+    neither the server's binary nor its image carries any of them. Each
     line is a license, the package at the exact version in
     web/package-lock.json, and the page of that version in the npm registry.
 
@@ -340,7 +341,7 @@ web-test: web-install
     npm run --silent test
 
 # Vite's dev server, on the port the editor forwards from the container. An
-# edited component is refreshed in place, without reloading the page (R47).
+# edited component is refreshed in place, without reloading the page.
 # The version reaches the page as it does in web-build.
 # Serve the SPA on port 5173 while it is worked on, naming the version given or this tree's
 [working-directory('web')]
@@ -515,7 +516,7 @@ _image-health tag version commit:
 # rather than Docker itself: handed Docker's socket, the scanner would hold the
 # whole machine. A finding is waived only in .trivyignore, with its reason, and
 # the file goes in beside the copy; one in Go's standard library is not waived
-# but fixed by a newer Go (R38 standalone).
+# but fixed by a newer Go.
 # Fail on a known HIGH or CRITICAL vulnerability, with a fix out, in the runtime image
 ci-image-scan tag="canvas-api:dev": (docker-build tag)
     #!/usr/bin/env bash
@@ -534,6 +535,34 @@ ci-image-scan tag="canvas-api:dev": (docker-build tag)
         --exit-code 1 \
         --no-progress
 
+# actionlint runs from its own image as well. It reads the workflows the way
+# GitHub will: a key GitHub does not know, an expression of the wrong type, a
+# job that needs one that does not exist, an input or a secret that a calling
+# workflow passes and the called one does not declare. GitHub itself checks a
+# call only when it is made, and release.yml calls deploy.yml on main alone, so
+# without this a broken call would surface after the merge, as a commit left
+# without its release. The scripts of the composite actions under
+# .github/actions are not read: actionlint takes from an action only the inputs
+# it declares. A finding is waived only in .github/actionlint.yaml, with its
+# reason.
+#
+# The image is handed a copy of .github alone, with an empty .git beside it,
+# which is how actionlint knows the root of a repository, and no network: a tool
+# from somebody else's image has no business with the rest of the tree, a local
+# .env among it. The image runs as a user of its own, so the copy is readable
+# by anyone.
+# Fail on anything GitHub would refuse or misread in the workflows
+ci-workflows:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    lint=$(mktemp -d)
+    trap 'rm -rf "$lint"' EXIT
+    cp -R .github "$lint/"
+    mkdir "$lint/.git"
+    chmod -R a+rX "$lint"
+    docker run --rm --network none --volume "$lint:/repo:ro" --workdir /repo \
+        {{ ACTIONLINT_IMAGE }} -no-color
+
 # -- Container --------------------------------------------------------------
 
 # The tag is a hash of the toolchain stage of the development image — every
@@ -541,14 +570,14 @@ ci-image-scan tag="canvas-api:dev": (docker-build tag)
 # environment is one image, and any edit to it a new one, while an edit to the
 # stage on top, a new Claude Code say, leaves it as it was. Nothing is built
 # when that tag is published already. What is printed is the digest, not the
-# tag: a tag can be moved, and a version here is exact (R20 standalone).
+# tag: a tag can be moved, and a version here is exact.
 #
 # Whoever may publish the package may move the tag, and every run of a pull
-# request of this repository may (Т-17). So a pull request takes the image the
+# request of this repository may. So a pull request takes the image the
 # tag names — accept=published — while main takes only one it signed itself —
 # accept=signed — and builds any other again. An image built here is named by
 # the digest its own push reports, never by what the tag names afterwards: a run
-# of a pull request may move the tag in between (R53).
+# of a pull request may move the tag in between.
 # Publish the image the full checks run inside, and print its exact reference
 ci-toolchain-image $accept="published":
     #!/usr/bin/env bash
@@ -607,7 +636,7 @@ ci-toolchain-image $accept="published":
 # Signed by its digest, since a tag can be moved between a check and a
 # signature, with the definition it was built from, and only once: a second signature of the same image would only
 # grow the list a check reads. The signature goes into the package beside the
-# image, and its certificate into Sigstore's public log (R53).
+# image, and its certificate into Sigstore's public log.
 # Sign the toolchain image, named by its digest, as main's, unless main signed it already
 ci-toolchain-sign image:
     #!/usr/bin/env bash
@@ -721,7 +750,7 @@ ci-tf-plan: _tf-init
 
 # An apply waits for a lock that another apply holds rather than failing at
 # once. A secret that a revision reads gets its pass before this one, so that
-# the revision finds a version of it (RUN.md, rule 13): there is no secret yet.
+# the revision finds a version of it: there is no secret yet.
 # Apply the deployment's configuration (needs credentials and TF_VAR_billing_account)
 ci-tf-apply: _tf-init
     terraform -chdir={{ TF_DIR }} apply -auto-approve -input=false -no-color -lock-timeout=5m 2>&1 | {{ TF_REDACT }}
@@ -764,7 +793,7 @@ _tf-redact:
 
 # A delivery rolls out a release, named by its tag: the server and the SPA that
 # release built and signed, with the configuration — Terraform, firebase.json,
-# the Dockerfile — of the commit the tag names (R45, R58).
+# the Dockerfile — of the commit the tag names.
 #
 # The button delivers the release at the tip of main, and nothing when there is
 # none there: it never builds a commit nobody released, and it never reaches
@@ -892,7 +921,7 @@ ci-release-fetch version commit file dir:
 
 # The image of a release is the runtime around the server that release built
 # and signed, never one built again: what is rolled out is what was released,
-# byte for byte (R58). It has to name the release before it is pushed, as the
+# byte for byte. It has to name the release before it is pushed, as the
 # image the checks build has to name its build, and it is named afterwards by
 # the digest its own push reported: a tag can be moved, and a digest cannot.
 # The tag is the release's number, for a person reading the registry.

@@ -1,7 +1,7 @@
 # What a deployment says about itself. The values of this one are in
 # prod.auto.tfvars, which is public; the two that are not public arrive from the
 # environment and are marked sensitive, so that a plan, whose output is printed
-# where anyone may read it, shows neither (R34).
+# where anyone may read it, shows neither.
 
 variable "project_id" {
   description = "The Google Cloud project that holds every resource here, and the Firebase project too. The SPA's address is named after it."
@@ -14,7 +14,7 @@ variable "project_id" {
 }
 
 variable "region" {
-  description = "Where the service, its images and its logs live (R54)."
+  description = "Where the service, its images and its logs live."
   type        = string
 }
 
@@ -60,7 +60,7 @@ variable "workload_identity_pool_id" {
 }
 
 variable "github_oidc_subject_prefix" {
-  description = "How GitHub begins the subject of this repository's tokens: the owner and the repository, each with its numeric id, as `gh api repos/OWNER/NAME/actions/oidc/customization/sub --jq .sub_claim_prefix` prints it. A job's subject goes on to name the environment it runs in, so an identity bound to one subject is lent to the jobs of one environment alone (R58)."
+  description = "How GitHub begins the subject of this repository's tokens: the owner and the repository, each with its numeric id, as `gh api repos/OWNER/NAME/actions/oidc/customization/sub --jq .sub_claim_prefix` prints it. A job's subject goes on to name the environment it runs in, so an identity bound to one subject is lent to the jobs of one environment alone."
   type        = string
 
   validation {
@@ -91,7 +91,7 @@ variable "image" {
   }
 }
 
-# The size of the service (spec 15.3). Each is a literal on one line: the load
+# The size of the service. Each is a literal on one line: the load
 # runs read them from here, and the calibration of the MVP changes them here.
 
 variable "max_instances" {
@@ -210,7 +210,7 @@ variable "image_max_age" {
 }
 
 variable "log_retention_days" {
-  description = "How many days the logs are kept: the platform's default, which the privacy policy names (privacy 4, 8)."
+  description = "How many days the logs are kept: the platform's default, which the privacy policy names."
   type        = number
   default     = 30
 

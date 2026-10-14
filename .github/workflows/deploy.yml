@@ -1,6 +1,6 @@
 # Continuous delivery: brings the cloud up to what a release describes, rolls a
 # revision of the service onto the server that release signed, and publishes
-# its SPA to Firebase Hosting (R32, R45, R58).
+# its SPA to Firebase Hosting.
 #
 # Every step is a pinned action or a recipe of the justfile, so the same
 # commands work from a laptop. No key exists anywhere: each job borrows a
@@ -55,7 +55,7 @@ defaults:
 
 jobs:
   # The plan reads the state, and the state holds what the deployment signs in
-  # with (R34), so it is shown only to a pull request of a branch of this
+  # with, so it is shown only to a pull request of a branch of this
   # repository, which only its owner can push: never to a fork, and never to
   # Dependabot, whose pull requests change the versions of the actions this job
   # would run with the Terraform identity before anybody has read them.
@@ -197,7 +197,7 @@ jobs:
 
   # The server goes out before the SPA, and is checked before the SPA goes out:
   # a new page in front of a service that does not answer would break what
-  # works now (R58).
+  # works now.
   deploy:
     name: The server of the release
     needs: [target, infra]

@@ -537,6 +537,7 @@
       { n: "govulncheck · npm audit", v: "govulncheck v1.8.0", r: "Уязвимости: код Go, который сервис достигает; пакеты, из которых собрана SPA, — high и выше", s: "repo", ref: "R48 · T05" },
       { n: "gitleaks", v: "v8.30.1", r: "Секреты по всей истории репозитория; ложная тревога — узким исключением в .gitleaks.toml", s: "repo", ref: "R49 · T06" },
       { n: "Trivy", p: "из образа по digest", v: "0.75.0", r: "Скан образа сервиса: HIGH и CRITICAL, у которых есть исправление; читает сохранённую копию образа, без сокета Docker; блокирует мерж", s: "repo", ref: "R49 · T06" },
+      { n: "actionlint", p: "из образа по digest, с shellcheck", v: "1.7.12", r: "Workflow так, как их прочтёт GitHub: ключи, выражения, входы и секреты вызова release.yml → deploy.yml, скрипты шагов workflow (скрипты composite actions — нет); исключение — только в .github/actionlint.yaml. Держит мерж, когда задание «Workflows» внесено в обязательные проверки ruleset", s: "repo", ref: "R58 · T11" },
       { n: "CodeQL", p: "codeql-action v4.38.3", v: "security-extended", r: "Статический анализ Go и TypeScript на каждом PR и раз в неделю; находки High и выше блокируют мерж", s: "repo", ref: "R50 · T07" },
       { n: "SonarCloud", p: "+ SonarQube for IDE", v: "MathTrail_canvas-api", r: "Анализ и витрина качества; только сообщает и не останавливает релиз", s: "repo", ref: "R50 · R31 standalone · T07" },
       { n: "Codecov", v: "патч ≥ 90 %", r: "Покрытие Go и web; патч блокирует мерж, общее покрытие только сообщает", s: "repo", ref: "R50 · T07" },

@@ -1,5 +1,5 @@
 # The identities of the service and of its deployment, and the narrow rights
-# each holds (spec 13, 15.2).
+# each holds.
 #
 # The pool a deployment's tokens are exchanged in is deliberately not described
 # here. It is what this configuration itself is applied through, and a door
@@ -11,7 +11,7 @@
 # GitHub gives such a job, which names the environment. Only main may run in
 # either environment, and each environment's jobs reach their own identity
 # alone: the delivery's jobs run in prod, the Hosting job in prod-hosting
-# (deploy.yml, R58).
+# (deploy.yml).
 
 locals {
   # Everybody whose token carries one subject, ready for its environment.
@@ -20,7 +20,7 @@ locals {
 
 # What the service runs as. It holds no role yet, because the service calls no
 # Google API of its own: each grant arrives with the code that first uses it —
-# a secret it reads, the traces it sends, the model it calls (RUN.md, rule 13).
+# a secret it reads, the traces it sends, the model it calls.
 resource "google_service_account" "runtime" {
   account_id   = "${var.service_name}-run"
   display_name = "Runtime identity of the ${var.service_name} service"
@@ -93,7 +93,7 @@ resource "google_service_account_iam_member" "deployer_runs_as_runtime" {
 # project: the ready-made Hosting role, and the reading of the project's API
 # keys, which the CLI's deploy asks for (Firebase's documentation, read
 # 2026-10-14). These two are the only roles the identity that applies this
-# configuration may grant on the project (infra/bootstrap.sh, R58).
+# configuration may grant on the project (infra/bootstrap.sh).
 resource "google_service_account" "hosting" {
   account_id   = "${var.service_name}-hosting"
   display_name = "Publishing identity of the ${var.service_name} SPA"
