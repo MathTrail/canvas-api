@@ -43,6 +43,7 @@ The documents under `docs/` and RUN.md are in Russian (R25); they are cited by s
 - [docs/decisions.md](docs/decisions.md) — the decision log, R01…: what was decided, why, and what was rejected. Read it before proposing a design change.
 - [docs/stack.html](docs/stack.html) — the stack by architecture layer: each technology with its version, status and the section, decision or task behind it. A summary, not a source: where it differs from spec, the decision log or RUN.md, they win.
 - [RUN.md](RUN.md) — the implementation plan, in epics (R44). Table 1 holds the current epic's tasks, run one at a time; table 2 holds later epics, broken into tasks only when their turn comes; table 3 holds the questions the author has not answered yet, and table 4 the technical debt. Full executor rules are in its «Как пользоваться» section.
+- `docs/plan/` — the archive of done epics, a file per epic with its tasks as they were when done (R59); and `E2-draft.md`, the old draft of the beta's tasks, written before the LLM-first turn and never run: the raw material for splitting E15, which also keeps the pre-split text of the six tasks E2 took over (T16, T18, T19, T34, T35, T48). Not read whole: a task cited by number, "RUN.md, T11" included, that RUN.md no longer holds is found by its heading, `grep -n '^#### T11\.' RUN.md docs/plan/*.md`.
 - `docs/live/` — reports of the spikes and of live runs in the cloud (from T12). Every report follows one format:
   - its status, in the first line under the title;
   - no identifier of a person or an account — no email, UID, invite code, billing account or token: the repository is public;
@@ -145,7 +146,7 @@ infra/terraform/  the Google Cloud project as code — not to be confused with i
 infra/bootstrap.sh  the one-time step that makes what the pipeline signs in with: project, state bucket, WIF
 web/              the SPA: React and Konva (R13); src/gen/ holds the generated TypeScript
 firebase.json     what Firebase Hosting serves, and with which headers (spec 15.5)
-docs/             the documents; live/ holds the reports of spikes and live runs
+docs/             the documents; live/ holds the reports of spikes and live runs, plan/ the done epics
 draft/            the screen mockup: a proposal, not a spec
 .devcontainer/ justfile .github/workflows/
 ```

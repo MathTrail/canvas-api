@@ -42,4 +42,4 @@ The documents are in Russian.
 - [docs/decisions.md](docs/decisions.md) — the decision log: what was decided, why, and what was rejected.
 - [docs/self-hosting.md](docs/self-hosting.md) — how it is deployed: the one-time bootstrap, the delivery of every release, rollback and return.
 - [docs/stack.html](docs/stack.html) — the technology stack, layer by layer, with versions and what is still to be chosen. Open the file from a checkout in a browser: GitHub shows only its source.
-- [RUN.md](RUN.md) — the implementation plan, in epics: the current epic broken into small tasks, run and reviewed one at a time, and the later epics.
+- [RUN.md](RUN.md) — the implementation plan, in epics: the current epic broken into small tasks, run and reviewed one at a time, and the later epics. The done epics, with their tasks, are archived in [docs/plan/](docs/plan/).
