@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
@@ -472,50 +473,35 @@ func TestAConnectionOfOurOwnGoneIsAFault(t *testing.T) {
 	panickedLine(t, logs)
 }
 
-// An id the client dictates is echoed back and written into every line about
-// the request, so what a client may dictate is kept to what an id can be.
-func TestOnlyAUsableRequestIDIsKept(t *testing.T) {
+// An id a client sends is never kept, however well it is formed: the answer
+// and the request's line in the log carry an id of the service's own, so that
+// nothing a caller wrote reaches a log line by way of its id.
+func TestAClientsIDIsNeverKept(t *testing.T) {
 	t.Parallel()
 
-	kept := []struct {
+	for _, tc := range []struct {
 		name string
 		id   string
 	}{
-		{"a uuid", "01a0c467-8008-75c3-825b-37f804bf11bb"},
-		{"a hex trace id", "4bf92f3577b34da6a3ce929d0e0e4736"},
-		{"a traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"},
-	}
-	for _, tc := range kept {
-		t.Run("kept: "+tc.name, func(t *testing.T) {
+		{"a well-formed id", "01a0c467-8008-75c3-825b-37f804bf11bb"},
+		{"a line break", "abc\r\nX-Injected: yes"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := echoedRequestID(t, tc.id); got != tc.id {
-				t.Errorf("X-Request-Id = %q, want the id the client sent", got)
-			}
-		})
-	}
+			logs, router := routerWithObservedLogs(t)
+			router.GET("/x", func(c *gin.Context) { c.Status(http.StatusBadRequest) })
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/x", http.NoBody)
+			req.Header[middleware.RequestIDHeader] = []string{tc.id}
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
 
-	replaced := []struct {
-		name string
-		id   string
-	}{
-		{"a newline", "abc\r\nX-Injected: yes"},
-		{"a control byte", "abc\x00def"},
-		{"a quote", `abc"def`},
-		{"a space", "two words"},
-		{"letters outside ASCII", "идентификатор"},
-		{"longer than the limit", strings.Repeat("a", 65)},
-	}
-	for _, tc := range replaced {
-		t.Run("replaced: "+tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			got := echoedRequestID(t, tc.id)
-			if got == tc.id {
-				t.Errorf("X-Request-Id = %q, want it replaced", got)
+			echoed := rec.Header().Get(middleware.RequestIDHeader)
+			if echoed == tc.id || !serviceID(echoed) {
+				t.Errorf("X-Request-Id = %q, want an id of the service's own, a UUID v7, not %q", echoed, tc.id)
 			}
-			if !usableLooking(got) {
-				t.Errorf("X-Request-Id = %q, want a plain identifier", got)
+			if logged := field(t, onlyLine(t, logs), "request_id"); logged != echoed {
+				t.Errorf("request_id = %q, want the id the answer carries, %q", logged, echoed)
 			}
 		})
 	}
@@ -546,38 +532,11 @@ func TestNoIDIsReadWhereNoneWasSet(t *testing.T) {
 	}
 }
 
-func echoedRequestID(t *testing.T, sent string) string {
-	t.Helper()
-
-	router := gin.New()
-	router.Use(middleware.RequestID())
-	router.GET("/x", func(c *gin.Context) { c.Status(http.StatusOK) })
-
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/x", http.NoBody)
-	req.Header.Set(middleware.RequestIDHeader, sent)
-	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
-
-	return rec.Header().Get(middleware.RequestIDHeader)
-}
-
-// usableLooking mirrors the rule the middleware applies, by bytes as it does:
-// the package keeps that rule unexported, and a test that walked the string
-// differently would agree with it only by accident.
-func usableLooking(id string) bool {
-	if id == "" {
-		return false
-	}
-	for i := range len(id) {
-		r := id[i]
-		switch {
-		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
-		case r == '-', r == '_', r == '.', r == ':':
-		default:
-			return false
-		}
-	}
-	return true
+// serviceID says whether id is one the service hands out while it has
+// randomness: a version 7 UUID.
+func serviceID(id string) bool {
+	parsed, err := uuid.Parse(id)
+	return err == nil && parsed.Version() == 7 && parsed.String() == id
 }
 
 // panickingFunction is named so that the stack the recovery logs can be held

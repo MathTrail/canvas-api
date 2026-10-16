@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"go.uber.org/zap/zaptest"
 
 	"github.com/MathTrail/canvas-api/internal/apierror"
@@ -167,7 +168,8 @@ func TestEveryAnswerCarriesItsIDAndTheSecurityHeaders(t *testing.T) {
 	}
 }
 
-func TestAClientsRequestIDIsKept(t *testing.T) {
+// The id the service answers with is its own, whatever the client sent.
+func TestAClientsRequestIDIsReplaced(t *testing.T) {
 	t.Parallel()
 
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/health", http.NoBody)
@@ -175,8 +177,9 @@ func TestAClientsRequestIDIsKept(t *testing.T) {
 	rec := httptest.NewRecorder()
 	httpserver.NewRouter(zaptest.NewLogger(t)).ServeHTTP(rec, req)
 
-	if got := rec.Header().Get(middleware.RequestIDHeader); got != "from-the-caller" {
-		t.Errorf("%s = %q, want the id the client sent", middleware.RequestIDHeader, got)
+	got := rec.Header().Get(middleware.RequestIDHeader)
+	if parsed, err := uuid.Parse(got); err != nil || parsed.Version() != 7 {
+		t.Errorf("%s = %q, want an id of the service's own, a UUID v7", middleware.RequestIDHeader, got)
 	}
 }
 

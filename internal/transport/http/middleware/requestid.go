@@ -19,51 +19,21 @@ const RequestIDHeader = "X-Request-Id"
 // of randomness has stopped answering.
 var requestsSeen atomic.Uint64
 
-// maxRequestIDLength bounds what a client may dictate: an id is a correlation
-// handle, and an unbounded one is a way to write anything into a log line.
-const maxRequestIDLength = 64
-
-// RequestID gives every request an id and echoes it back. A client that sends
-// a usable one keeps it, so that a trace through somebody else's logs and a
-// trace through ours use the same word; anything else is replaced.
+// RequestID gives every request an id of the service's own and sends it back
+// in the answer. An id a client sends is not read: no client of this service
+// needs one kept, and an id taken from a request would put a caller's words
+// into every line of the log.
 //
 // The id is kept in the request's context, the one place both the handlers of
 // this framework and code that knows nothing of it can read it from, so that
 // every line of the request carries one id.
 func RequestID() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id := c.GetHeader(RequestIDHeader)
-		if !usableRequestID(id) {
-			id = newRequestID()
-		}
+		id := newRequestID()
 		c.Request = c.Request.WithContext(logger.WithRequestID(c.Request.Context(), id))
 		c.Header(RequestIDHeader, id)
 		c.Next()
 	}
-}
-
-// usableRequestID reports whether a client's id can be carried as it stands.
-//
-// The alphabet is deliberately narrow: letters, digits and the four separators
-// every correlation format in the wild is built from — a UUID, a hex trace id
-// and a W3C traceparent all fit, and nothing else needs to. What it keeps out
-// is a value that means something to a reader rather than to a machine: a
-// newline, a control byte, a quote. Neither our JSON log nor the header writer
-// would be fooled by one today, but the id also travels into whatever we
-// correlate with next, and this is the one place that can be said once.
-func usableRequestID(id string) bool {
-	if id == "" || len(id) > maxRequestIDLength {
-		return false
-	}
-	for _, b := range []byte(id) {
-		switch {
-		case b >= 'a' && b <= 'z', b >= 'A' && b <= 'Z', b >= '0' && b <= '9':
-		case b == '-', b == '_', b == '.', b == ':':
-		default:
-			return false
-		}
-	}
-	return true
 }
 
 // newRequestID prefers a version 7 identifier, whose leading bits are a

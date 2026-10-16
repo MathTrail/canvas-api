@@ -12,20 +12,6 @@ import (
 // carries what a caller wrote carries whatever they chose to write there.
 const otherLabel = "other"
 
-// knownMethods is the closed set a request's method is reported as. Anything
-// else is a caller inventing a verb, and it is reported as one kind.
-var knownMethods = map[string]struct{}{
-	http.MethodGet:     {},
-	http.MethodHead:    {},
-	http.MethodPost:    {},
-	http.MethodPut:     {},
-	http.MethodPatch:   {},
-	http.MethodDelete:  {},
-	http.MethodOptions: {},
-	http.MethodConnect: {},
-	http.MethodTrace:   {},
-}
-
 // route is the pattern the request matched, never the path it asked for. A
 // path carries identifiers, one per sheet or task a log line would then
 // spread; and a path nothing matched is text a caller wrote, as able to carry
@@ -40,10 +26,31 @@ func route(c *gin.Context) string {
 	return otherLabel
 }
 
-// method is the request's verb when it is one of the known ones.
+// method is the request's verb when it is one of the known ones, and other
+// otherwise: anything else is a caller inventing a verb, and it is reported as
+// one kind. The set is closed, so the word written is always one of the
+// service's own, spelled here.
 func method(c *gin.Context) string {
-	if _, known := knownMethods[c.Request.Method]; known {
-		return c.Request.Method
+	switch c.Request.Method {
+	case http.MethodGet:
+		return http.MethodGet
+	case http.MethodHead:
+		return http.MethodHead
+	case http.MethodPost:
+		return http.MethodPost
+	case http.MethodPut:
+		return http.MethodPut
+	case http.MethodPatch:
+		return http.MethodPatch
+	case http.MethodDelete:
+		return http.MethodDelete
+	case http.MethodOptions:
+		return http.MethodOptions
+	case http.MethodConnect:
+		return http.MethodConnect
+	case http.MethodTrace:
+		return http.MethodTrace
+	default:
+		return otherLabel
 	}
-	return otherLabel
 }
