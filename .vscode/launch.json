@@ -9,7 +9,24 @@
       "mode": "debug",
       "program": "${workspaceFolder}/cmd/server",
       "env": {
-        "PORT": "8080"
+        "PORT": "8080",
+        "CANVAS_ENV": "local",
+        "CANVAS_LOG_LEVEL": "debug",
+        "CANVAS_LOG_FORMAT": "console"
+      }
+    },
+    {
+      "name": "Run the server as Cloud Run sees it",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/cmd/server",
+      "env": {
+        "PORT": "8080",
+        "K_SERVICE": "canvas-api",
+        "CANVAS_ENV": "prod",
+        "CANVAS_LOG_LEVEL": "info",
+        "CANVAS_LOG_FORMAT": "json"
       }
     },
     {

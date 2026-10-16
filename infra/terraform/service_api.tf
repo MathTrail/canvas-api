@@ -74,6 +74,13 @@ resource "google_cloud_run_v2_service" "api" {
         name  = "GOMEMLIMIT"
         value = "${floor(local.memory_mib * 9 / 10)}MiB"
       }
+
+      # The service runs as the deployment it is. Without this it would take
+      # itself for a developer's machine and refuse to start on Cloud Run.
+      env {
+        name  = "CANVAS_ENV"
+        value = "prod"
+      }
     }
   }
 
