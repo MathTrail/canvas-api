@@ -10,7 +10,7 @@
 
 # -- toolchain: builds and checks the code -----------------------------------
 
-FROM mcr.microsoft.com/devcontainers/base:3.0.8-noble@sha256:d7c468679f45a52ad3673d06656b5bf16e488990b17216a1fa295d9e1f89d724 AS toolchain
+FROM mcr.microsoft.com/devcontainers/base:3.0.10-noble@sha256:21e9e3275736cb3bc33a2904b279a2ab292c51fedd53c2963463627d4586c3e6 AS toolchain
 
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
