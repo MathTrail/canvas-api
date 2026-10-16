@@ -87,7 +87,7 @@ Project context lives in these files, not in chat history.
 
 ## Hard rules
 
-- **Devcontainer only.** All work happens inside the devcontainer (`.devcontainer/`, from T03): building, tests, linters, mocks, running the server and the SPA, Terraform, gcloud and live runs. Nothing but Docker and VS Code is installed or run on the host. If you are not inside the container (`MATHTRAIL_DEVCONTAINER` is not `1`), stop and ask the author to "Reopen in Container". The exceptions run on the host: T00–T03, the only host-side tasks (T03 creates the container), and the author's refresh of the reference copy (see "Reference copies").
+- **Devcontainer only.** All work happens inside the devcontainer (`.devcontainer/`, from T03): building, tests, linters, mocks, running the server and the SPA, Terraform, gcloud and live runs. Nothing but Docker and VS Code is installed or run on the host. If you are not inside the container (`MATHTRAIL_DEVCONTAINER` is not `1`), stop and ask the author to "Reopen in Container". This holds for every task and every session, a cloud session of Claude Code included: it is not the container either, and "the change is only documents" or "the container cannot be opened here" is no reason to go on. Stop before the first edit, without exception. The exceptions run on the host: T00–T03, the only host-side tasks (T03 creates the container), and the author's refresh of the reference copy (see "Reference copies").
 - **Exact versions only.** No `latest`, no floating tags or ranges (spec 1). This covers:
   - Docker images and devcontainer features: exact tag plus digest. An image whose tags name no version, such as distroless, is pinned by digest alone;
   - Go and its modules: exact versions in `go.mod`;
