@@ -74,6 +74,11 @@ run "the_service_size_and_start_stay_as_chosen" {
     condition     = one([for e in google_cloud_run_v2_service.api.template[0].containers[0].env : e.value if e.name == "GOMEMLIMIT"]) == "921MiB"
     error_message = "1Gi of memory tells the runtime 921MiB."
   }
+
+  assert {
+    condition     = one([for e in google_cloud_run_v2_service.api.template[0].containers[0].env : e.value if e.name == "CANVAS_ENV"]) == "prod"
+    error_message = "The service runs as prod: on Cloud Run any other environment refuses to start."
+  }
 }
 
 # The address a delivery checks and shows is the one made of the service's name,
