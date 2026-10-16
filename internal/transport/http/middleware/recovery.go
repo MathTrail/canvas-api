@@ -40,14 +40,14 @@ func ZapRecovery() gin.HandlerFunc {
 // it, whose request never reaches the request log. It writes the line itself,
 // naming the request as the request log does, and answers and passes an abort
 // on as ZapRecovery does.
-func LastResort(log *zap.Logger) gin.HandlerFunc {
+func LastResort(log *zap.Logger, routes *Routes) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		recovering(c, func(recovered any) {
 			log.Error("panic",
 				logger.PanicValue(recovered),
 				logger.PanicStack(),
 				zap.String("method", method(c)),
-				zap.String("route", route(c)),
+				zap.String("route", routes.of(c)),
 				zap.String("request_id", RequestIDFrom(c)),
 			)
 		})

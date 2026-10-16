@@ -1,7 +1,5 @@
 package middleware
 
-import "github.com/gin-gonic/gin"
-
 // probeRoutes answer a machine rather than a person. The platform asks for them
 // constantly and the answer is the same every time.
 var probeRoutes = map[string]struct{}{
@@ -14,9 +12,10 @@ var probeRoutes = map[string]struct{}{
 // there are checks, so a probe in the log buries the lines that mean
 // something.
 //
-// It asks by the route, as everything else here names a request, so that the
-// path a caller wrote is never read at all.
-func isProbe(c *gin.Context) bool {
-	_, probe := probeRoutes[route(c)]
+// It asks by the route the request is named by in the log, so that the path a
+// caller wrote is never read at all, and a line skipped as a probe is one that
+// would have named the probe.
+func isProbe(route string) bool {
+	_, probe := probeRoutes[route]
 	return probe
 }

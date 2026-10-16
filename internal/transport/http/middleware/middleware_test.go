@@ -132,9 +132,10 @@ func routerWithObservedLogs(t *testing.T) (*observer.ObservedLogs, *gin.Engine) 
 	logger := zap.New(core)
 
 	router := gin.New()
-	router.Use(middleware.LastResort(logger))
+	routes := middleware.NewRoutes(router)
+	router.Use(middleware.LastResort(logger, routes))
 	router.Use(middleware.RequestID())
-	router.Use(middleware.ZapLogger(logger))
+	router.Use(middleware.ZapLogger(logger, routes))
 	router.Use(middleware.ZapRecovery())
 	return logs, router
 }
@@ -261,7 +262,7 @@ func TestAPanicAboveTheRecoveryIsCaughtByTheLastResort(t *testing.T) {
 
 	core, logs := observer.New(zapcore.DebugLevel)
 	router := gin.New()
-	router.Use(middleware.LastResort(zap.New(core)))
+	router.Use(middleware.LastResort(zap.New(core), middleware.NewRoutes(router)))
 	router.Use(middleware.RequestID())
 	router.Use(func(c *gin.Context) {
 		c.Next()
@@ -344,7 +345,7 @@ func lastResortLine(t *testing.T, method, target string) *observer.LoggedEntry {
 
 	core, logs := observer.New(zapcore.DebugLevel)
 	router := gin.New()
-	router.Use(middleware.LastResort(zap.New(core)))
+	router.Use(middleware.LastResort(zap.New(core), middleware.NewRoutes(router)))
 	router.Use(func(*gin.Context) { panic("the middleware is on fire") })
 	router.GET("/tasks/:id", func(c *gin.Context) { c.Status(http.StatusNoContent) })
 	serve(t, router, method, target)

@@ -18,15 +18,16 @@ import (
 // set this service wrote down, and never the path, the query or the verb as a
 // caller wrote them: those are the caller's own words, and a log line carries
 // none.
-func ZapLogger(logger *zap.Logger) gin.HandlerFunc {
+func ZapLogger(logger *zap.Logger, routes *Routes) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		// Read before the handlers run, both together: what was asked is a
 		// fact about the request, and by the time the answer exists the
 		// request may have been replaced by something downstream. The route
-		// is the framework's, and known before the first handler runs.
+		// is the pattern the framework matched before the first handler ran,
+		// named from the router's own table.
 		verb := method(c)
-		matched := route(c)
+		matched := routes.of(c)
 
 		c.Next()
 
@@ -35,7 +36,7 @@ func ZapLogger(logger *zap.Logger) gin.HandlerFunc {
 		// panic too.
 		status := c.Writer.Status()
 		panicFields, panicked := panicOf(c)
-		if isProbe(c) && status < 400 && !panicked {
+		if isProbe(matched) && status < 400 && !panicked {
 			return
 		}
 

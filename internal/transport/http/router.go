@@ -33,10 +33,14 @@ func NewRouter(log *zap.Logger) *gin.Engine {
 	// answer it with a second request the client never meant to make.
 	router.RedirectTrailingSlash = false
 
-	router.Use(middleware.LastResort(log))
+	// A request is named in the log by the pattern it matched, from the table
+	// of the patterns this router serves.
+	routes := middleware.NewRoutes(router)
+
+	router.Use(middleware.LastResort(log, routes))
 	router.Use(middleware.SecurityHeaders())
 	router.Use(middleware.RequestID())
-	router.Use(middleware.ZapLogger(log))
+	router.Use(middleware.ZapLogger(log, routes))
 	router.Use(middleware.ZapRecovery())
 
 	router.NoRoute(notFound)

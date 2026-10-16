@@ -38,3 +38,37 @@ func TestAMethodIsReportedFromTheClosedSet(t *testing.T) {
 		})
 	}
 }
+
+// A request is named by a pattern from the table of the router the names were
+// made for: a pattern it serves is written as itself, and a pattern no route of
+// it serves — even one another router matched — is written as other.
+func TestARouteIsNamedFromTheRoutersOwnTable(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+	served := gin.New()
+	served.GET("/tasks/:id", func(*gin.Context) {})
+	stranger := gin.New()
+
+	for _, tc := range []struct {
+		name   string
+		routes *Routes
+		want   string
+	}{
+		{name: "the router's own pattern", routes: NewRoutes(served), want: "/tasks/:id"},
+		{name: "a pattern the table does not hold", routes: NewRoutes(stranger), want: otherLabel},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var named string
+			engine := gin.New()
+			engine.GET("/tasks/:id", func(c *gin.Context) { named = tc.routes.of(c) })
+			engine.ServeHTTP(httptest.NewRecorder(),
+				httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/tasks/42", http.NoBody))
+			if named != tc.want {
+				t.Errorf("routes.of() = %q, want %q", named, tc.want)
+			}
+		})
+	}
+}

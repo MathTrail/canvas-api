@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 )
@@ -12,16 +13,41 @@ import (
 // carries what a caller wrote carries whatever they chose to write there.
 const otherLabel = "other"
 
-// route is the pattern the request matched, never the path it asked for. A
-// path carries identifiers, one per sheet or task a log line would then
+// Routes names a request by the pattern it matched, never by the path it asked
+// for. A path carries identifiers, one per sheet or task a log line would then
 // spread; and a path nothing matched is text a caller wrote, as able to carry
 // a name as anything else they write.
 //
+// The name is looked up in the table of the patterns the router serves, so
+// what a line says is always one of the service's own words — the same rule
+// the method is held to.
+type Routes struct {
+	router *gin.Engine
+
+	learned sync.Once
+	known   map[string]string
+}
+
+// NewRoutes names the requests the router serves. It is given the router the
+// middleware is mounted on, and reads its patterns at the first request: the
+// framework takes no routes once it serves, so by then every one is there.
+func NewRoutes(router *gin.Engine) *Routes {
+	return &Routes{router: router}
+}
+
+// of is the pattern the request matched, or other when it matched none.
+//
 // The framework knows the pattern before the first handler runs, so every
 // middleware can ask, a panicking one included.
-func route(c *gin.Context) string {
-	if matched := c.FullPath(); matched != "" {
-		return matched
+func (r *Routes) of(c *gin.Context) string {
+	r.learned.Do(func() {
+		r.known = make(map[string]string)
+		for _, served := range r.router.Routes() {
+			r.known[served.Path] = served.Path
+		}
+	})
+	if pattern, served := r.known[c.FullPath()]; served {
+		return pattern
 	}
 	return otherLabel
 }
