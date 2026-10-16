@@ -16,7 +16,7 @@
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=MathTrail_canvas-api&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=MathTrail_canvas-api)
 [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=MathTrail_canvas-api&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=MathTrail_canvas-api)
 
-MathTrail Canvas is a math tutor for children in grades 1–6. A child solves a task by hand, with a stylus or a finger, on a squared draft sheet and writes the final answer in an answer box. On **Check**, an AI reads the answer and a program compares it with the task's key. When the answer is wrong, the tutor looks at the draft, frames the place where the reasoning went wrong and asks one short guiding question. It never gives the answer.
+MathTrail Canvas is a math tutor for children in grades 1–6. A child solves a task by hand, with a stylus or a finger, anywhere on a squared sheet and writes the final answer on the same sheet — there is no separate answer box. On **Send Answer**, one AI call reads the whole sheet: it finds the final answer, follows the reasoning and finds the first mistake. A program, not the AI, compares the answer with the task's key. When the answer is wrong, the tutor frames the place where the reasoning went wrong and asks one short guiding question. It never gives the answer.
 
 ![The task screen on a tablet, as the design draws it](docs/design/app.png)
 
