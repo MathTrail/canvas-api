@@ -1,4 +1,4 @@
-// Devcontainer for canvas-api: all development happens here (see CLAUDE.md).
+// Devcontainer for canvas-api: all development happens here.
 // Tool versions are pinned directly in this file and in .devcontainer/Dockerfile.
 {
     "name": "canvas-api",
@@ -38,7 +38,7 @@
         "source=canvas-api-gh,target=/home/vscode/.config/gh,type=volume"
     ],
     "containerEnv": {
-        // Marker checked by Claude sessions (CLAUDE.md, "Devcontainer only").
+        // Tells a Claude session it runs in here, the one place it may work.
         "MATHTRAIL_DEVCONTAINER": "1",
         "CLAUDE_CONFIG_DIR": "/home/vscode/.claude",
         "DISABLE_AUTOUPDATER": "1"

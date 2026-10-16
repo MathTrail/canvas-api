@@ -4,8 +4,8 @@
 # A port lives in the package that needs it, so this file lists those packages
 # as they appear. It is empty while no interface has earned a mock: one does
 # when its real implementation needs the network, a clock, or is simply slow,
-# and what a test checks is that a call happened, with these arguments
-# (CLAUDE.md, "Tests"). The first are expected to be the ports of check.
+# and what a test checks is that a call happened, with these arguments. The
+# first are expected to be the ports of check.
 #
 # testify, unlike the sample's `template: mockery` and `with-expecter`, which
 # mockery v3.8.0 refuses: it has no template of that name, and the testify

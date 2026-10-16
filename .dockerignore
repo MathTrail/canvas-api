@@ -31,3 +31,7 @@ go.work
 go.work.sum
 *.md
 **/node_modules
+firebase.json
+.firebase
+firebase-debug*.log
+gha-creds-*.json

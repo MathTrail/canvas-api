@@ -46,8 +46,18 @@ crash.*.log
 # Working directory of the static analysis scanner.
 .scannerwork/
 
+# The credentials file Google's sign-in action writes into a workflow's
+# checkout: short-lived, and never anything to commit.
+gha-creds-*.json
+
+# What the Firebase CLI leaves where it runs: the sums of the files it last
+# published, and the log of a command that failed.
+.firebase/
+firebase-debug.log*
+firebase-debug.*.log*
+
 # Claude Code's settings of one person on one machine, such as the narrow
-# permission of a live run, which is deleted once the run is over (CLAUDE.md).
+# permission of a live run, which is deleted once the run is over.
 .claude/settings.local.json
 
 # Reference copies of other repositories: read-only material, never committed.

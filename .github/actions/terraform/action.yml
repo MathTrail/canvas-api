@@ -1,0 +1,30 @@
+name: terraform
+description: Installs Terraform at the version this repository pins for it.
+
+runs:
+  using: composite
+  steps:
+    - id: version
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # The version lives where the development image installs it, as the
+        # default of an ARG, so it is written down once and read from there.
+        # The configuration's required_version names the same one, and refuses
+        # any other.
+        dockerfile="$GITHUB_WORKSPACE/.devcontainer/Dockerfile"
+        version="$(sed -n 's/^ARG TERRAFORM_VERSION=//p' "$dockerfile")"
+        if [ -z "$version" ]; then
+            echo "terraform: $dockerfile pins no TERRAFORM_VERSION" >&2
+            exit 1
+        fi
+        echo "terraform $version"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+
+    - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+      with:
+        terraform_version: ${{ steps.version.outputs.version }}
+        # The wrapper turns every terraform call into a step output, which is
+        # noise, and puts a script of its own between a recipe and the binary.
+        terraform_wrapper: false

@@ -35,15 +35,33 @@ Research in good faith is welcome, and nobody will be pursued for it. Two limits
 The service is still being built, in the order [`RUN.md`](RUN.md) sets; this is what it is designed to hold, and every change is held to it. The full register, in Russian, is section 4 of [`docs/privacy.md`](docs/privacy.md).
 
 - **About a child, only a pseudonym, an avatar from a set and the grade.** No name, photo, birth date, school or contacts is asked for or kept. The parent owns the account, and no child's data exists before the parent's consent is verified.
-- **The handwriting stays on the device.** The child's strokes live in the browser. On Check the app sends two pictures drawn from them, and the server keeps the pictures only in the memory of that request — never in the database, a log or a trace.
-- **The AI receives what is listed, and nothing more.** Gemini gets the answer box's picture to read it and, after a wrong answer, the draft's picture with the task, so that it can frame the mistake. No identifier, no pseudonym and no parent's data goes with them, and Gemini's caching is switched off.
+- **The handwriting stays on the device.** The child's strokes live in the browser. On Send Answer the app sends one picture of the whole sheet, drawn from them, and the server keeps it only in the memory of that request — never in the database, a log or a trace.
+- **The AI receives what is listed, and nothing more.** In one call, Gemini gets the picture of the sheet with the task, its key and its solution, so that it can find and read the final answer, frame the mistake and word one question; whether the answer is right is a program's comparison with the key, not the AI's. No identifier, no pseudonym and no parent's data goes with them, and Gemini's caching is switched off.
 - **No personal data in logs, metrics or traces.** They carry IDs, codes and timings: an ID is a UUID or the parent's Firebase UID, never an email, a name, a pseudonym, a picture, a read answer or the text of a hint.
-- **The task's answer stays hidden** until the task is solved: no endpoint returns it before then, and every hint the AI writes is checked for leaking it before the child sees it.
+- **The task's answer stays hidden** until the task is solved, and every hint the AI writes is checked for leaking it before the child sees it. No endpoint returns the answer before then, with one temporary exception: while the service is an experiment that only its author uses, behind a key, a check's response carries the AI's whole analysis — which saw the key and may name it — to the author's panel.
 - **No secrets in this repository.** Keys live in Google's Secret Manager and reach the service through its environment. The whole history is scanned for secrets on every pull request, and a key that was ever committed would be treated as leaked and rotated.
 
 ## Supported versions
 
-There is one: the newest commit of `main`. There is no maintenance branch — a fix goes to `main`. The delivery is still being set up: once it is, every merge to `main` whose checks are green is published as a release and deployed from it, and the service names the release it runs.
+There is one: the newest commit of `main`. There is no maintenance branch — a fix goes to `main`. Every merge to `main` whose checks are green is published as a signed release, and a release that is still the newest commit of `main` is deployed at once: the server and the SPA it signed, with the configuration of the commit its tag names. The service names the release it runs at `/health`.
+
+## Checking that a release is ours
+
+Every [release](https://github.com/MathTrail/canvas-api/releases) carries the server for linux/amd64 and linux/arm64, the SPA as Firebase Hosting serves it (`canvas-web_<version>.tar.gz`), `SHA256SUMS` of the three, and a Sigstore bundle beside every file. The release workflow signs them with a short-lived identity of its own rather than a stored key, and the certificate in each bundle names the repository, the workflow and the branch it ran on; the release's tag points at the commit that was built. cosign runs from its image, pinned by digest, in the folder the files were downloaded to:
+
+```bash
+docker run --rm --volume "$PWD:/release:ro" --workdir /release \
+  ghcr.io/sigstore/cosign/cosign:v3.1.3@sha256:9e5c2f2edc34351160407ca3416c61855bdf9403c3c5936e0f0be7fc261611b8 \
+  verify-blob --bundle SHA256SUMS.sigstore.json \
+  --certificate-identity https://github.com/MathTrail/canvas-api/.github/workflows/release.yml@refs/heads/main \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  SHA256SUMS
+sha256sum --check --ignore-missing SHA256SUMS
+```
+
+The first command says the sums were signed by this repository's release workflow, run on `main`; the second, that each file downloaded beside them is the one they describe — on macOS, `shasum -a 256 --check --ignore-missing SHA256SUMS` does the same. A release cut from another branch names that branch in its certificate instead, and fails the first command as written.
+
+The delivery runs the same check before anything reaches production, and one more: it adds `--certificate-github-workflow-sha` with the commit the release's tag names, so that the signed files of one release cannot pass for another's (`just ci-release-fetch`).
 
 ## How this is kept honest
 
@@ -56,7 +74,9 @@ Every change arrives through a pull request that cannot be merged until the foll
 - a licence check of every dependency;
 - a secret scan of the whole history;
 - the runtime image: that it starts and names its build, and a Trivy scan of it;
+- the release build: the server and the SPA build as a release builds them;
+- the deployment's Terraform: formatted, valid, and true to its own tests;
 - CodeQL with the `security-extended` queries;
 - 90% coverage of the lines the change touches.
 
-The reasoning behind each of these is written down in [`docs/decisions.md`](docs/decisions.md), in Russian: R49 and R50.
+The reasoning behind each of these is written down in [`docs/decisions.md`](docs/decisions.md), in Russian: R49, R50, R52, R53 and R56.

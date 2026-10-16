@@ -15,23 +15,25 @@ Clean Architecture, SOLID and KISS are the defaults, and they serve readability 
 
 ## The project
 
-MathTrail Canvas (a working name, О-9) is a maths tutor for children in grades 1–6. The child solves a task by hand, with a stylus or a finger, on a squared draft sheet and writes the final answer in an answer box. On Check, an AI reads the answer, a program compares it with the task's key, and the child sees what was read. When the answer is wrong, the tutor looks at the draft, frames the place where the reasoning went wrong over the child's own strokes and asks one short guiding question. It never gives the answer. `canvas-api` is the name of the service, not of the product.
+MathTrail Canvas (the name settled by R55, О-9) is a maths tutor for children in grades 1–6. The child solves a task by hand, with a stylus or a finger, anywhere on a squared sheet — drawing, counting, making notes — and writes the final answer on the same sheet: there is no answer box (R61). On Send Answer, an AI finds and reads the final answer, a program compares it with the task's key, and the child sees what was read. When the answer is wrong, the tutor frames the place where the reasoning went wrong over the child's own strokes and asks one short guiding question. It never gives the answer. `canvas-api` is the name of the service, not of the product.
 
-The MVP is a closed, free beta for families (R05, R06). The parent owns the account and is always the subject of access; the child works on the parent's device, in child mode behind a PIN (R07). There are five static tasks from the mockup, kept in `tasks/` until a catalog exists (R40).
+The work goes in epics (R44). The current one, E2, is a minimal slice that measures Gemini before the beta is built (R60): on a computer, with a mouse or a graphics tablet's pen, since tablets come with the beta; six static tasks, one per grade 1–6, kept in `tasks/` until a catalog exists (R63); one Gemini call per check (R62); the author alone, behind an access key (R64); no database, sign-in, consent, OpenFGA or Centrifugo. Every check is measured — time, tokens, cost — and labelled on the author's panel, and `just eval` reruns the author's journal on other models (R65). What E2 finds decides how the beta checks.
 
-A false alarm is worse than no check: when the reading is unsure, the child is asked to rewrite the answer, and when a provider fails, the child gets a neutral line — never a mistake (product 5.6, R38).
+The MVP is the closed, free beta for families, epic E15 (R05, R06, R60). The parent owns the account and is always the subject of access; the child works on the parent's device, in child mode behind a PIN (R07).
 
-Technical shape (spec 1–2):
+A false alarm is worse than no check: when the reading is unsure, the child is asked to rewrite the answer or circle it, and when a provider fails, the child gets a neutral line — never a mistake (product 5.6, R38, R62).
 
-- one Go service, `canvas-api`, on Google Cloud Run, with OpenFGA as a sidecar on `localhost` (R09); managed services only — no Kubernetes, no queues (R01) — and the services scale to zero when idle;
-- Centrifugo v6, a Cloud Run service of its own, pushes events to the client over WebSocket and keeps the channels' history in Upstash Redis;
-- Neon Postgres holds the application's data and the OpenFGA store;
-- the parent signs in with Firebase Auth (Google or Apple), and every API call but `/health` and the CORS preflight also carries a Firebase App Check token (spec 8.1);
-- Gemini, on Gemini Enterprise Agent Platform (formerly Vertex AI), makes two calls: it reads the answer box's image on a Check — unless the daily limit is spent or the box is blank — and after a wrong answer it reads the draft's image together with the key and writes the frame and the question (R38, R39);
-- the SPA — React and Konva: a draft sheet with a drawing layer and a hint layer, and an answer box — lives in `web/` and is served by Firebase Hosting (R10, R13). The draft lives on the device, in IndexedDB; on Check the SPA sends PNGs drawn from the strokes — the answer box and, unless the sheet is empty, the draft — and the server keeps them only in the request's memory (R42);
+Technical shape (spec 1–2) — the beta's, with what E2 does otherwise:
+
+- one Go service, `canvas-api`, on Google Cloud Run, with OpenFGA as a sidecar on `localhost` (R09); managed services only — no Kubernetes, no queues (R01) — and the services scale to zero when idle. E2 runs the service alone, on one instance;
+- Centrifugo v6, a Cloud Run service of its own, pushes events to the client over WebSocket and keeps the channels' history in Upstash Redis. E2 has none: a check's whole result comes in its HTTP response (R23);
+- Neon Postgres holds the application's data and the OpenFGA store. E2 has no database: the server keeps nothing, and the author's journal lives on the author's device (R65);
+- the parent signs in with Firebase Auth (Google or Apple), and every API call but `/health` and the CORS preflight also carries a Firebase App Check token (spec 8.1). In E2 such a call carries the access key instead, which `ci-tf-apply` generates into Secret Manager and the author enters in the SPA once (R64);
+- Gemini, on Gemini Enterprise Agent Platform (formerly Vertex AI), reads the sheet. In E2 it makes one call per check — unless the daily ceiling is spent or the sheet is blank — that sees the task, its key and its solution, finds the final answer and reads it twice, as written and as a bare value, follows the reasoning step by step, frames the first mistake and asks the question (R62). Whether the beta keeps one call or goes back to two — reading the answer without the key, then analysing the draft with it (R38, R39) — is decided by what E2 measures;
+- the SPA — React and Konva: a squared sheet with a drawing layer and a hint layer, and no answer box — lives in `web/` and is served by Firebase Hosting (R10, R13). On Send Answer the SPA sends one PNG of the whole sheet, drawn from the strokes, and the server keeps it only in the request's memory (R42, R61); whether the beta sends the strokes instead is a research task of E2 (R66). In the beta the sheet lives on the device, in IndexedDB; in E2 only the author's journal keeps it;
 - the API contract is protobuf, package `canvasapi.v1` in `proto/`, from which buf generates Go and TypeScript (R12);
-- a program decides every verdict: the reading is compared with the task's key, and a model only reads the answer and words the hint (spec 1, R37, R38);
-- the MVP has one environment, prod, and every merge to `main` ships to it once CI is green, from a signed release (R32, R33, R45).
+- a program decides every verdict: the reading is compared with the task's key, and a model only reads the sheet and words the hint. The model's own judgement of the answer, which E2 asks it for, never decides it (spec 1, R37, R38, R62);
+- there is one environment, prod, and every merge to `main` ships to it once CI is green, from a signed release (R32, R33, R45).
 
 ## Documents
 
@@ -42,7 +44,8 @@ The documents under `docs/` and RUN.md are in Russian (R25); they are cited by s
 - [docs/privacy.md](docs/privacy.md) — children's data and the law: what we collect and keep, what the external AI service receives, consent, deletion and retention. Open questions П-… are in section 12.
 - [docs/decisions.md](docs/decisions.md) — the decision log, R01…: what was decided, why, and what was rejected. Read it before proposing a design change.
 - [docs/stack.html](docs/stack.html) — the stack by architecture layer: each technology with its version, status and the section, decision or task behind it. A summary, not a source: where it differs from spec, the decision log or RUN.md, they win.
-- [RUN.md](RUN.md) — the implementation plan, in epics (R44). Table 1 holds the current epic's tasks, run one at a time; table 2 holds later epics, broken into tasks only when their turn comes. Full executor rules are in its «Как пользоваться» section.
+- [RUN.md](RUN.md) — the implementation plan, in epics (R44). Table 1 holds the current epic's tasks, run one at a time; table 2 holds later epics, broken into tasks only when their turn comes; table 3 holds the questions the author has not answered yet, and table 4 the technical debt. Full executor rules are in its «Как пользоваться» section.
+- `docs/plan/` — the archive of done epics, a file per epic with its tasks as they were when done (R59); and `E2-draft.md`, the old draft of the beta's tasks, written before the LLM-first turn and never run: the raw material for splitting E15, which also keeps the pre-split text of the six tasks E2 took over (T16, T18, T19, T34, T35, T48). Not read whole: a task cited by number, "RUN.md, T11" included, that RUN.md no longer holds is found by its heading, `grep -n '^#### T11\.' RUN.md docs/plan/*.md`.
 - `docs/live/` — reports of the spikes and of live runs in the cloud (from T12). Every report follows one format:
   - its status, in the first line under the title;
   - no identifier of a person or an account — no email, UID, invite code, billing account or token: the repository is public;
@@ -63,14 +66,14 @@ Project context lives in these files, not in chat history.
 - The author runs tasks one at a time: «Выполни задачу Txx из RUN.md». Do only that task; do not touch files that belong to other tasks unless the task says so.
 - Before starting, read the RUN.md task, the product, spec and privacy sections it cites, and `docs/decisions.md`; a DevX task also reads the files of the sample it names under `reference/mathtrail-standalone/`. If the task contradicts them or something is missing, stop and ask. Do not silently fill gaps; record them as open questions under the next free number, which the section's opening names — О- in product 15 (the open ones are in 15.2), Т- in spec 20, П- in privacy 12 — or in the «Замечания» section of the document being written.
 - Before calling any change done — code, config, docs or content — run `/code-review high` on it. Skip it only when the author asks, for that change alone, and say in the report that it did not run.
-  - Run it once the change is written and its checks — `just ci-lint`, `just ci-test` and `just ci-mocks-check` (from T04), `just ci-licenses` and `just ci-vuln` (from T05), `just ci-secrets`, `just ci-image-smoke` and `just ci-image-scan` (from T06), the others RUN.md rule 7 names for what the change touches, whatever else the task names — are green.
+  - Run it once the change is written and its checks — `just ci-lint`, `just ci-test` and `just ci-mocks-check` (from T04), `just ci-licenses` and `just ci-vuln` (from T05), `just ci-secrets`, `just ci-image-smoke` and `just ci-image-scan` (from T06), `just release-version` and `just release-artifacts` (from T08), `just tf-check` (from T10), `just ci-workflows` (from T11), the others RUN.md rule 7 names for what the change touches, whatever else the task names — are green.
   - The checks and the review run in a clean copy of the tree that holds this change and nothing else, so that another session's uncommitted work gets into neither. A tree that holds nothing but the change is that copy already. Otherwise the copy is a `git worktree` of `HEAD`, outside the repository, given this change's own edits, new files included, and what its checks need that git does not keep — a link to `reference/`, `web/node_modules` installed from the lockfile — and the checks and the review run from inside it. Fixes are made in the tree and carried into the copy, and `git worktree remove --force` takes the copy away after the review: it holds nothing the tree does not.
   - It reads the working tree plus the branch's commits — those not yet pushed, or all since `main` without an upstream — but not untracked files. Mark new files with `git add -N` for the review and unmark them with `git reset -- <file>` afterwards: the mark makes `git stash` fail. Pass no path — a path is reviewed instead of the diff, not beside it.
   - Verify each finding against the repository before acting on it; do not use `--fix`. Fix a real defect your uncommitted work introduced, wherever it shows up, with a test that fails without the fix when the defect is in code. A defect your work did not introduce — in an earlier commit, in code your work does not touch, or in another session's uncommitted work in the same tree — goes to the report as open.
   - Drop a wrong finding with a one-line reason, and one that re-proposes a rejected alternative with no new evidence by naming the decision. A finding that questions product, spec, privacy or a decision for a reason that holds goes to the author as a question.
   - If anything was fixed, run the checks and the review once more. That second round is the last: its findings are handled the same way, and its fixes get the checks but no third review. The report says what was fixed, what was dropped and why, and what is left open.
   - `/code-review ultra` is billed and started only by the author; this rule does not cover it.
-- A finding of a code analyser — CodeQL, SonarCloud, Scorecard — is answered by changing the code. Marking one false is the last resort: the mark cites a decision in `docs/decisions.md` and the test that proves it (standalone: R35, R50, R111). A finding no change can close, such as Scorecard's ask for a second reviewer, stays open with its reason written down (R51 standalone).
+- A finding of a code analyser — CodeQL, SonarCloud, Scorecard — is answered by changing the code. Marking one false is the last resort: the mark gives its reason in words and names the test that proves it (standalone: R35, R50, R111). A finding no change can close, such as Scorecard's ask for a second reviewer, stays open with its reason written down (R51 standalone).
 - When done, mark the task in RUN.md's table 1, `[ ]` → `[x]`, and add «Сделано (дата)» and «Открыто» to its body (RUN.md, rule 10).
 - Finish with a short report in Russian: what was done, which files, how to check it (commands), what the review found, what is still open.
   - It says how many checks in the code were switched off to prove their tests and whether each one turned its test red, and how long each fuzz test ran.
@@ -84,7 +87,7 @@ Project context lives in these files, not in chat history.
 
 ## Hard rules
 
-- **Devcontainer only.** All work happens inside the devcontainer (`.devcontainer/`, from T03): building, tests, linters, mocks, running the server and the SPA, Terraform, gcloud and live runs. Nothing but Docker and VS Code is installed or run on the host. If you are not inside the container (`MATHTRAIL_DEVCONTAINER` is not `1`), stop and ask the author to "Reopen in Container". The exceptions run on the host: T00–T03, the only host-side tasks (T03 creates the container), and the author's refresh of the reference copy (see "Reference copies").
+- **Devcontainer only.** All work happens inside the devcontainer (`.devcontainer/`, from T03): building, tests, linters, mocks, running the server and the SPA, Terraform, gcloud and live runs. Nothing but Docker and VS Code is installed or run on the host. If you are not inside the container (`MATHTRAIL_DEVCONTAINER` is not `1`), stop and ask the author to "Reopen in Container". "The change is only documents" is no reason to go on: stop before the first edit. The one exception is a cloud session of Claude Code that the author started for the task: it runs there without the container, runs the checks it can reach, and the report names every check that did not run. The exceptions run on the host: T00–T03, the only host-side tasks (T03 creates the container), and the author's refresh of the reference copy (see "Reference copies").
 - **Exact versions only.** No `latest`, no floating tags or ranges (spec 1). This covers:
   - Docker images and devcontainer features: exact tag plus digest. An image whose tags name no version, such as distroless, is pinned by digest alone;
   - Go and its modules: exact versions in `go.mod`;
@@ -100,14 +103,15 @@ Project context lives in these files, not in chat history.
 - **Language.** Code, every comment in code and config files (Go, TS, SQL, protobuf, YAML, HCL, Dockerfile, justfile, `.env.example`, …), `CLAUDE.md`, `README.md`, `CONTRIBUTING.md` and `SECURITY.md`, the texts of the UI, the hints the child sees and the model's prompts are in English (R02).
   - RUN.md and every document under `docs/` are in Russian (R25).
   - Reports to the author in chat are in Russian.
+  - A comment, and any text a person reads from code or config — a description, an error message, a test's name — gives its reason in its own words. It cites no decision, task or section of the documents: no `(R58)`, `(T11)`, `(spec 15.3)`, `(RUN.md, rule 13)`. The documents do not outlive the code.
 - **Children's data** (privacy 1, 4, 5).
   - About the child we keep only a pseudonym, an avatar from the set and the grade — never a name, photo, birth date, school or contacts.
   - Logs, metrics and traces never carry a direct identifier (email, name), the pseudonym, a check image, the read answer, hint text or a token; an ID in them is a pseudonymous one — a UUID or the parent's Firebase UID (spec 13, 16; privacy 4).
-  - The child's strokes stay on the device (R42). The server holds the two check images only in the request's memory — never in the database, a log or a trace.
-  - Gemini receives what privacy 5.1 lists and no more: on a Check that the limit or a blank box does not stop, the answer box's image and the answer's form; after a wrong answer, also the draft's image, the task's text and grade, its key and solution, the read answer, the matched trap, the hint's level and the sheet's earlier questions. We add no identifier, no pseudonym and no parent's data — though an image shows whatever the child wrote, a name included (privacy 5.3). Gemini's caching is switched off for the project, and none of its features that keep data is used (privacy 5.2).
-  - Children's handwriting never enters the repository or `testdata/`: tests use synthetic data and adults' samples only (spec 17). Eval sets are built from adults' samples; children's samples join them only if П-10 allows.
-  - No child's data exists before the operator has `verified` the parent's consent: until then, child profiles and canvases are refused with `CONSENT_REQUIRED` (R26).
-- **The answer stays hidden** until the task is solved. `GET /v1/tasks`, `POST /v1/canvases` and `GET /v1/canvases/{id}` return the task's open view, `TaskView`, without `answer` (spec 8.6, 13); the solution comes only with a `CORRECT` verdict. The key never goes into the reading call (R38) or a log line (spec 16). The draft analysis sees the key (R39), so every hint passes the leak check before it is shown; one that fails it is replaced by the author's text or a template (spec 6.3, 7.3).
+  - The child's strokes stay on the device (R42). The server holds the check image, one PNG of the whole sheet (R61), only in the request's memory — never in the database, a log or a trace.
+  - The service's calls to Gemini carry what privacy 5.1 and R62 list and no more. In E2, on a check that neither the daily ceiling nor a blank sheet stops, that is the sheet's image, the task's text and grade, its key and its solution (R62). So in E2 the key goes in with the reading, which the two-call scheme of R38 and R39 keeps it out of; which scheme the beta takes, E2 decides. We add no identifier, no pseudonym and no parent's data — though an image shows whatever the child wrote, a name included (privacy 5.3). Gemini's caching is switched off for the project, and none of its features that keep data is used (privacy 5.2).
+  - Children's handwriting never enters the repository or `testdata/`: tests use synthetic data and adults' samples only (spec 17). Eval sets are built from adults' samples; children's samples join them only if П-10 allows. An eval set is a processing of its own that goes through Gemini (privacy 4): `just eval` sends it the author's samples, and the research of R66 their strokes too. The author's samples of E2 — and the journal exports and eval reports made from them — live in `samples/`, outside the repository: the task that brings the journal adds it to `.gitignore` and `.dockerignore` (privacy 4, R65).
+  - No child's data exists before the operator has `verified` the parent's consent: until then, child profiles and canvases are refused with `CONSENT_REQUIRED` (R26). E2 has no children at all: only the author uses it, behind the access key (R60, R64).
+- **The answer stays hidden** until the task is solved. `GET /v1/tasks` — and, in the beta, `POST /v1/canvases` and `GET /v1/canvases/{id}` — return the task's open view, `TaskView`, without `answer` (spec 8.6, 13); the solution comes only with a `CORRECT` verdict. The key never goes into a log line (spec 16), nor, in the beta's two-call scheme, into the reading call (R38); in E2 the one call sees it (R62). A call that sees the key may leak it, so every question the model writes passes the leak check before it is shown; one that fails it is replaced by the author's text or a template (spec 6.3, 7.3). One exception, for E2 only: the check's response carries the model's whole analysis, which saw the key and may name it, to the author's panel (R65). In the beta it never reaches the child's screen.
 - **Secrets** live only in Secret Manager, environment variables or a local `.env` (never committed). No keys, tokens or client secrets in the repository: `prod.auto.tfvars` and `backend.hcl` are committed and public (spec 15.2, T10). A value reaches Secret Manager through `ci-tf-apply` — from the repository's secrets, or generated by the recipe itself — never by hand after a merge (R34; RUN.md, rule 13).
 - **Licenses.** The code and the tasks, their images included, are MIT. Only add dependencies with MIT-compatible licenses, and keep the third-party license list current.
 
@@ -120,19 +124,22 @@ These are the sample's standards, applied to canvas-api; R11 reuses the sample's
 ```
 cmd/
   server/         the canvas-api entry point
+  eval/           reruns the author's journal through the check on other models and settings; never in the server's image
   migrate/        goose migrations, a Cloud Run job that runs before the service is updated
   admin/          invites and consent verification, run by the operator as a Cloud Run job
   cleanup/        the daily cleanup, a Cloud Run job
 internal/
   app/ config/ logger/ telemetry/ apierror/ version/   the skeleton, as in the sample (R11)
   domain/         pure logic — no I/O, no SDKs, no transport
-    canvas/       the sheet, coordinates, the check images, the frame's conversion
-    answer/       normalization, the answer's form, comparison with the key, the verdict; the reading prompt
-    tutor/        the route after a verdict, the hint ladder, the question's checks, templates; the analysis prompt
-  check/          one check from start to end: lease, limits, calls and events through its own ports
+    canvas/       the sheet, coordinates, the check image, the frame's conversion
+    answer/       normalization, the answer's form, comparison with the key, the verdict
+    tutor/        the question's checks, the fallback text; in the beta, also the route after a verdict and the hint ladder
+  check/          one check from start to end through its own ports: the image, the ceiling, the model's call, the verdict
+                  and the frame; in the beta, also the lease, limits and events
   infra/          adapters to the outside world
-    firebase/ openfga/ postgres/ gemini/ centrifugo/
-  transport/http/ handlers; middleware in this order: CORS, App Check, ID token, limits
+    gemini/ firebase/ openfga/ postgres/ centrifugo/
+  transport/http/ handlers; middleware in this order: CORS, then the access key in E2 (R64);
+                  CORS, App Check, ID token, limits in the beta
 proto/canvasapi/v1/  the API contract (buf)
 gen/              generated Go
 tasks/            the static tasks: JSON, embedded with go:embed
@@ -141,31 +148,35 @@ deploy/
   openfga/model.fga        the access model
   centrifugo/config.json   Centrifugo's config
 infra/terraform/  the Google Cloud project as code — not to be confused with internal/infra/
+infra/bootstrap.sh  the one-time step that makes what the pipeline signs in with: project, state bucket, WIF
 web/              the SPA: React and Konva (R13); src/gen/ holds the generated TypeScript
-docs/             the documents; live/ holds the reports of spikes and live runs
+firebase.json     what Firebase Hosting serves, and with which headers (spec 15.5)
+docs/             the documents; live/ holds the reports of spikes and live runs, plan/ the done epics
 draft/            the screen mockup: a proposal, not a spec
 .devcontainer/ justfile .github/workflows/
 ```
 
-This is the layout of spec 18. The grouping — `domain/`, `infra/`, `transport/` — is mentor-api's and the sample's, without mentor-api's `repository.go` and `handler.go` inside each domain package, which make its domain import gin and pgx. Our domains are computation — the sheet's geometry and the check images, the answer's normalization and comparison, the tutor's rules — and they stay free of I/O. That is what lets them be tested with tables and properties alone, with no mocks at all (spec 17). Use cases that do I/O sit outside `domain/` for that reason, one package each: `check` runs a check, and deleting a profile or an account (R27), the daily cleanup and the flows behind the other endpoints get packages of their own beside it, named by the MVP epic as it builds them (spec 18). The HTTP router is Т-1's to settle before the MVP epic's first code; the sample and mentor-api use gin.
+This is the layout of spec 18. The grouping — `domain/`, `infra/`, `transport/` — is mentor-api's and the sample's, without mentor-api's `repository.go` and `handler.go` inside each domain package, which make its domain import gin and pgx. Our domains are computation — the sheet's geometry and the check image, the answer's normalization and comparison, the tutor's rules — and they stay free of I/O. That is what lets them be tested with tables and properties alone, with no mocks at all (spec 17). Use cases that do I/O sit outside `domain/` for that reason, one package each: `check` runs a check, and deleting a profile or an account (R27), the daily cleanup and the flows behind the other endpoints get packages of their own beside it, named by the beta's epic, E15, as it builds them (spec 18). The HTTP router is gin, as in the sample and mentor-api (R67).
+
+E2 builds only part of it: `cmd/server` and `cmd/eval`; the skeleton, all but `telemetry/`; and `domain/`, `check`, `infra/gemini`, `transport/http`, `proto/`, `gen/`, `tasks/` and `web/`. The rest comes with the beta. E2 has one prompt, the sheet's, in three variants — with the key, without it and reading only (R62) — and the task that writes the Gemini adapter settles which package holds it. The beta's prompts follow what E2 decides.
 
 ### The dependency rule
 
 Dependencies point inward: `app` → `transport` → the use cases (`check` and its siblings) → `domain`, and `infra` implements the ports the use cases declare. Nothing in `internal/domain/` or in a use case may import `net/http`, the router, the Firebase, OpenFGA or Centrifugo clients, `genai`, pgx or `database/sql`; pgx itself is imported only by `internal/infra/postgres` and `cmd/migrate`.
 
-A use case reaches the outside world only through the ports it declares (spec 1, 18). A check needs `Authorizer`, `Recognizer`, `Tutor`, `Notifier` and `Store` — the last one, in practice, several narrow storage interfaces, one per consumer, rather than one for everything — and every other use case that checks or changes access declares an `Authorizer` of its own. Their adapters live in `internal/infra/`: Gemini — two types, behind `Recognizer` and `Tutor` — OpenFGA, Centrifugo and Postgres, plus Firebase for sign-in, App Check and deleting an account. The ports are also what keeps a move to the MathTrail platform (k8s + EDA) a change of adapters rather than of the domain (spec 19).
+A use case reaches the outside world only through the ports it declares (spec 1, 18). In E2 a check declares one: the port for the model's analysis of the sheet (`Analyzer` in the examples below), which the Gemini adapter implements. It needs no `Authorizer`, `Notifier` or `Store`: E2 has no access rights to check, no events to publish and no database, and its daily ceiling is a counter in memory (R64). The beta's check needs `Authorizer`, `Notifier` and `Store` — the last one, in practice, several narrow storage interfaces, one per consumer, rather than one for everything — and its model ports follow what E2 decides: one, or `Recognizer` and `Tutor` for two calls (R38, R39). Every other use case that checks or changes access declares an `Authorizer` of its own. The adapters live in `internal/infra/`: Gemini, OpenFGA, Centrifugo and Postgres, plus Firebase for sign-in, App Check and deleting an account. The ports are also what keeps a move to the MathTrail platform (k8s + EDA) a change of adapters rather than of the domain (spec 19).
 
 A domain package reaching for infrastructure is not a style problem — it means the code is in the wrong package. Move the I/O out to a use case, `infra/` or `transport/` and leave the decision-making behind. Comparing with the key does not call Gemini:
 
 ```go
 // wrong — the comparison now needs Gemini, a network and credentials to be tested
-func Judge(ctx context.Context, img canvas.AnswerImage, task Task) (Verdict, error) {
-    reading, err := gemini.Read(ctx, img) // the domain doing I/O
+func Judge(ctx context.Context, img canvas.SheetImage, task Task) (Verdict, error) {
+    analysis, err := gemini.Analyze(ctx, img, task) // the domain doing I/O
     ...
 }
 
 // right — a pure function over what was read; check gets the reading
-// through the Recognizer port and hands it in
+// through its port and hands it in
 func Judge(key Key, reading Reading) Verdict
 ```
 
@@ -175,22 +186,24 @@ As in `mentor-api`: `NewX(...)` returns the interface, and the implementation st
 
 ```go
 // internal/check — the port, declared by the side that needs it
-type Recognizer interface {
-    Read(ctx context.Context, img canvas.AnswerImage, form answer.Form) (answer.Reading, error)
+type Analyzer interface {
+    Analyze(ctx context.Context, img canvas.SheetImage, task answer.Task) (Analysis, error)
 }
 
 // internal/infra/gemini — the adapter
-type reader struct{ client *genai.Client }                      // unexported
-func NewReader(c *genai.Client, model ModelID) check.Recognizer // the constructor returns the port
+type analyzer struct{ client *genai.Client }                    // unexported
+func NewAnalyzer(c *genai.Client, model ModelID) check.Analyzer // the constructor returns the port
 ```
+
+The names are an illustration: the task that writes the port settles its name and contract.
 
 This is deliberately *not* the usual Go advice of "accept interfaces, return structs": we keep the platform's convention so that every service in MathTrail reads the same way and mockery always has an interface to generate from. Do not "fix" it back.
 
 Keep them narrow — every interface in `mentor-api` has one to three methods. Past five, split it: an interface that large usually means the type does several jobs.
 
-Extend by adding an implementation, not another branch. A second `switch` over kinds of recognizer or kinds of notifier is the signal to reach for an interface instead.
+Extend by adding an implementation, not another branch. A second `switch` over kinds of model provider or kinds of notifier is the signal to reach for an interface instead.
 
-Implementations of the same interface must be interchangeable, and that is worth proving in code: when a port gets a second implementation — another model provider behind `Recognizer`, say — both run one shared contract test set.
+Implementations of the same interface must be interchangeable, and that is worth proving in code: when a port gets a second implementation — another model provider behind `Analyzer`, say — both run one shared contract test set.
 
 ### Simplicity beats purity
 
@@ -225,18 +238,18 @@ Implementations of the same interface must be interchangeable, and that is worth
 - JSON encoder with the Cloud Run keys `severity`, `message` and `time`. (`mentor-api` logs `ts` in ISO8601 — different runtime, different keys.)
 - Lowercase messages, snake_case keys.
 - A line carries IDs, codes, timings, `prompt_version` and the model's ID — nothing that "Children's data" above keeps out (spec 16). Every model call logs its `prompt_version` and model ID (spec 7.4).
-- The log is held to a table of its events and the fields each one may carry, not to a list of what it must not hold: a field nobody decided on fails the test the day it is added, before any value it carries can leak (spec 16; standalone: R141, R169). The table and its test come with the MVP epic.
+- The log is held to a table of its events and the fields each one may carry, not to a list of what it must not hold: a field nobody decided on fails the test the day it is added, before any value it carries can leak (spec 16; standalone: R141, R169). The table and its test come in E2, with the check's endpoint (R65).
 
 ### Errors
 
 - Wrap with short context; use sentinel errors where callers branch, checked with `errors.Is`/`errors.As`.
 - Log an error once, at the boundary.
 - An HTTP error is the flat `apierror` body — `{code, message}` with an optional `details` — carrying a code from spec 8.3; the request's ID travels in the `X-Request-Id` header, not in the body (R11). Never send internal error text to the client.
-- A failure of Gemini or of the check's own code is not an HTTP error: it becomes an `UNCHECKED` verdict or a fallback hint (spec 5.4, 5.5, 9.9). The store is the exception: when Neon or OpenFGA fails, or no slot frees up to decode the images, the answer is `UNAVAILABLE`, and the client's retry with the same `client_check_id` finishes the check (spec 8.3, 8.4, Т-14). A panic in `answer` is recovered at its boundary into `UNCHECKED` with the reason `internal`; one in `tutor`, after the verdict is out, into a fallback hint. A failed publish to Centrifugo is logged, and the HTTP response still carries the events.
+- A failure of Gemini or of the check's own code is not an HTTP error: it becomes an `UNCHECKED` verdict or a fallback hint (spec 5.4, 5.5, 9.9). In the beta, the store is the exception: when Neon or OpenFGA fails, or no slot frees up to decode the image, the answer is `UNAVAILABLE`, and the client's retry with the same `client_check_id` finishes the check (spec 8.3, 8.4, Т-14). E2 has no store, and a retry is a new call (R60). A panic in `answer` is recovered at its boundary into `UNCHECKED` with the reason `internal`; one in `tutor`, after the verdict is out, into a fallback hint. In the beta, a failed publish to Centrifugo is logged, and the HTTP response still carries the events.
 
 ### Context and docs
 
-- `ctx context.Context` is the first parameter of anything that blocks or does I/O; slow calls get their own child timeout — Gemini 4 s for reading the answer and 8 s for the draft analysis, both trimmed to what is left of the request's 25 s (spec 7.1, 8.4).
+- `ctx context.Context` is the first parameter of anything that blocks or does I/O; slow calls get their own child timeout. In E2 the one Gemini call gets a timeout that the task writing the adapter picks below Cloud Run's 30 s request timeout, with room left for the rest of the request. The beta's timeouts — today 4 s for reading the answer and 8 s for the draft analysis, both trimmed to what is left of the request's 25 s (spec 7.1, 8.4) — are set again by what E2 measures.
 - A request finishes its work before it answers: with request-based billing, Cloud Run gives almost no CPU to a goroutine left running after the response (R23).
 - Every package has a package comment; every exported identifier has a doc comment starting with its name. Comments explain *why*.
 - `internal/version` variables are set through `-ldflags -X` in both the Dockerfile and CI builds.
@@ -246,14 +259,14 @@ Implementations of the same interface must be interchangeable, and that is worth
 - Standard `testing` with `t.Fatalf`/`t.Errorf` in "got …, want …" form — the house style in `mentor-api`, where testify appears only as `mock.Anything` in generated mocks. That is the sense in which spec 3.2 lists testify "as in the ecosystem".
 - Table-driven subtests (`t.Run`) for similar cases, with `t.Parallel()` where a case shares no state; external `_test` packages for public behaviour, internal ones for unexported helpers.
 - Test helpers take `*testing.T` and start with `t.Helper()`, so a failure points at the test that broke, not at the helper.
-- Anything that parses what came from outside gets a fuzz test (`FuzzXxx(f *testing.F)`): the model's JSON of both calls, the task JSON, the check request and its PNGs — and the responses and request bodies that carry them. That input is untrusted, a panic there takes a request handler down with it, and fuzzing is how those inputs get found before a child's handwriting finds them.
+- Anything that parses what came from outside gets a fuzz test (`FuzzXxx(f *testing.F)`): the model's JSON, the task JSON, the check request and its PNG, the export of the author's journal — and the responses and request bodies that carry them. That input is untrusted, a panic there takes a request handler down with it, and fuzzing is how those inputs get found before a child's handwriting finds them.
 - Computation that holds an invariant gets a property test with `gopter`, the answer check first of all (spec 17): normalizing twice changes nothing, any accepted spelling of a number equals a key of the same value and no other, the form's whitelist takes no base prefix, exponent, underscore or redundant leading zero (`07`, `010/2`), and no input panics. The test names the invariant and the library looks for the input that breaks it. A property replaces neither the worked examples of spec 5.6 nor a fuzz test; it is what catches the case nobody thought of.
 - A new check counts as covered only when its test fails with the check switched off. Break it, watch the test go red, put it back — that is how a test that passes by accident is found, and it is cheaper than any tool that does the same thing by rewriting the code.
 - `go test -race` always; fixtures under `testdata/`.
 - Under the race detector a clock measures the machine rather than the code. So a test that holds code to a clock gives it ten times the time there and leaves every limit that is not time as it is; the factor comes from one helper built with and without the `race` tag, not from a constant in each test. A test about the clock itself — that a call is cut off at its deadline, say — sets its own. A run that outlasts its clock is not retried: that would hide code that really is slow (R207 standalone).
 - Recorded responses of Gemini in `testdata/` are synthetic — never a child's sample (spec 17). They are the reference a test is checked against, so no test rewrites them. A snapshot the code itself produces, such as a re-encoded check image, may have `-update`, and then the regenerated diff is part of the review.
 - No network in unit tests: Firebase, Gemini and Centrifugo are faked with `httptest`.
-- Integration tests run Postgres and OpenFGA in containers, under a build tag of their own (`just ci-integration`, from the MVP epic's task that brings storage).
+- Integration tests run Postgres and OpenFGA in containers, under a build tag of their own (`just ci-integration`, from the beta's task that brings storage).
 - Behind an interface stands the real implementation, whenever that implementation does no I/O, and a small hand-written fake where a test has to force it to behave a particular way. That is what proves a property rather than the fact of a call, and it keeps what a test assumes in one readable place.
 - A mock earns its place when the real implementation needs the network, a clock, or is simply slow — and when what is being checked is that a call happened, with these arguments. It is then generated by mockery v3 into a `mocks/` folder next to the interface and committed; CI checks it is up to date. Config lives in `.mockery.yaml`, with expecters on, mirroring `mentor-api`, and its list of packages is empty until an interface of that kind exists.
 
@@ -265,7 +278,7 @@ Implementations of the same interface must be interchangeable, and that is worth
 - A pre-commit hook in `.githooks/`, enabled by `post-start`; `govulncheck`, `npm audit` and `gitleaks` in CI.
 - The justfile is the entry point for everything; `ci-*` recipes are what CI calls — same recipe names as `mentor-api` (`fmt`, `fmt-check`, `build`, `test`, `mocks`, `ci-lint`, `ci-test`, `ci-mocks-check`).
 - Multi-stage Dockerfile, minimal non-root runtime image pinned by digest, `CGO_ENABLED=0`, `-trimpath`.
-- Services and tools that are not part of the build run from images pinned by digest instead of being installed into the devcontainer: Postgres, OpenFGA, Centrifugo and Redis for local runs and integration tests, the OpenFGA CLI for the model's tests, Playwright for the end-to-end tests, Trivy for the scan of the runtime image. The SPA's own packages are the exception, because they are part of the build: they install into `web/node_modules` from its lockfile.
+- Services and tools that are not part of the build run from images pinned by digest instead of being installed into the devcontainer: Postgres, OpenFGA, Centrifugo and Redis for local runs and integration tests, the OpenFGA CLI for the model's tests, Playwright for the end-to-end tests, Trivy for the scan of the runtime image, actionlint for the workflows. The SPA's own packages are the exception, because they are part of the build: they install into `web/node_modules` from its lockfile.
 
 ## Reference copies
 
@@ -297,20 +310,21 @@ The host needs Docker and VS Code and nothing else: no builder plugin, no daemon
 Inside the container:
 
 - **Pinned versions.** No separate versions file: each tool's exact version is an `ARG` default in `.devcontainer/Dockerfile`, repeated as a literal in `.devcontainer/devcontainer.json` where needed.
-  - The Dockerfile has two stages. `toolchain` installs Go, Node.js, just, golangci-lint and mockery — what it takes to build and check the code; `devcontainer` adds gopls, dlv, cloudflared, gh, the Docker Compose plugin, Terraform, gcloud and Claude Code on top, and is the stage the container is built from. cloudflared is the tunnel that opens the SPA served from here on a real tablet. gcloud is installed on x86_64 only, because its archive for arm carries no Python interpreter; there the same commands come from Google's own container image (R28 standalone).
-  - CI runs the full checks in the `toolchain` stage, which it publishes to GHCR under a hash of that stage and runs by digest, so a verdict there and one in here come from the same tools at the same versions (`just ci-toolchain-image`; R20 standalone, R49).
+  - The Dockerfile has two stages. `toolchain` installs Go, Node.js, just, golangci-lint and mockery — what it takes to build and check the code; `devcontainer` adds gopls, dlv, cloudflared, gh, the Docker Compose plugin, Terraform, gcloud, the Firebase CLI and Claude Code on top, and is the stage the container is built from. cloudflared is the tunnel that opens the SPA served from here on a real tablet. gcloud is installed on x86_64 only, because its archive for arm carries no Python interpreter; there the same commands come from Google's own container image (R28 standalone). The Firebase CLI is installed on x86_64 only as well, as the standalone build that carries its own Node.js, which is made for x86_64 alone; on arm its commands run in Cloud Shell (R58).
+  - CI runs the full checks in the `toolchain` stage, which it publishes to GHCR under a hash of that stage and runs by digest, so a verdict there and one in here come from the same tools at the same versions (`just ci-toolchain-image`; R20 standalone, R49). On `main` the checks run only in an image that `main` itself signed with cosign; any other image under the tag is built again and signed (`just ci-toolchain-sign`; R53).
   - Everything is installed straight from the Dockerfile, and downloads refuse a protocol downgrade (R35 standalone). What is verified is verified by the source it comes from: the Go checksum database for `go install`, the registry hash for the npm package; the tarballs fetched with `curl` carry no checksum of their own. Of the npm packages only the Claude Code CLI may run its own install step, named explicitly, because that step is what puts its native binary in place.
   - Docker (docker-in-docker, Moby engine and buildx) comes from a devcontainer feature pinned in `devcontainer.json` and `devcontainer-lock.json`.
-  - To change a version: edit the literal everywhere it appears (Dockerfile, `devcontainer.json` for Docker or the Claude Code extension), rebuild the container. The Claude Code CLI and its editor extension are one version in two files, so `just claude-update` raises both at once — with a version, or to the newest published one — and prints what it changed.
-- **Container marker.** `MATHTRAIL_DEVCONTAINER=1` is set only inside the container. A session that does not see it is on the host and must stop (see "Devcontainer only").
+  - To change a version: edit the literal everywhere it appears (Dockerfile, `devcontainer.json` for Docker or the Claude Code extension), rebuild the container. The Claude Code CLI and its editor extension are one version in two files, so `just claude-update` raises both at once — with a version, or to the newest published one — and prints what it changed. Terraform is pinned twice as well: `ARG TERRAFORM_VERSION` and `required_version` in `infra/terraform/versions.tf`, which refuses any other. Its providers and `.terraform.lock.hcl` are raised by hand too, `terraform providers lock -platform=linux_amd64 -platform=linux_arm64`, since Dependabot would lock them with a Terraform of its own (R56).
+- **Container marker.** `MATHTRAIL_DEVCONTAINER=1` is set only inside the container. A session that does not see it is on the host and must stop, unless it is a cloud session the author started (see "Devcontainer only").
 - **Claude Code.** Its config lives in the `canvas-api-claude` volume, so the login survives rebuilds. Auto-update is off; the version is pinned.
 - **`gh`.** What a change looks like on github.com is otherwise invisible from in here, and two parts of it are asked for by name: the alerts of the code scan, which a task closes before the next one starts, and whether the delivery that carried the change ran. `gh auth login` is answered once: the credentials live in the `canvas-api-gh` volume, as gcloud's live in `canvas-api-gcloud`, where Terraform reads them.
 - **Ports.** 8080 (the API) and 5173 (Vite's dev server for the SPA) are forwarded to the host.
 - **Just recipes.** `just --list` shows all of them.
-  - The everyday ones are `just fmt`, `just test`, `just lint`, `just build` and `just run`, and for the SPA `just web-dev`, which serves it on port 5173, `just web-fmt` and `just web-test`. `just web-build` builds the SPA into `web/dist`; `just build` and the image leave it out (R10).
-  - The ones that must be green before a task is done are **`just ci-lint`** (formatting and lint), **`just ci-test`** (the race detector and coverage), **`just ci-mocks-check`**, **`just ci-licenses`**, **`just ci-vuln`**, **`just ci-secrets`** (gitleaks over the whole history and over what is not committed yet), **`just ci-image-smoke`** (the runtime image starts, and its `/health` names this build) and **`just ci-image-scan`** (Trivy over that image, HIGH and CRITICAL with a fix out), and they are what CI runs (`.github/workflows/ci.yml`). `ci-licenses` holds every Go module and npm package to the license list and `THIRD_PARTY_LICENSES` to the dependency graph — `just licenses` rewrites it. `ci-vuln` runs govulncheck and `npm audit` (R48). A false alarm of the secret scan is waived in `.gitleaks.toml`, by a rule, a path and the shape of a value together, and a vulnerability only in `.trivyignore`; each with its reason.
+  - The everyday ones are `just fmt`, `just test`, `just lint`, `just build` and `just run`, and for the SPA `just web-dev`, which serves it on port 5173, `just web-fmt` and `just web-test`, and for the cloud `just tf-fmt` and `just usage`, which sets what the deployed service used of Cloud Run against a month's free tier. `just web-build` builds the SPA into `web/dist`; `just build` and the image leave it out (R10).
+  - The ones that must be green before a task is done are **`just ci-lint`** (formatting and lint), **`just ci-test`** (the race detector and coverage), **`just ci-mocks-check`**, **`just ci-licenses`**, **`just ci-vuln`**, **`just ci-secrets`** (gitleaks over the whole history and over what is not committed yet), **`just ci-image-smoke`** (the runtime image starts, and its `/health` names this build), **`just ci-image-scan`** (Trivy over that image, HIGH and CRITICAL with a fix out), **`just release-version`** (the version the next release takes, from `RELEASE_LINE` in `release.yml` and the tags), **`just release-artifacts`** (what a release holds: the server for amd64 and arm64, the SPA's archive and `SHA256SUMS`, in `dist/`), **`just tf-check`** (the Terraform files formatted, the configuration valid against the providers its lock file names, and its tests on mock providers, with no credential) and **`just ci-workflows`** (actionlint, with shellcheck over the scripts of the workflows' steps but not of the composite actions': what GitHub would refuse or misread in the workflows, the call from `release.yml` to `deploy.yml` among it), and they are what CI runs (`.github/workflows/ci.yml`). `ci-licenses` holds every Go module and npm package to the license list and `THIRD_PARTY_LICENSES` to the dependency graph — `just licenses` rewrites it. `ci-vuln` runs govulncheck and `npm audit` (R48). A false alarm of the secret scan is waived in `.gitleaks.toml`, by a rule, a path and the shape of a value together, a vulnerability only in `.trivyignore`, and a finding of actionlint only in `.github/actionlint.yaml`; each with its reason.
   - A change to `web/` must also pass **`just ci-web`**: Biome, the types, the tests with their coverage, and a build.
   - gofmt never walks into `reference/`: the copy is the sample's, read-only.
 - **Git hooks.** `.githooks/pre-commit` is enabled by `post-start` through `core.hooksPath`. It runs formatting, a build and the tests — enough to catch what is embarrassing, while the linter, the race detector, `govulncheck` and `gitleaks` wait for CI. Where no Go toolchain is reachable — a Git client outside the container, for instance — it says so and skips those checks instead of blocking the commit: CI runs them again and is what gates a merge.
 - **The runtime image.** `just docker-build` builds it and `just docker-run` starts it on port 8080. Both images in the root `Dockerfile` are pinned: a Go builder by tag and digest, at the version `go.mod` names, and a distroless static runtime by digest, since distroless names no versions in its tags; the runtime has no shell and runs as a non-root user. The SPA is no part of it: Firebase Hosting serves the build (R10).
-- **Build context.** Both images are built with the repository root as context: the devcontainer copies nothing from it, the runtime image the Go module. `.dockerignore` keeps out of it the history, every `.env` and its variants such as `.env.local`, `.github/`, `.vscode/`, `.sonarlint/`, `.claude/`, `.githooks/`, `.devcontainer/`, `reference/`, `docs/`, `draft/`, `web/`, `infra/`, every `testdata/`, `tools/`, `bin/`, `dist/`, test and profile output, `.scannerwork/`, a local `go.work`, `node_modules` and the Markdown files at the root.
+- **Build context.** Both images are built with the repository root as context: the devcontainer copies nothing from it, the runtime image the Go module. `.dockerignore` keeps out of it the history, every `.env` and its variants such as `.env.local`, `.github/`, `.vscode/`, `.sonarlint/`, `.claude/`, `.githooks/`, `.devcontainer/`, `reference/`, `docs/`, `draft/`, `web/`, `infra/`, every `testdata/`, `tools/`, `bin/`, `dist/`, test and profile output, `.scannerwork/`, a local `go.work`, `node_modules`, the Markdown files at the root, `firebase.json` and what the Firebase CLI leaves behind, and the credentials file Google's sign-in action writes into a workflow's checkout.
+- **The release image.** A delivery does not build the server again: the `release` stage of the same `Dockerfile` puts the server a release signed into the same runtime, from a build context of its own (`just ci-image-push`, R58).

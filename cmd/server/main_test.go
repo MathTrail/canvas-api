@@ -2,271 +2,286 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"net"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"os/exec"
 	"os/signal"
-	"strings"
-	"sync"
+	"strconv"
 	"syscall"
 	"testing"
 	"time"
 
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
+
+	"github.com/MathTrail/canvas-api/internal/config"
 	"github.com/MathTrail/canvas-api/internal/version"
 )
 
-// The service answers its health probe and nothing else. /healthz is not the
-// probe (R30), and HEAD is answered wherever GET is, since a probe may ask
-// either way.
-func TestRoutes(t *testing.T) {
-	t.Parallel()
+// run must stop because its context was cancelled — the same way a signal
+// reaches it — and it must stop without an error.
+func TestRunStopsWhenContextIsCancelled(t *testing.T) {
+	ownEnvironment(t)
+	port := freePort(t)
+	t.Setenv("PORT", port)
+	t.Setenv("CANVAS_LOG_LEVEL", "error")
+	t.Setenv("CANVAS_SHUTDOWN_TIMEOUT", "2s")
 
-	for _, tc := range []struct {
-		name   string
-		method string
-		path   string
-		want   int
-	}{
-		{name: "the health probe", method: http.MethodGet, path: "/health", want: http.StatusOK},
-		{name: "the health probe asked with HEAD", method: http.MethodHead, path: "/health", want: http.StatusOK},
-		{name: "the path Cloud Run intercepts", method: http.MethodGet, path: "/healthz", want: http.StatusNotFound},
-		{name: "an unknown path", method: http.MethodGet, path: "/unknown", want: http.StatusNotFound},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+	ctx, cancel := context.WithCancel(t.Context())
+	stopped := make(chan error, 1)
+	go func() { stopped <- run(ctx) }()
 
-			rec := httptest.NewRecorder()
-			req := httptest.NewRequestWithContext(t.Context(), tc.method, tc.path, http.NoBody)
-			newServer().Handler.ServeHTTP(rec, req)
+	// Cancel only once the service is actually listening, so that a pass
+	// means "it started and then stopped" rather than "it never started".
+	waitUntilListening(t, port)
+	cancel()
 
-			if rec.Code != tc.want {
-				t.Errorf("%s %s status = %d, want %d", tc.method, tc.path, rec.Code, tc.want)
-			}
-		})
+	select {
+	case err := <-stopped:
+		if err != nil {
+			t.Fatalf("run() error = %v, want nil", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("run() did not return within 10s of the context being cancelled")
 	}
 }
 
-// The probe names the build that answers it, and nothing on the way may keep
-// the answer: the delivery reads the commit to know which revision serves.
-func TestHealthNamesTheBuild(t *testing.T) {
-	stamp(t)
+// Once it serves, the service says which build it is in the line the
+// delivery's checklist reads a revision's release by: JSON a collector reads
+// the severity of, with the message startup, the version and the commit.
+func TestTheStartupLineNamesTheBuild(t *testing.T) {
+	ownEnvironment(t)
+	was := [3]string{version.Version, version.Commit, version.Date}
+	version.Version, version.Commit, version.Date = "v1.2.3", "abc1234", "2026-10-12T00:00:00Z"
+	t.Cleanup(func() { version.Version, version.Commit, version.Date = was[0], was[1], was[2] })
+	port := freePort(t)
+	t.Setenv("PORT", port)
+	t.Setenv("CANVAS_SHUTDOWN_TIMEOUT", "2s")
 
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/health", http.NoBody)
-	newServer().Handler.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("GET /health status = %d, want %d", rec.Code, http.StatusOK)
+	lines := capturedStdout(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	stopped := make(chan error, 1)
+	go func() { stopped <- run(ctx) }()
+	waitUntilListening(t, port)
+	cancel()
+	if err := <-stopped; err != nil {
+		t.Fatalf("run() error = %v, want nil", err)
 	}
-	for header, want := range map[string]string{
-		"Cache-Control": "no-store",
-		"Content-Type":  "application/json",
-	} {
-		if got := rec.Header().Get(header); got != want {
-			t.Errorf("%s = %q, want %q", header, got, want)
+
+	var startup map[string]any
+	for line := range bytes.Lines(lines()) {
+		var entry map[string]any
+		if err := json.Unmarshal(line, &entry); err != nil {
+			t.Fatalf("a line of the log is not JSON: %v; line = %s", err, line)
+		}
+		if entry["message"] == "startup" {
+			startup = entry
 		}
 	}
-	var body map[string]string
-	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
-		t.Fatalf("the body is not a JSON object of strings: %v; body = %s", err, rec.Body.String())
+	if startup == nil {
+		t.Fatal("no startup line in the log")
 	}
-	want := map[string]string{"status": "ok", "version": "v1.2.3", "commit": "abc1234"}
-	if !maps.Equal(body, want) {
-		t.Errorf("body = %v, want %v", body, want)
-	}
-}
-
-// Once the port is its own, the server says which build it is and where it
-// listens, in the one line a deployment's log names its release and its
-// commit by; a stop then ends it as usual.
-func TestRunAnnouncesTheBuildItStarts(t *testing.T) {
-	stamp(t)
-
-	said, log := io.Pipe()
-	t.Cleanup(func() { _ = said.Close() })
-	ctx, stop := context.WithCancel(t.Context())
-	defer stop()
-	started := time.Now()
-	stopped := make(chan error, 1)
-	go func() { stopped <- run(ctx, "127.0.0.1:0", log) }()
-
-	first := make(chan string, 1)
-	go func() {
-		lines := bufio.NewScanner(said)
-		lines.Scan()
-		first <- lines.Text()
-	}()
-	var line string
-	select {
-	case line = <-first:
-	case err := <-stopped:
-		t.Fatalf("run() returned %v before it said which build it is", err)
-	case <-time.After(5 * time.Second):
-		t.Fatal("waited 5s for the startup line")
-	}
-	heard := time.Now()
-	stop()
-	if err := receive(t, stopped, "run() to return"); err != nil {
-		t.Errorf("run() error = %v, want nil", err)
-	}
-
-	var got map[string]string
-	if err := json.Unmarshal([]byte(line), &got); err != nil {
-		t.Fatalf("the startup line is not a JSON object of strings: %v; line = %s", err, line)
-	}
-	if !strings.HasPrefix(got["address"], "127.0.0.1:") {
-		t.Errorf("address = %q, want the loopback address it listens on", got["address"])
-	}
-	if at, err := time.Parse(time.RFC3339Nano, got["time"]); err != nil || at.Before(started) || at.After(heard) {
-		t.Errorf("time = %q, want the moment of the line in RFC 3339, between %v and %v", got["time"], started, heard)
-	}
-	delete(got, "address")
-	delete(got, "time")
-	want := map[string]string{
+	for key, want := range map[string]any{
 		"severity": "INFO",
-		"message":  "startup",
 		"version":  "v1.2.3",
 		"commit":   "abc1234",
 		"date":     "2026-10-12T00:00:00Z",
-	}
-	if !maps.Equal(got, want) {
-		t.Errorf("the startup line = %v, want %v and the address", got, want)
-	}
-}
-
-// Every timeout of the server is set.
-func TestEveryTimeoutIsSet(t *testing.T) {
-	t.Parallel()
-
-	server := newServer()
-	for _, timeout := range []struct {
-		name  string
-		value time.Duration
-	}{
-		{name: "ReadHeaderTimeout", value: server.ReadHeaderTimeout},
-		{name: "ReadTimeout", value: server.ReadTimeout},
-		{name: "WriteTimeout", value: server.WriteTimeout},
-		{name: "IdleTimeout", value: server.IdleTimeout},
+		"port":     port,
+		"env":      "local",
+		"deployed": false,
 	} {
-		if timeout.value <= 0 {
-			t.Errorf("%s = %v, want a positive duration", timeout.name, timeout.value)
+		if startup[key] != want {
+			t.Errorf("startup[%q] = %v, want %v", key, startup[key], want)
 		}
 	}
 }
 
-// The port is the one PORT names, as Cloud Run sets it, or 8080 when PORT is
-// empty; the host is empty, so every interface is served.
-func TestListenAddr(t *testing.T) {
-	for _, tc := range []struct {
-		port string
-		want string
-	}{
-		{port: "", want: ":8080"},
-		{port: "9090", want: ":9090"},
-	} {
-		t.Run("PORT="+tc.port, func(t *testing.T) {
-			t.Setenv("PORT", tc.port)
+// ownEnvironment clears every variable the service reads, so that what the
+// shell running the tests exported — a console log format, a K_SERVICE — does
+// not decide the outcome. An empty value counts as unset.
+func ownEnvironment(t *testing.T) {
+	t.Helper()
 
-			if got := listenAddr(); got != tc.want {
-				t.Errorf("listenAddr() = %q, want %q", got, tc.want)
+	for _, name := range []string{
+		"PORT", "K_SERVICE", "CANVAS_ENV", "CANVAS_LOG_LEVEL", "CANVAS_LOG_FORMAT",
+		"CANVAS_HTTP_READ_HEADER_TIMEOUT", "CANVAS_HTTP_READ_TIMEOUT", "CANVAS_HTTP_WRITE_TIMEOUT",
+		"CANVAS_HTTP_IDLE_TIMEOUT", "CANVAS_SHUTDOWN_TIMEOUT",
+	} {
+		t.Setenv(name, "")
+	}
+}
+
+// capturedStdout sends what the process writes to stdout into a pipe until the
+// returned function is called, which hands back everything written.
+func capturedStdout(t *testing.T) func() []byte {
+	t.Helper()
+
+	read, write, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = read.Close() })
+	written := make(chan []byte, 1)
+	go func() {
+		all, _ := io.ReadAll(read)
+		written <- all
+	}()
+	stdout := os.Stdout
+	os.Stdout = write
+	t.Cleanup(func() { os.Stdout = stdout })
+	return func() []byte {
+		os.Stdout = stdout
+		_ = write.Close()
+		return <-written
+	}
+}
+
+// A failure is reported once: in the log, as one line a collector reads the
+// severity of, and marked as written so that the process does not print it a
+// second time on its way out.
+func TestAFailureIsReportedOnce(t *testing.T) {
+	ownEnvironment(t)
+	var lc net.ListenConfig
+	taken, err := lc.Listen(t.Context(), "tcp", ":0")
+	if err != nil {
+		t.Fatalf("listen for a port to take: %v", err)
+	}
+	t.Cleanup(func() { _ = taken.Close() })
+	addr, ok := taken.Addr().(*net.TCPAddr)
+	if !ok {
+		t.Fatalf("listener address = %T, want *net.TCPAddr", taken.Addr())
+	}
+	t.Setenv("PORT", strconv.Itoa(addr.Port))
+
+	lines := capturedStdout(t)
+	err = run(t.Context())
+	written := lines()
+
+	if !errors.Is(err, errLogged) {
+		t.Fatalf("run() error = %v, want the taken port reported and marked as logged", err)
+	}
+	var failures, starts int
+	for line := range bytes.Lines(written) {
+		var entry map[string]any
+		if err := json.Unmarshal(line, &entry); err != nil {
+			t.Fatalf("a line of the log is not JSON: %v; line = %s", err, line)
+		}
+		switch {
+		case entry["severity"] == "ERROR" && entry["message"] == "startup":
+			failures++
+		case entry["severity"] == "ERROR":
+			t.Errorf("an error line = %s, want the failure named startup: the start is what failed", line)
+		case entry["message"] == "startup":
+			starts++
+		}
+	}
+	// A port the process never held is a start that failed, written once, and
+	// no line says the service started on it.
+	if failures != 1 || starts != 0 {
+		t.Errorf("the log has %d failed starts and %d announced ones, want 1 and 0:\n%s", failures, starts, written)
+	}
+}
+
+// A configuration it cannot satisfy is reported, not worked around: nothing is
+// started and the error says which variable is wrong.
+func TestRunRefusesBadConfiguration(t *testing.T) {
+	ownEnvironment(t)
+	t.Setenv("PORT", "eighty")
+
+	err := run(t.Context())
+	if !errors.Is(err, config.ErrInvalid) {
+		t.Fatalf("run() error = %v, want it to wrap config.ErrInvalid", err)
+	}
+	// There is no log yet to have written it, so it is the process that
+	// reports it.
+	if errors.Is(err, errLogged) {
+		t.Errorf("run() error = %v, want it left for the process to print", err)
+	}
+}
+
+// The process exits with 1 whenever run failed, and prints a failure only when
+// nothing else has reported it: the one the log recorded stays a single line,
+// and the one from before there was a log has nowhere else to go.
+func TestAFailureIsPrintedOnlyWhenTheLogDidNotRecordIt(t *testing.T) {
+	t.Parallel()
+
+	refused := fmt.Errorf("%w: PORT must be a number from 1 to 65535", config.ErrInvalid)
+	for _, tc := range []struct {
+		name    string
+		err     error
+		code    int
+		printed string
+	}{
+		{name: "a stop that was asked for", err: nil, code: 0, printed: ""},
+		{name: "a failure from before there was a log", err: refused, code: 1,
+			printed: "canvas-api: " + refused.Error() + "\n"},
+		{name: "a failure the log recorded", err: logged(zap.NewNop(), "startup", refused), code: 1, printed: ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var stderr bytes.Buffer
+			if code := exitCode(&stderr, tc.err); code != tc.code {
+				t.Errorf("exitCode() = %d, want %d", code, tc.code)
+			}
+			if printed := stderr.String(); printed != tc.printed {
+				t.Errorf("printed %q, want %q", printed, tc.printed)
 			}
 		})
 	}
 }
 
-// A stop lets the request in flight finish: the request the server is already
-// handling when the stop begins still gets its answer, and serve then returns
-// without an error.
-func TestServeStopsGracefully(t *testing.T) {
+// A stop asked for while the service is still being built ends the process as
+// the stop it is, with nothing written as an error. A failure of the build is
+// a failure even when a stop arrived beside it, and so is a cancellation that
+// nobody asked this process for.
+func TestAStopDuringTheStartIsNoFailure(t *testing.T) {
 	t.Parallel()
 
-	arrived, release := make(chan struct{}), make(chan struct{})
-	releaseHandler := sync.OnceFunc(func() { close(release) })
-	t.Cleanup(releaseHandler) // a test that fails early must not leave the handler waiting
-	server := newServer()
-	server.Handler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		close(arrived)
-		<-release
-		w.WriteHeader(http.StatusOK)
-	})
-	stopping := make(chan struct{})
-	server.RegisterOnShutdown(func() { close(stopping) })
+	stopped, stop := context.WithCancel(t.Context())
+	stop()
+	cutShort := fmt.Errorf("app: build the router: %w", context.Canceled)
+	broken := errors.New("app: a piece could not be built")
 
-	listener := listen(t)
-	ctx, cancel := context.WithCancel(t.Context())
-	stopped := make(chan error, 1)
-	go func() { stopped <- serve(ctx, server, listener) }()
-	answered := make(chan error, 1)
-	go func() { answered <- getOK(t.Context(), "http://"+listener.Addr().String()+"/") }()
-
-	receive(t, arrived, "the request to reach the handler")
-	cancel()
-	receive(t, stopping, "the graceful stop to begin")
-	releaseHandler()
-
-	if err := receive(t, answered, "the answer to the request in flight"); err != nil {
-		t.Errorf("the request in flight: %v, want its 200", err)
-	}
-	if err := receive(t, stopped, "serve() to return"); err != nil {
-		t.Errorf("serve() error = %v, want nil", err)
-	}
-}
-
-// A server that stops serving on its own is a failure: serve returns it at
-// once, rather than waiting for a stop that nobody has asked for.
-func TestServeReportsAServerThatStoppedOnItsOwn(t *testing.T) {
-	t.Parallel()
-
-	listener := listen(t)
-	_ = listener.Close() // the server's first Accept fails, and nothing asked it to stop
-
-	stopped := make(chan error, 1)
-	go func() { stopped <- serve(t.Context(), newServer(), listener) }()
-
-	if err := receive(t, stopped, "serve() to return"); !errors.Is(err, net.ErrClosed) {
-		t.Errorf("serve() error = %v, want the closed listener reported", err)
-	}
-}
-
-// A port that is already taken is reported as the failure it is, even when a
-// stop is asked for at the same moment: run takes the port before it serves.
-func TestRunReportsATakenPort(t *testing.T) {
-	t.Parallel()
-
-	taken := listen(t).Addr().String()
 	for _, tc := range []struct {
-		name      string
-		stopAsked bool
+		name       string
+		ctx        context.Context
+		err        error
+		failed     bool
+		errorLines int
 	}{
-		{name: "no stop asked for", stopAsked: false},
-		{name: "a stop asked for at the same moment", stopAsked: true},
+		{name: "the build cut short by the stop", ctx: stopped, err: cutShort, failed: false, errorLines: 0},
+		{name: "a build that failed while a stop arrived", ctx: stopped, err: broken, failed: true, errorLines: 1},
+		{name: "a cancellation nobody asked for", ctx: t.Context(), err: cutShort, failed: true, errorLines: 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			ctx, stop := context.WithCancel(t.Context())
-			defer stop()
-			if tc.stopAsked {
-				stop()
-			}
+			core, logs := observer.New(zapcore.DebugLevel)
+			err := startupFailed(tc.ctx, zap.New(core), tc.err)
 
-			if err := run(ctx, taken, io.Discard); !errors.Is(err, syscall.EADDRINUSE) {
-				t.Errorf("run() error = %v, want the port reported in use", err)
+			if errors.Is(err, errLogged) != tc.failed {
+				t.Errorf("startupFailed() = %v, want a failure: %v", err, tc.failed)
+			}
+			if lines := logs.FilterLevelExact(zapcore.ErrorLevel).Len(); lines != tc.errorLines {
+				t.Errorf("error lines = %d, want %d", lines, tc.errorLines)
+			}
+			if !tc.failed && err != nil {
+				t.Errorf("startupFailed() = %v, want nil for the stop that was asked for", err)
 			}
 		})
 	}
 }
 
 // Either signal a stop arrives by ends the context: the interrupt of a person
-// at a terminal, and the termination Cloud Run sends before it takes an
+// at a terminal, and the termination a platform sends before it takes an
 // instance away. The signal is sent to this test binary itself.
 func TestEitherStopSignalEndsTheContext(t *testing.T) {
 	self, err := os.FindProcess(os.Getpid())
@@ -290,9 +305,49 @@ func TestEitherStopSignalEndsTheContext(t *testing.T) {
 			if err := self.Signal(sig); err != nil {
 				t.Fatalf("send %v: %v", sig, err)
 			}
-			receive(t, ctx.Done(), "the context to end")
+			select {
+			case <-ctx.Done():
+			case <-time.After(10 * time.Second):
+				t.Fatalf("the context is still live 10s after %v, want it ended", sig)
+			}
 		})
 	}
+}
+
+// freePort asks the kernel for a port and gives it straight back, so the test
+// binds a port nobody else is using rather than a number somebody guessed.
+func freePort(t *testing.T) string {
+	t.Helper()
+
+	var lc net.ListenConfig
+	listener, err := lc.Listen(t.Context(), "tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen for a free port: %v", err)
+	}
+	addr, ok := listener.Addr().(*net.TCPAddr)
+	if !ok {
+		t.Fatalf("listener address = %T, want *net.TCPAddr", listener.Addr())
+	}
+	if err := listener.Close(); err != nil {
+		t.Fatalf("close the probe listener: %v", err)
+	}
+	return strconv.Itoa(addr.Port)
+}
+
+func waitUntilListening(t *testing.T, port string) {
+	t.Helper()
+
+	var dialer net.Dialer
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		conn, err := dialer.DialContext(t.Context(), "tcp", net.JoinHostPort("127.0.0.1", port))
+		if err == nil {
+			_ = conn.Close()
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("nothing is listening on port %s after 10s", port)
 }
 
 // signalHelper names the variable that makes this test binary, started again
@@ -300,11 +355,11 @@ func TestEitherStopSignalEndsTheContext(t *testing.T) {
 const signalHelper = "CANVAS_TEST_SIGNAL_HELPER"
 
 // A second signal ends the process at once, whatever it is still doing: the
-// first asked for a stop, and the drain can take seconds that nobody pressing
-// Ctrl-C twice means to wait. The process is this test binary again, asked to
-// stop and then stuck on its way out; a signal after that has to end it.
-// Signals are sent until it ends or ten seconds pass, because the moment the
-// first one stops being caught is the process's own.
+// first asked for a stop, and the way out can take seconds that nobody
+// pressing Ctrl-C twice means to wait. The process is this test binary again,
+// asked to stop and then stuck on its way out; a signal after that has to end
+// it. Signals are sent until it ends or ten seconds pass, because the moment
+// the first one stops being caught is the process's own.
 func TestASecondSignalEndsTheProcess(t *testing.T) {
 	if os.Getenv(signalHelper) == "1" {
 		ctx, _ := signalled()
@@ -314,7 +369,6 @@ func TestASecondSignalEndsTheProcess(t *testing.T) {
 		time.Sleep(time.Minute) // a way out that does not end by itself
 		return
 	}
-	t.Parallel()
 
 	child := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestASecondSignalEndsTheProcess$")
 	child.Env = append(os.Environ(), signalHelper+"=1")
@@ -347,64 +401,6 @@ func TestASecondSignalEndsTheProcess(t *testing.T) {
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
-}
-
-// stamp sets the build identity as the linker would, and puts the placeholders
-// back when the test ends. The identity is the whole process's, so a test that
-// stamps it does not run in parallel: the parallel tests wait until it is over.
-func stamp(t *testing.T) {
-	t.Helper()
-
-	was := [3]string{version.Version, version.Commit, version.Date}
-	version.Version, version.Commit, version.Date = "v1.2.3", "abc1234", "2026-10-12T00:00:00Z"
-	t.Cleanup(func() { version.Version, version.Commit, version.Date = was[0], was[1], was[2] })
-}
-
-// listen takes a free loopback port and holds it until the test ends, so that
-// a test hands over a port it already has rather than one it hopes is free.
-func listen(t *testing.T) net.Listener {
-	t.Helper()
-
-	var lc net.ListenConfig
-	listener, err := lc.Listen(t.Context(), "tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen on a free port: %v", err)
-	}
-	t.Cleanup(func() { _ = listener.Close() })
-	return listener
-}
-
-// receive waits up to five seconds for what ch delivers, and fails the test,
-// naming what it waited for, if nothing comes.
-func receive[T any](t *testing.T, ch <-chan T, what string) T {
-	t.Helper()
-
-	select {
-	case v := <-ch:
-		return v
-	case <-time.After(5 * time.Second):
-		t.Fatalf("waited 5s for %s", what)
-	}
-	var zero T
-	return zero
-}
-
-// getOK asks for url and says what went wrong unless the answer is 200. It
-// runs beside the test, so it reports rather than failing the test itself.
-func getOK(ctx context.Context, url string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
-	if err != nil {
-		return err
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	_ = resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("status %d", resp.StatusCode)
-	}
-	return nil
 }
 
 // endedBySignal says whether a process that ended with err was ended by a

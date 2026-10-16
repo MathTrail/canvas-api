@@ -32,16 +32,15 @@ linters:
     depguard:
       rules:
         # The domain and the use cases may not import the libraries that reach
-        # the outside world (CLAUDE.md, "The dependency rule"): HTTP and its
-        # routers, the clients of Firebase, OpenFGA, Gemini, Postgres,
-        # Centrifugo and Google. The domain is pure computation, and a use case
-        # reaches out only through the ports it declares, which is what lets
-        # both be tested with tables, properties and fakes. The use cases are
-        # check and the packages the MVP epic puts beside it (spec 18), so the
-        # rule holds for every package under internal/ but those whose job is
-        # the outside world: the adapters, the transport, the wiring and the
-        # telemetry's export. A new package of that kind joins the list below
-        # by name.
+        # the outside world: HTTP and its routers, the clients of Firebase,
+        # OpenFGA, Gemini, Postgres, Centrifugo and Google. The domain is pure
+        # computation, and a use case reaches out only through the ports it
+        # declares, which is what lets both be tested with tables, properties
+        # and fakes. The use cases are check and the packages that will sit
+        # beside it, so the rule holds for every package under internal/ but
+        # those whose job is the outside world: the adapters, the transport, the
+        # wiring and the telemetry's export. A new package of that kind joins
+        # the list below by name.
         domain-stays-pure:
           files:
             - "**/internal/**"
@@ -73,7 +72,7 @@ linters:
             - pkg: cloud.google.com/go
               desc: Google's clients belong in internal/infra
         # pgx is the driver of one adapter and of the migrations, and of
-        # nothing else: everywhere else the database is a port (spec 18).
+        # nothing else: everywhere else the database is a port.
         pgx-stays-in-postgres:
           files:
             - "$all"
@@ -112,8 +111,8 @@ linters:
       settings:
         hugeParam:
           # The check's own default. The sample moves it to 88 for a value of
-          # its product that weighs exactly 80 bytes (R47 standalone); nothing
-          # here carries that reason.
+          # its product that weighs exactly 80 bytes; nothing here carries that
+          # reason.
           sizeThreshold: 80
 
     govet:
@@ -143,8 +142,8 @@ linters:
 
   exclusions:
     # No comments preset, unlike the sample: it hides what revive's exported
-    # and package-comments report, and those are how CLAUDE.md's rule of a doc
-    # comment on every package and every exported identifier is enforced.
+    # and package-comments report, and those are what holds every package and
+    # every exported identifier to a doc comment.
     presets:
       - std-error-handling
     rules:

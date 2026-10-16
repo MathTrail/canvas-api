@@ -102,6 +102,10 @@ ARG CLAUDE_CODE_VERSION=2.1.280
 # The cloud is described in Terraform and signed into with gcloud, both from here.
 ARG TERRAFORM_VERSION=1.16.3
 ARG GCLOUD_VERSION=585.0.0
+# The Firebase CLI, which publishes the SPA to Hosting and rolls it back. Its
+# standalone build carries the Node.js it runs on, so the version pinned here is
+# the whole of what runs, whatever Node.js the SPA is built with.
+ARG FIREBASE_TOOLS_VERSION=15.33.0
 
 # The tunnel, the GitHub CLI, the compose plugin and the infrastructure tools, in one
 # layer and behind one architecture check. Cloudflared, gh and Terraform name
@@ -111,7 +115,9 @@ ARG GCLOUD_VERSION=585.0.0
 # The x86_64 archive of gcloud carries a Python interpreter of its own and runs
 # straight out of the tarball; the arm one expects to find a system Python, which
 # this image deliberately does not have, so there gcloud is left out and the same
-# commands are run from Google's own container image instead.
+# commands are run from Google's own container image instead. The Firebase CLI
+# publishes its standalone build for x86_64 alone, so it is left out on arm as
+# well; there its commands run in Cloud Shell (docs/self-hosting.md).
 RUN arch="$(dpkg --print-architecture)"; \
     case "$arch" in \
         amd64) gnu_arch=x86_64 ;; \
@@ -159,8 +165,13 @@ RUN arch="$(dpkg --print-architecture)"; \
         fetch "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-${GCLOUD_VERSION}-linux-x86_64.tar.gz" \
             "$workdir/gcloud-${GCLOUD_VERSION}-x86_64.tar.gz"; \
         tar -C /usr/local -xzf "$workdir/gcloud-${GCLOUD_VERSION}-x86_64.tar.gz"; \
+        echo "firebase ${FIREBASE_TOOLS_VERSION}"; \
+        fetch "https://github.com/firebase/firebase-tools/releases/download/v${FIREBASE_TOOLS_VERSION}/firebase-tools-linux" \
+            "$workdir/firebase-${FIREBASE_TOOLS_VERSION}"; \
+        install -m 0755 "$workdir/firebase-${FIREBASE_TOOLS_VERSION}" /usr/local/bin/firebase; \
     else \
         echo "gcloud ${GCLOUD_VERSION}: skipped, no interpreter in the ${arch} archive"; \
+        echo "firebase ${FIREBASE_TOOLS_VERSION}: skipped, no standalone build for ${arch}"; \
     fi; \
     \
     rm -rf "$workdir"

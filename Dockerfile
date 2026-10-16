@@ -33,11 +33,25 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     -o /server ./cmd/server
 
 # The runtime holds the binary and a certificate bundle, and nothing else: no
-# shell, no package manager, and a non-root user (uid 65532).
-FROM gcr.io/distroless/static-debian13@sha256:58133991db06659feaabe0f4e97a35cebf15ef4ea08f8a4c6d2ee5f75e4aa6a0
-
-COPY --from=build /server /server
+# shell, no package manager, and a non-root user (uid 65532). It is written
+# once, for both images below.
+FROM gcr.io/distroless/static-debian13@sha256:58133991db06659feaabe0f4e97a35cebf15ef4ea08f8a4c6d2ee5f75e4aa6a0 AS runtime
 
 USER nonroot:nonroot
 EXPOSE 8080
 ENTRYPOINT ["/server"]
+
+# The image a delivery rolls out: the runtime around the server a release
+# signed, which the delivery has checked before it gets here. The binary
+# arrives in a build context of its own, named binary and holding it alone as
+# server; downloaded, it has no execute bit, so it is given one here. Built
+# only when asked for by name, --target release.
+FROM runtime AS release
+
+COPY --from=binary --chmod=0555 server /server
+
+# The image built from the source, which the checks build, start and scan. It
+# is the last stage, so a build that names no target gets it.
+FROM runtime
+
+COPY --from=build /server /server

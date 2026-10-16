@@ -1,0 +1,34 @@
+name: firebase
+description: Installs the Firebase CLI at the version this repository pins for it.
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+
+        # The version lives where the development image installs it, as the
+        # default of an ARG, so it is written down once and read from there.
+        dockerfile="$GITHUB_WORKSPACE/.devcontainer/Dockerfile"
+        version="$(sed -n 's/^ARG FIREBASE_TOOLS_VERSION=//p' "$dockerfile")"
+        if [ -z "$version" ]; then
+            echo "firebase: $dockerfile pins no FIREBASE_TOOLS_VERSION" >&2
+            exit 1
+        fi
+
+        # The standalone build, which carries the Node.js it runs on, so that
+        # the version above is the whole of what runs. It is published for
+        # x86_64 alone.
+        if [ "$(uname -m)" != x86_64 ]; then
+            echo "firebase: the standalone build is made for x86_64, and this runner is $(uname -m)" >&2
+            exit 1
+        fi
+
+        echo "firebase $version"
+        mkdir -p "$RUNNER_TEMP/bin"
+        curl -fsSL --retry 3 --proto "=https" --proto-redir "=https" \
+            -o "$RUNNER_TEMP/bin/firebase" \
+            "https://github.com/firebase/firebase-tools/releases/download/v${version}/firebase-tools-linux"
+        chmod 0755 "$RUNNER_TEMP/bin/firebase"
+        echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
