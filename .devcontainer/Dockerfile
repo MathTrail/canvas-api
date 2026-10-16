@@ -207,4 +207,4 @@ RUN echo "gopls ${GOPLS_VERSION}, dlv ${DELVE_VERSION}, claude code ${CLAUDE_COD
 # once it is built, and the one thing that does — the docker daemon started by
 # the docker-in-docker feature — asks for root through sudo itself.
 USER vscode
-RUN mkdir -p /home/vscode/.claude /home/vscode/.config/gcloud /home/vscode/.config/gh
+RUN mkdir -p /home/vscode/.claude /home/vscode/.codex /home/vscode/.config/gcloud /home/vscode/.config/gh

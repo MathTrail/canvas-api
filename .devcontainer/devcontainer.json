@@ -31,6 +31,8 @@
     "mounts": [
         // Claude Code login and settings survive container rebuilds.
         "source=canvas-api-claude,target=/home/vscode/.claude,type=volume",
+        // Codex's ChatGPT sign-in, settings and chat history: its default home, kept the same way.
+        "source=canvas-api-codex,target=/home/vscode/.codex,type=volume",
         // The Google sign-in survives them too: the credentials Terraform reads live here.
         "source=canvas-api-gcloud,target=/home/vscode/.config/gcloud,type=volume",
         // And the GitHub one, so that `gh auth login` is answered once rather than once
@@ -38,7 +40,8 @@
         "source=canvas-api-gh,target=/home/vscode/.config/gh,type=volume"
     ],
     "containerEnv": {
-        // Tells a Claude session it runs in here, the one place it may work.
+        // Tells an agent's session, Claude's or Codex's, that it runs in here, the one place
+        // it may work.
         "MATHTRAIL_DEVCONTAINER": "1",
         "CLAUDE_CONFIG_DIR": "/home/vscode/.claude",
         "DISABLE_AUTOUPDATER": "1"
@@ -57,6 +60,10 @@
             // Exact versions; the Claude Code extension matches CLAUDE_CODE_VERSION.
             "extensions": [
                 "anthropic.claude-code@2.1.280",
+                // OpenAI's coding agent, signed in with a ChatGPT plan. It reads AGENTS.md,
+                // which sends it to the same rules as Claude. The extension brings its own
+                // CLI and sandbox, so the image installs nothing for it.
+                "openai.chatgpt@26.1007.21434",
                 "golang.go@0.56.1",
                 "redhat.vscode-yaml@1.24.0",
                 "nefrob.vscode-just-syntax@0.10.2",
