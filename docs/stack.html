@@ -256,7 +256,7 @@
 
 <div class="wrap">
   <header class="top">
-    <p class="eyebrow">canvas-api · MVP · закрытая бета</p>
+    <p class="eyebrow">canvas-api · E2 — срез с замером Gemini · E15 — закрытая бета</p>
     <h1>Стек MathTrail Canvas <span class="hand">по слоям</span></h1>
     <p class="lede">Что работает на каждом слое — от холста в браузере до Terraform. Собрано из spec&nbsp;2, 3 и 12–20, журнала решений и плана RUN.md. Версии библиотек и сервисов — ориентиры spec&nbsp;3 на 2026-09-27, версии инструментов — из <code>.devcontainer/Dockerfile</code>. Задача, которая подключает технологию, закрепляет её версию точно: в <code>go.mod</code>, lock-файле или по digest.</p>
     <ul class="facts" aria-label="Сводка">
@@ -269,7 +269,7 @@
       <div><dt><span class="chip chip--repo">в репозитории</span></dt><dd>Версия уже закреплена в репозитории — в <code>.devcontainer/</code> (Dockerfile, devcontainer.json), в <code>go.mod</code>, в <code>web/package.json</code> с его lockfile, в <code>justfile</code> или в <code>.github/</code>. Здесь — её снимок на дату внизу страницы.</dd></div>
       <div><dt><span class="chip chip--spec">по спеке</span></dt><dd>Выбор сделан в spec или decisions; версия — ориентир spec&nbsp;3, точно закрепит задача.</dd></div>
       <div><dt><span class="chip chip--sample">из образца</span></dt><dd>Переносится из mathtrail-standalone (R11); версия — как в образце.</dd></div>
-      <div><dt><span class="chip chip--open">не решено</span></dt><dd>Открытый вопрос Т-… или спайк; в строке — рекомендация и где решается: задача эпика E1 или эпик MVP (E2).</dd></div>
+      <div><dt><span class="chip chip--open">не решено</span></dt><dd>Открытый вопрос Т-… или спайк; в строке — рекомендация и где решается: задача эпика E2 или бета (E15).</dd></div>
     </dl>
   </header>
 
@@ -353,20 +353,19 @@
     <h2 class="sec-title" id="open-title">Что ещё предстоит выбрать</h2>
     <p class="sec-sub">Вопросы spec 20 и спайки, от которых зависит выбор технологий. Остальные вопросы spec 20 — Т-11, Т-12 и Т-14 — о поведении сервиса, а не о стеке.</p>
     <dl class="open-list">
-      <div><dt><span class="chip chip--open">Т-1</span>HTTP-роутер</dt><dd>gin v1.12.0 (каркас standalone и mentor-api) или chi v5.3.2 (черновик). Рекомендация — gin; от него зависит и otelgin.</dd><dd class="who">до первого кода эпика MVP (E2)</dd></div>
-      <div><dt><span class="chip chip--open">Т-5</span>ID моделей по вызовам</dt><dd>Чтение ответа: 3.5 Flash-Lite, 3.1 Flash-Lite или 3.8 Flash; разбор черновика: 3.8 Flash (R22).</dd><dd class="who">спайки S1 и S2 (E2)</dd></div>
-      <div><dt><span class="chip chip--open">Т-6</span>Клетка на картинке черновика</dt><dd>С клеткой модели проще назвать место, без неё меньше линий, которые не писал ребёнок.</dd><dd class="who">спайк S2 (E2)</dd></div>
+      <div><dt><span class="chip chip--open">Т-5</span>ID моделей по вызовам</dt><dd>В E2 — один вызов, по умолчанию Flash (R62); eval гоняет журнал автора на Flash-Lite, Flash и Pro. Модели и один вызов или два для беты — по выводам E2 (R22).</dd><dd class="who">выводы E2 (T76)</dd></div>
+      <div><dt><span class="chip chip--open">Т-6</span>Клетка на картинке листа</dt><dd>С клеткой модели проще назвать место, без неё меньше линий, которые не писал ребёнок.</dd><dd class="who">разбиение E15: лист E2 рисуется без клетки</dd></div>
       <div><dt><span class="chip chip--open">Т-7</span>GLB + Cloud Armor</dt><dd>Периметр для роста; готового Terraform в репозиториях MathTrail нет.</dd><dd class="who">эпик E13</dd></div>
-      <div><dt><span class="chip chip--open">Т-15</span>Пулы соединений</dt><dd>Пул pgx, пул OpenFGA и pooler Neon против параллельности 40; числа — по замеру нагрузки.</dd><dd class="who">замер нагрузки (E2)</dd></div>
-      <div><dt><span class="chip chip--open">Т-16</span>Геометрия листа и картинок</dt><dd>Лист 1000 × 1400 единиц, поле ответа 600 × 160, одна единица — один пиксель; уточнить по S1 и S2.</dd><dd class="who">до контрактов (E2)</dd></div>
-      <div><dt><span class="chip chip--open">S1</span>Чтение ответа Gemini</dt><dd>Ложный INCORRECT ≤ 1 %, ложный CORRECT ≤ 0,5 %, лишний UNREADABLE ≤ 5 %, p95 вызова ≤ 1,2 с.</dd><dd class="who">спайк (E2)</dd></div>
-      <div><dt><span class="chip chip--open">S2</span>Разбор черновика Gemini</dt><dd>Рамка на месте ошибки ≥ 80 %, рубрику проходят ≥ 95 % вопросов, утечек ключа нет, p95 вызова ≤ 3,5 с.</dd><dd class="who">спайк (E2)</dd></div>
+      <div><dt><span class="chip chip--open">Т-15</span>Пулы соединений</dt><dd>Пул pgx, пул OpenFGA и pooler Neon против параллельности 40; числа — по замеру нагрузки.</dd><dd class="who">замер нагрузки (E15)</dd></div>
+      <div><dt><span class="chip chip--open">Т-16</span>Геометрия листа и картинок</dt><dd>Поля ответа больше нет (R61). Лист E2 — один экран без прокрутки, альбомный; размеры, PNG (одна единица — один пиксель) и толщину линии закрепляет T67 константами Go, а клиент получает их со списком задач. Книжный лист 1000 × 1400 из spec 4.1 — прежний план.</dd><dd class="who">T67 (E2), до контрактов</dd></div>
+      <div><dt><span class="chip chip--open">S1</span>Чтение ответа Gemini</dt><dd>Заменён экспериментом E2: живой прогон, eval журнала и выводы (R60). Цели — ложный INCORRECT ≤ 1 %, ложный CORRECT ≤ 0,5 %, лишний UNREADABLE ≤ 5 %, p95 вызова ≤ 1,2 с — цели беты: сотня листов E2 — разведка, а не их проверка.</dd><dd class="who">заменён: T74–T76 (E2)</dd></div>
+      <div><dt><span class="chip chip--open">S2</span>Разбор черновика Gemini</dt><dd>Заменён экспериментом E2: разбор листа — часть его единственного вызова (R60). Цели — рамка на месте ошибки ≥ 80 %, рубрику проходят ≥ 95 % вопросов, утечек ключа нет, p95 вызова ≤ 3,5 с — цели беты: сотня листов E2 — разведка, а не их проверка.</dd><dd class="who">заменён: T74–T76 (E2)</dd></div>
     </dl>
     <h3 class="sub-title">Оставлено задаче</h3>
     <p class="sec-sub">Spec называет варианты и отдаёт выбор задаче, которая пишет этот код. Отдельного вопроса Т-… для них нет.</p>
     <dl class="open-list">
-      <div><dt><span class="chip chip--open">выбор в E2</span>Публикация в Centrifugo</dt><dd>gocent v3.4.0 или свой клиент на <code>net/http</code> (spec 3.2).</dd><dd class="who">эпик MVP (E2)</dd></div>
-      <div><dt><span class="chip chip--open">выбор в E2</span>Neon и Upstash в Terraform</dt><dd>Через их провайдеры, если они есть и лицензия подходит; иначе руками по записанной инструкции (spec 15.2).</dd><dd class="who">эпик MVP (E2)</dd></div>
+      <div><dt><span class="chip chip--open">выбор в E15</span>Публикация в Centrifugo</dt><dd>gocent v3.4.0 или свой клиент на <code>net/http</code> (spec 3.2).</dd><dd class="who">бета (E15)</dd></div>
+      <div><dt><span class="chip chip--open">выбор в E15</span>Neon и Upstash в Terraform</dt><dd>Через их провайдеры, если они есть и лицензия подходит; иначе руками по записанной инструкции (spec 15.2).</dd><dd class="who">бета (E15)</dd></div>
     </dl>
   </section>
 
@@ -383,10 +382,10 @@
       <li><s>golang-jwt + keyfunc для ID token</s><span>Admin SDK всё равно нужен для удаления аккаунта и сам кеширует ключи. R14</span></li>
       <li><s>Mathpix и движок проверки шагов</s><span>Каждому следующему предмету понадобился бы свой движок; верность ответа решает ключ. R37</span></li>
       <li><s>Модель сама решает, верен ли ответ</s><span>Она могла бы назвать верный ответ неверным, и ключ бы этого не поймал. R37, R38</span></li>
-      <li><s>Черновик на сервере</s><span>Штрихи остаются на устройстве, на проверку уходят две картинки, и сервер их не хранит. R42</span></li>
+      <li><s>Черновик на сервере</s><span>Штрихи остаются на устройстве, на проверку уходит одна картинка листа, и сервер её не хранит; штрихи вместо картинки меряет исследование E2. R42, R61, R66</span></li>
       <li><s>Gemini 2.5 Flash</s><span>Снимается 16.10.2026; модели — с точным ID через eval-набор. R22</span></li>
       <li><s>Горутина после ответа, Cloud Tasks</s><span>Cloud Run почти не даёт CPU после ответа; всё внутри запроса. R23</span></li>
-      <li><s>k6, Locust, Gatling</s><span>Протокол API и protobuf пришлось бы вести на втором языке; инструмент — на Go. RUN.md, черновик разбиения E2</span></li>
+      <li><s>k6, Locust, Gatling</s><span>Протокол API и protobuf пришлось бы вести на втором языке; инструмент — на Go. Черновик разбиения беты, docs/plan/E2-draft.md</span></li>
       <li><s>DI-фреймворк</s><span>Ручной контейнер <code>app.NewContainer</code>, как в mentor-api. CLAUDE.md, Wiring</span></li>
     </ul>
   </section>
@@ -411,8 +410,8 @@
   </section>
 
   <footer>
-    <p>Это сводка, а не источник: где она расходится со spec, журналом решений или RUN.md, правы они. Статусы — на 2026-10-14: сделаны T00–T10, T59 и T60, документы пересмотрены под поворот LLM-first (R37–R45).</p>
-    <p>Источники: docs/spec.md (разделы 2, 3, 12–20), docs/decisions.md (R01–R57), docs/plan/E1.md (задачи эпика E1), RUN.md (таблица 2), .devcontainer/Dockerfile и devcontainer.json, web/package.json, justfile и .github/; версии образца — reference/mathtrail-standalone.</p>
+    <p>Это сводка, а не источник: где она расходится со spec, журналом решений или RUN.md, правы они. Статусы — на 2026-10-16: сделан эпик E1 (T00–T12, T59, T60); документы пересмотрены под поворот LLM-first (R37–R45) и под E2 — срез с замером Gemini, после которого идёт бета E15 (R60–R67, T61, T62). Строка с E2 строится в E2, с E15 — в бете.</p>
+    <p>Источники: docs/spec.md (разделы 2, 3, 12–20), docs/decisions.md (R01–R67), docs/plan/E1.md (задачи эпика E1), RUN.md (таблицы 1 и 2), .devcontainer/Dockerfile и devcontainer.json, web/package.json, justfile и .github/; версии образца — reference/mathtrail-standalone.</p>
     <p>Цены и лимиты сервисов — из spec 3.3 на 2026-09-27, цены Gemini — на 2026-10-11; перед живым запуском их сверяют заново.</p>
   </footer>
 </div>
@@ -432,38 +431,38 @@
       { n: "React", p: "react · react-dom", v: "19.3.0", r: "Экраны родителя и детского режима", s: "repo", ref: "spec 3.1 · T05" },
       { n: "Vite", v: "8.3.4", r: "Dev-сервер на 127.0.0.1:5173 и сборка SPA в web/dist", s: "repo", ref: "spec 3.1 · T05" },
       { n: "@vitejs/plugin-react", v: "6.1.2", r: "JSX и Fast Refresh в dev-сервере: правка компонента без перезагрузки страницы; без Babel", s: "repo", ref: "R47 · T05" },
-      { n: "Konva + react-konva", p: "konva · react-konva", v: "10.7.x / 19.3.x", r: "Лист: слои записи и подсказок; поле ответа — своя сцена", s: "spec", ref: "spec 3.1 · E2" },
-      { n: "Pointer Events", p: "API браузера", v: "", r: "Перо или палец по pointerType, нажим — только для толщины на экране; касание шире 30 px — ладонь", s: "spec", ref: "spec 3.1 · E2" },
+      { n: "Konva + react-konva", p: "konva · react-konva", v: "10.7.x / 19.3.x", r: "Лист: слои записи и подсказок; поля ответа нет", s: "spec", ref: "spec 3.1 · R61 · E2" },
+      { n: "Pointer Events", p: "API браузера", v: "", r: "В E2 — мышь и перо графического планшета, нажим — только для толщины на экране; палец и ладонь (касание шире 30 px) — в бете", s: "spec", ref: "spec 3.1 · T48 · E2" },
       { n: "protobuf-es", p: "@bufbuild/protobuf · protoc-gen-es", v: "2.15.x", r: "Сообщения API из proto/ в web/src/gen/", s: "spec", ref: "R12 · E2" },
-      { n: "centrifuge-js", p: "centrifuge", v: "5.7.x", r: "WebSocket, восстановление истории, обновление токена через getToken", s: "spec", ref: "spec 8.5 · E2" },
-      { n: "Firebase JS SDK", p: "firebase/auth · firebase/app-check", v: "12.19.x", r: "Вход через Google и Apple; токен App Check с автообновлением", s: "spec", ref: "spec 12.1 · E2" },
-      { n: "IndexedDB", p: "API браузера · storage.persist()", v: "", r: "Черновик и поле ответа живут на устройстве; стираются по правилам R42", s: "spec", ref: "spec 4.2 · R42 · E2" },
-      { n: "Картинки проверки", p: "<canvas> вне экрана · toBlob", v: "", r: "PNG поля ответа и черновика по Check; линии постоянной толщины, без нажима", s: "spec", ref: "spec 4.3 · E2" },
+      { n: "centrifuge-js", p: "centrifuge", v: "5.7.x", r: "WebSocket, восстановление истории, обновление токена через getToken", s: "spec", ref: "spec 8.5 · E15" },
+      { n: "Firebase JS SDK", p: "firebase/auth · firebase/app-check", v: "12.19.x", r: "Вход через Google и Apple; токен App Check с автообновлением", s: "spec", ref: "spec 12.1 · E15" },
+      { n: "IndexedDB", p: "API браузера · storage.persist()", v: "", r: "В бете лист живёт на устройстве между перезагрузками и стирается по правилам R42; в E2 — журнал проверок автора", s: "spec", ref: "spec 4.2 · R42, R65 · E2, E15" },
+      { n: "Картинки проверки", p: "<canvas> вне экрана · toBlob", v: "", r: "PNG листа по Send Answer; линии постоянной толщины, без нажима", s: "spec", ref: "spec 4.3 · R61 · E2" },
       { n: "Biome", p: "@biomejs/biome", v: "2.5.15", r: "Формат и линт TypeScript (biome.json); правила домена React включаются сами", s: "repo", ref: "R84 standalone · T05" },
       { n: "Vitest + happy-dom", p: "+ @vitest/coverage-v8", v: "5.0.3 / 20.14.6", r: "Unit-тесты компонентов, пересчёта координат, привязки рамки и картинок проверки; покрытие в web/coverage/lcov.info", s: "repo", ref: "T05" }
     ]},
     { id: "contract", name: "Контракт API", path: "proto/canvasapi/v1/ · gen/", note: "один источник правды", rows: [
       { n: "Protocol Buffers", p: "пакет canvasapi.v1", v: "", r: "Единый контракт клиента и сервера; тело — application/x-protobuf", s: "spec", ref: "R12 · spec 8" },
-      { n: "buf", v: "закрепит эпик MVP", r: "buf lint, buf breaking против main, генерация Go и TS", s: "spec", ref: "R12 · E2" },
+      { n: "buf", v: "закрепит T18", r: "buf lint, buf breaking против main, генерация Go и TS", s: "spec", ref: "R12 · T18 · E2" },
       { n: "protobuf-go", p: "google.golang.org/protobuf · protoc-gen-go", v: "v1.36.12", r: "Сгенерированный Go в gen/ коммитится; CI сверяет, что он актуален", s: "spec", ref: "spec 3.2 · E2" },
       { n: "protojson", p: "google.golang.org/protobuf/encoding/protojson", v: "v1.36.12", r: "JSON-тела только при CANVAS_ENV=local и никогда при K_SERVICE", s: "spec", ref: "spec 8.1 · E2" }
     ]},
-    { id: "transport", name: "Транспорт", path: "internal/transport/http/", note: "CORS → App Check → токен → лимиты", rows: [
+    { id: "transport", name: "Транспорт", path: "internal/transport/http/", note: "E2: CORS → ключ; бета: CORS → App Check → токен → лимиты", rows: [
       { n: "net/http", p: "stdlib", v: "Go 1.27.2", r: "HTTP-сервер с тайм-аутами и плавной остановкой", s: "repo", ref: "T02 · E2" },
-      { n: "gin", p: "github.com/gin-gonic/gin", v: "v1.12.0", r: "Роутер и middleware, как в каркасе standalone; вариант — chi v5.3.2", s: "open", q: "Т-1", ref: "рекомендация gin · E2" },
-      { n: "Цепочка middleware", p: "свой код", v: "", r: "CORS, App Check, ID token, лимиты; плюс X-Request-Id, заголовки безопасности, recover", s: "spec", ref: "spec 8.1 · E2" },
+      { n: "gin", p: "github.com/gin-gonic/gin", v: "v1.12.0", r: "Роутер и middleware, как в каркасе standalone и mentor-api", s: "spec", ref: "R67 · T16 · E2" },
+      { n: "Цепочка middleware", p: "свой код", v: "", r: "E2: CORS, затем ключ доступа; бета: CORS, App Check, ID token, лимиты. Плюс X-Request-Id, заголовки безопасности, recover", s: "spec", ref: "spec 8.1 · R64 · E2" },
       { n: "apierror", p: "internal/apierror", v: "", r: "Плоское тело {code, message, details?} с кодами spec 8.3", s: "sample", ref: "R11 · E2" },
-      { n: "otelgin", p: "go.opentelemetry.io/contrib/…/otelgin", v: "v0.71.0", r: "Спан на входящий запрос, если роутер — gin; /health не трассируется, IP и user agent затираются", s: "open", q: "Т-1", ref: "E2" }
+      { n: "otelgin", p: "go.opentelemetry.io/contrib/…/otelgin", v: "v0.71.0", r: "Спан на входящий запрос; /health не трассируется, IP и user agent затираются", s: "spec", ref: "spec 16 · R67 · E15" }
     ]},
     { id: "domain", name: "Домен и сценарии", path: "internal/domain/ · internal/check/", note: "домен без I/O — тестируется таблицами", rows: [
       { n: "Чистая логика", p: "depguard domain-stays-pure", v: "Go 1.27.2", r: "Ни net/http, ни SDK, ни pgx: линтер не пропустит такой импорт", s: "repo", ref: "CLAUDE.md · T04" },
       { n: "math/big", p: "big.Rat", v: "stdlib", r: "Точное сравнение числового ответа с ключом — после белого списка формы", s: "spec", ref: "spec 5.2, 5.3 · E2" },
       { n: "image · image/draw · image/png", p: "stdlib", v: "", r: "Проверка картинок и перекодирование в grayscale: метаданные файла отбрасываются", s: "spec", ref: "spec 4.3 · E2" },
-      { n: "canvas", p: "internal/domain/canvas", v: "", r: "Лист и координаты, картинки проверки, перевод рамки в единицы листа", s: "spec", ref: "spec 4 · E2" },
-      { n: "answer", p: "internal/domain/answer", v: "", r: "Нормализация, белый список формы, сравнение с ключом, вердикт; промпт чтения", s: "spec", ref: "spec 5 · E2" },
-      { n: "tutor", p: "internal/domain/tutor", v: "", r: "Маршрут после вердикта, лестница, проверки вопроса, шаблоны; промпт разбора", s: "spec", ref: "spec 6, 7 · E2" },
-      { n: "check", p: "internal/check", v: "", r: "Ход проверки вне домена: аренда, лимиты, вызовы и события через свои порты", s: "spec", ref: "spec 8.4, 18 · E2" },
-      { n: "Порты", p: "Recognizer · Tutor · Authorizer · Notifier · Store", v: "", r: "Объявляют сценарии, реализуют адаптеры; Store — узкий, по потребителю", s: "spec", ref: "spec 1, 18 · CLAUDE.md" }
+      { n: "canvas", p: "internal/domain/canvas", v: "", r: "Лист и координаты, картинка проверки, перевод рамки в единицы листа", s: "spec", ref: "spec 4 · T67 · E2" },
+      { n: "answer", p: "internal/domain/answer", v: "", r: "Нормализация, белый список формы, сверка value с written, сравнение с ключом, вердикт", s: "spec", ref: "spec 5 · R62 · T66 · E2" },
+      { n: "tutor", p: "internal/domain/tutor", v: "", r: "Проверки вопроса, запасной текст и шаблоны; лестница — в бете", s: "spec", ref: "spec 6, 7 · T34 · E2" },
+      { n: "check", p: "internal/check", v: "", r: "Ход проверки вне домена: в E2 — дневной потолок и один вызов через порт разбора; в бете — аренда, лимиты, вызовы и события", s: "spec", ref: "spec 8.4, 18 · T69 · E2" },
+      { n: "Порты", p: "Recognizer · Tutor · Authorizer · Notifier · Store", v: "", r: "Объявляют сценарии, реализуют адаптеры; Store — узкий, по потребителю. В E2 — один порт разбора листа, имя выбирает T35", s: "spec", ref: "spec 1, 18 · CLAUDE.md" }
     ]},
     { id: "frame", name: "Каркас", path: "internal/app · config · logger · version", note: "как в standalone, R11", rows: [
       { n: "zap", p: "go.uber.org/zap", v: "v1.28.0", r: "JSON-логи с ключами Cloud Run: severity, message, time", s: "sample", ref: "R11 · E2" },
@@ -473,48 +472,50 @@
       { n: "version + ldflags", p: "internal/version", v: "", r: "Version, Commit, Date через -ldflags -X; коммит виден в /health", s: "repo", ref: "T04" }
     ]},
     { id: "infra", name: "Адаптеры", path: "internal/infra/", note: "реализуют порты сценариев", rows: [
-      { n: "Firebase Admin SDK", p: "firebase.google.com/go/v4", v: "v4.22.0", r: "ID token с отзывом и без, App Check, RevokeRefreshTokens, DeleteUser", s: "spec", ref: "R14 · E2" },
-      { n: "OpenFGA Go SDK", p: "github.com/openfga/go-sdk", v: "v0.8.3", r: "Check, кортежи пачками до 100, модель применяется при старте", s: "spec", ref: "R28 · E2" },
-      { n: "pgx", p: "github.com/jackc/pgx/v5", v: "v5.11.0", r: "Пул и транзакции; импортируют только infra/postgres и cmd/migrate", s: "spec", ref: "spec 3.2 · E2" },
-      { n: "goose", p: "github.com/pressly/goose/v3", v: "v3.28.0", r: "SQL-миграции «сначала добавить, потом убрать»; job canvas-migrate", s: "spec", ref: "spec 15.5 · E2" },
-      { n: "Gen AI SDK", p: "google.golang.org/genai", v: "v1.71.0", r: "Gemini через BackendVertexAI: 4 с на чтение ответа, 8 с на разбор черновика", s: "spec", ref: "spec 7.1 · E2" },
-      { n: "golang-jwt", p: "github.com/golang-jwt/jwt/v5", v: "v5.3.1", r: "HS256-токены подключения и подписки Centrifugo", s: "spec", ref: "spec 12.4 · E2" },
-      { n: "Публикация в Centrifugo", p: "gocent/v3 или свой на net/http", v: "v3.4.0", r: "HTTP API /api/publish; сбой публикации логируется, ответ всё равно несёт события", s: "open", q: "выбор в E2", ref: "spec 3.2 · E2" }
+      { n: "Firebase Admin SDK", p: "firebase.google.com/go/v4", v: "v4.22.0", r: "ID token с отзывом и без, App Check, RevokeRefreshTokens, DeleteUser", s: "spec", ref: "R14 · E15" },
+      { n: "OpenFGA Go SDK", p: "github.com/openfga/go-sdk", v: "v0.8.3", r: "Check, кортежи пачками до 100, модель применяется при старте", s: "spec", ref: "R28 · E15" },
+      { n: "pgx", p: "github.com/jackc/pgx/v5", v: "v5.11.0", r: "Пул и транзакции; импортируют только infra/postgres и cmd/migrate", s: "spec", ref: "spec 3.2 · E15" },
+      { n: "goose", p: "github.com/pressly/goose/v3", v: "v3.28.0", r: "SQL-миграции «сначала добавить, потом убрать»; job canvas-migrate", s: "spec", ref: "spec 15.5 · E15" },
+      { n: "Gen AI SDK", p: "google.golang.org/genai", v: "v1.71.0", r: "Gemini через BackendVertexAI: в E2 один вызов, тайм-аут выбирает T35; в бете по плану — 4 с на чтение ответа, 8 с на разбор", s: "spec", ref: "spec 7.1 · R62 · T35 · E2" },
+      { n: "golang-jwt", p: "github.com/golang-jwt/jwt/v5", v: "v5.3.1", r: "HS256-токены подключения и подписки Centrifugo", s: "spec", ref: "spec 12.4 · E15" },
+      { n: "Публикация в Centrifugo", p: "gocent/v3 или свой на net/http", v: "v3.4.0", r: "HTTP API /api/publish; сбой публикации логируется, ответ всё равно несёт события", s: "open", q: "выбор в E15", ref: "spec 3.2 · E15" }
     ]},
     { id: "access", name: "Вход и права", path: "Firebase · OpenFGA-сайдкар", note: "субъект — всегда родитель", rows: [
-      { n: "Firebase Auth", p: "Google · Apple", v: "Blaze, 50 000 MAU", r: "Вход родителя; провайдеры и их секреты описаны в Terraform", s: "spec", ref: "R34 · E2" },
-      { n: "Apple Developer Program", p: "членство", v: "", r: "Нужно для входа через Apple", s: "spec", ref: "spec 12.1 · E2" },
-      { n: "Firebase App Check", p: "reCAPTCHA Enterprise, score-based", v: "токен на 1 ч", r: "Каждый вызов API, кроме /health и preflight, несёт токен приложения", s: "spec", ref: "spec 8.1 · E2" },
-      { n: "OpenFGA", p: "openfga/openfga, сайдкар", v: "v1.21.0", r: "ReBAC «родитель → ребёнок → холст» на 127.0.0.1:8088; хранилище в Neon", s: "spec", ref: "R09 · spec 12.3 · E2" },
-      { n: "OpenFGA CLI", p: "закреплённый образ", v: "по digest", r: "Тесты модели deploy/openfga/model.fga (.fga.yaml) в CI", s: "spec", ref: "E2" },
-      { n: "argon2id", p: "golang.org/x/crypto/argon2", v: "", r: "Хеш PIN для выхода из детского режима", s: "spec", ref: "spec 12.2 · E2" },
-      { n: "SHA-256 инвайт-кодов", p: "crypto/sha256", v: "stdlib", r: "В Neon лежит только хеш одноразового кода беты; email не читается", s: "spec", ref: "R29 · E2" }
+      { n: "Firebase Auth", p: "Google · Apple", v: "Blaze, 50 000 MAU", r: "Вход родителя; провайдеры и их секреты описаны в Terraform", s: "spec", ref: "R34 · E15" },
+      { n: "Apple Developer Program", p: "членство", v: "", r: "Нужно для входа через Apple", s: "spec", ref: "spec 12.1 · E15" },
+      { n: "Firebase App Check", p: "reCAPTCHA Enterprise, score-based", v: "токен на 1 ч", r: "Каждый вызов API, кроме /health и preflight, несёт токен приложения", s: "spec", ref: "spec 8.1 · E15" },
+      { n: "Ключ доступа", p: "Secret Manager · свой middleware", v: "", r: "В E2 вместо входа и App Check: случайный ключ генерирует ci-tf-apply, автор вводит его в SPA; плюс дневной потолок вызовов Gemini", s: "spec", ref: "R64 · T64, T65 · E2" },
+      { n: "OpenFGA", p: "openfga/openfga, сайдкар", v: "v1.21.0", r: "ReBAC «родитель → ребёнок → холст» на 127.0.0.1:8088; хранилище в Neon", s: "spec", ref: "R09 · spec 12.3 · E15" },
+      { n: "OpenFGA CLI", p: "закреплённый образ", v: "по digest", r: "Тесты модели deploy/openfga/model.fga (.fga.yaml) в CI", s: "spec", ref: "E15" },
+      { n: "argon2id", p: "golang.org/x/crypto/argon2", v: "", r: "Хеш PIN для выхода из детского режима", s: "spec", ref: "spec 12.2 · E15" },
+      { n: "SHA-256 инвайт-кодов", p: "crypto/sha256", v: "stdlib", r: "В Neon лежит только хеш одноразового кода беты; email не читается", s: "spec", ref: "R29 · E15" }
     ]},
     { id: "ai", name: "ИИ", path: "Gemini Enterprise Agent Platform", note: "вердикт — программа по ключу, модель читает и объясняет", rows: [
-      { n: "Gemini — чтение ответа", p: "gemini-3.5-flash-lite; по Т-5 — 3.1 Flash-Lite или 3.8 Flash", v: "точный ID", r: "Читает картинку поля ответа без условия и ключа; верен ли ответ, решает программа", s: "open", q: "Т-5", ref: "R22, R38 · S1 · E2" },
-      { n: "Gemini — разбор черновика", p: "gemini-3.8-flash", v: "точный ID", r: "После неверного ответа: рамка места ошибки и один вопрос; видит ключ, поэтому вопрос проходит проверку утечки", s: "open", q: "Т-5, Т-6", ref: "R39 · S2 · E2" },
-      { n: "Gemini Enterprise Agent Platform", p: "бывший Vertex AI", v: "", r: "Где работают модели; кеширование выключено, функции хранения данных не используются", s: "spec", ref: "privacy 5.2 · spec 3.3" },
-      { n: "Eval-наборы", p: "свои", v: "", r: "Чтение ответа и разбор черновика на образцах взрослых; детские — только по П-10", s: "spec", ref: "spec 17 · S1, S2 · E2" }
+      { n: "Gemini — разбор листа, один вызов", p: "по умолчанию Flash; eval — Flash-Lite, Flash и Pro", v: "точный ID", r: "Видит лист, условие, ключ и решение; находит итоговый ответ и читает его дважды, разбирает решение, задаёт вопрос; вердикт выносит программа", s: "open", q: "Т-5", ref: "R22, R62 · T35 · E2" },
+      { n: "Gemini — чтение ответа", p: "gemini-3.5-flash-lite; по Т-5 — 3.1 Flash-Lite или 3.8 Flash", v: "точный ID", r: "Бета по плану до E2: читает ответ на листе без условия и ключа; верен ли ответ, решает программа. Один вызов или два — по выводам E2", s: "open", q: "Т-5", ref: "R22, R38 · T76 · E15" },
+      { n: "Gemini — разбор черновика", p: "gemini-3.8-flash", v: "точный ID", r: "Бета по плану до E2, после неверного ответа: рамка места ошибки и один вопрос; видит ключ, поэтому вопрос проходит проверку утечки", s: "open", q: "Т-5, Т-6", ref: "R39 · T76 · E15" },
+      { n: "Gemini Enterprise Agent Platform", p: "бывший Vertex AI", v: "", r: "Где работают модели; кеширование выключено ресурсом Terraform, функции хранения данных не используются", s: "spec", ref: "privacy 5.2 · spec 3.3, 15.2 · R62 · T64" },
+      { n: "Eval-наборы", p: "свои", v: "", r: "just eval: журнал автора на Flash-Lite, Flash и Pro — с ключом, без него и «только чтение»; образцы — только взрослых, детские — по П-10", s: "spec", ref: "spec 17 · R65 · T74 · E2" }
     ]},
     { id: "realtime", name: "Realtime", path: "Cloud Run · Upstash", note: "вердикт сразу, подсказка следом", rows: [
-      { n: "Centrifugo", p: "centrifugo/centrifugo, свой сервис :8000", v: "v6.9.6", r: "WebSocket до клиента: события verdict и hint, история и восстановление после разрыва", s: "spec", ref: "R23 · spec 8.5 · E2" },
-      { n: "Upstash Redis", p: "rediss://", v: "Free, 500 тыс. команд в месяц", r: "Движок Centrifugo: история каналов и готовность к нескольким инстансам; Северная Вирджиния", s: "spec", ref: "spec 3.3 · R54 · S3 · E2" }
+      { n: "Centrifugo", p: "centrifugo/centrifugo, свой сервис :8000", v: "v6.9.6", r: "WebSocket до клиента: события verdict и hint, история и восстановление после разрыва", s: "spec", ref: "R23 · spec 8.5 · E15" },
+      { n: "Upstash Redis", p: "rediss://", v: "Free, 500 тыс. команд в месяц", r: "Движок Centrifugo: история каналов и готовность к нескольким инстансам; Северная Вирджиния", s: "spec", ref: "spec 3.3 · R54 · S3 · E15" }
     ]},
     { id: "data", name: "Данные", path: "Neon · migrations/ · tasks/", note: "состояние вне процессов", rows: [
-      { n: "Neon Postgres", p: "базы canvas и openfga", v: "Free, 0,5 ГБ", r: "Данные приложения и хранилище OpenFGA; автопауза через 5 мин простоя; регион aws-us-east-1", s: "spec", ref: "R08 · R54 · E2" },
-      { n: "PostgreSQL в контейнере", p: "docker compose, образ по digest", v: "", r: "Локальный запуск и интеграционные тесты", s: "spec", ref: "E2" },
-      { n: "Встроенные задачи", p: "tasks/*.json · go:embed", v: "", r: "Пять статичных задач в бинарнике, временно до каталога; ключ клиенту не отдаётся", s: "spec", ref: "R40 · spec 8.6 · E2" }
+      { n: "Neon Postgres", p: "базы canvas и openfga", v: "Free, 0,5 ГБ", r: "Данные приложения и хранилище OpenFGA; автопауза через 5 мин простоя; регион aws-us-east-1", s: "spec", ref: "R08 · R54 · E15" },
+      { n: "PostgreSQL в контейнере", p: "docker compose, образ по digest", v: "", r: "Локальный запуск и интеграционные тесты", s: "spec", ref: "E15" },
+      { n: "Встроенные задачи", p: "tasks/*.json · go:embed", v: "", r: "Шесть статичных задач, по одной на класс 1–6, в бинарнике, временно до каталога; ключ клиенту не отдаётся", s: "spec", ref: "R63 · spec 8.6 · T19 · E2" }
     ]},
     { id: "cloud", name: "Облако и поставка", path: "infra/terraform/ · .github/workflows/", note: "мерж в main → prod", rows: [
       { n: "Cloud Run — сервисы", p: "canvas-api + сайдкар · Centrifugo", v: "min 0 · max 1", r: "Масштаб до нуля; рост — сменой max-instances без правки кода; us-east4, свои адреса run.app; canvas-api описан Terraform", s: "repo", ref: "R01 · R54 · R55 · spec 15.3 · T10" },
       { n: "Cloud Run — jobs", p: "canvas-migrate · openfga-migrate · cleanup · admin", v: "", r: "Миграции на новом образе до выкладки; ежедневная очистка; инвайты и согласие", s: "spec", ref: "R31 · spec 15.5" },
-      { n: "Cloud Scheduler", v: "", r: "Запускает ежедневную очистку", s: "spec", ref: "spec 15.2 · E2" },
+      { n: "Cloud Scheduler", v: "", r: "Запускает ежедневную очистку", s: "spec", ref: "spec 15.2 · E15" },
       { n: "Artifact Registry", v: "", r: "Образы сервиса в us-east4; ссылки только по digest; автоочистка — 5 последних, старше 30 дней удаляются", s: "repo", ref: "R56 · T10 · T11" },
-      { n: "Secret Manager", v: "7 секретов", r: "URL баз, ключи Centrifugo, Upstash, секреты входа Apple и Google", s: "spec", ref: "spec 13 · R34" },
+      { n: "Secret Manager", v: "7 секретов в бете", r: "В E2 — ключ доступа; в бете — URL баз, ключи Centrifugo, Upstash, секреты входа Apple и Google", s: "spec", ref: "spec 13 · R34, R64 · T64" },
       { n: "Firebase Hosting", v: "CDN", r: "Раздаёт SPA с https://mathtrail-canvas-prod.web.app; API и Centrifugo — по своим адресам Cloud Run; сайт описан Terraform", s: "repo", ref: "R10 · R55 · T10 · T11" },
       { n: "Terraform CLI", v: "1.16.3", r: "Весь проект как код; состояние в GCS; проект, бакет и WIF — разовый bootstrap; tf-check в CI", s: "repo", ref: "spec 15.2 · R56 · T10" },
       { n: "Провайдеры Terraform", p: "google; google-beta — для Firebase", v: "8.3.0", r: "Точные версии и .terraform.lock.hcl в репозитории; поднимаются руками", s: "repo", ref: "spec 15.2 · R56 · T10" },
-      { n: "Neon и Upstash в Terraform", p: "их провайдеры", v: "", r: "Если провайдер есть и лицензия подходит; иначе руками по инструкции", s: "open", q: "выбор в E2", ref: "spec 15.2 · E2" },
+      { n: "Neon и Upstash в Terraform", p: "их провайдеры", v: "", r: "Если провайдер есть и лицензия подходит; иначе руками по инструкции", s: "open", q: "выбор в E15", ref: "spec 15.2 · E15" },
       { n: "GitHub Actions", p: "actions по SHA", v: "", r: "CI на каждом PR и коммите main — в образе тулчейна по digest; подписанный релиз после зелёного CI на main и его выкладка в том же прогоне; план Terraform на PR", s: "repo", ref: "R33, R45, R49, R58 · T06, T08, T11" },
       { n: "Окружения GitHub", p: "prod · prod-hosting", v: "только main", r: "Задания, которые меняют prod, и выкладка SPA; по их subject аккаунты и одалживаются", s: "repo", ref: "R58 · T11" },
       { n: "Workload Identity Federation", v: "", r: "Выкладка входит в GCP без ключей: пул пускает только deploy.yml, каждый аккаунт одалживается по subject окружения; пул и провайдер создаёт bootstrap", s: "repo", ref: "spec 15.5 · R56 · R58 · T10, T11" },
@@ -522,13 +523,13 @@
       { n: "firebase-tools", p: "автономный бинарник, x86_64", v: "15.33.0", r: "firebase deploy --only hosting в CD; откат — hosting:clone прошлого выпуска", s: "repo", ref: "R58 · T11" },
       { n: "Образ сервиса", p: "golang → gcr.io/distroless/static-debian13", v: "по digest", r: "Многоэтапная сборка: CGO_ENABLED=0, -trimpath, пользователь nonroot; в prod — тот же distroless вокруг подписанного сервера релиза", s: "repo", ref: "T04 · R58" },
       { n: "cosign + gh release", p: "подпись без ключей, OIDC", v: "v3.1.3", r: "Подписанный релиз vX.Y.Z на каждом зелёном main: сервер amd64 и arm64, архив SPA, SHA256SUMS. Выкладка берёт его файлы, проверив подпись и коммит. Тем же cosign main подписывает образ тулчейна и сверяет подпись перед проверками", s: "repo", ref: "R40 standalone, R45, R52, R53, R58 · T08, T11" },
-      { n: "Бюджет GCP", p: "budget.tf", v: "$1 · 50 / 90 / 100 %", r: "Оповещения о тратах проекта", s: "repo", ref: "spec 14.4 · R56 · T10" }
+      { n: "Бюджет GCP", p: "budget.tf", v: "$1 · 50 / 90 / 100 %", r: "Оповещения о тратах проекта; на время E2 — $20 в месяц, сумму меняет T64", s: "repo", ref: "spec 14.4 · R56, R60 · T10" }
     ]},
     { id: "obs", name: "Наблюдаемость", path: "internal/telemetry/", note: "в логах только UUID и коды", rows: [
-      { n: "OpenTelemetry Go", p: "otel · otlptracehttp · otlpmetrichttp · GCP detector", v: "v1.46.0", r: "Трассы и метрики; экспорт на telemetry.googleapis.com, сброс до ответа", s: "sample", ref: "spec 16 · E2" },
-      { n: "Cloud Trace", v: "хранение 30 дней", r: "Спаны: запрос, OpenFGA, картинки, Neon, Gemini, Centrifugo; хранятся в us-east4", s: "spec", ref: "spec 16 · R57 · E2" },
-      { n: "Cloud Monitoring", v: "", r: "Метрики canvas_* и алерты: 5xx, p95 до вердикта, сбои чтения, доля запасных подсказок; алерт на число запросов — alert.tf; just usage читает метрики Cloud Run против бесплатного лимита", s: "spec", ref: "spec 16 · R56 · T10, T12, E2" },
-      { n: "Cloud Logging", v: "", r: "JSON-логи zap, связанные с трассой; только UUID, коды и тайминги — без картинок и прочитанного ответа; бакет default-us-east4, 30 дней", s: "spec", ref: "spec 16 · R57 · E2" }
+      { n: "OpenTelemetry Go", p: "otel · otlptracehttp · otlpmetrichttp · GCP detector", v: "v1.46.0", r: "Трассы и метрики; экспорт на telemetry.googleapis.com, сброс до ответа", s: "sample", ref: "spec 16 · E15" },
+      { n: "Cloud Trace", v: "хранение 30 дней", r: "Спаны: запрос, OpenFGA, картинки, Neon, Gemini, Centrifugo; хранятся в us-east4", s: "spec", ref: "spec 16 · R57 · E15" },
+      { n: "Cloud Monitoring", v: "", r: "Метрики canvas_* и алерты: 5xx, p95 до вердикта, сбои чтения, доля запасных подсказок; алерт на число запросов — alert.tf; just usage читает метрики Cloud Run против бесплатного лимита", s: "spec", ref: "spec 16 · R56 · T10, T12, E15" },
+      { n: "Cloud Logging", v: "", r: "JSON-логи zap; только ID, коды, тайминги, число токенов и цена — без картинок и прочитанного ответа, по таблице «событие → поля»; связь с трассой — в бете; бакет default-us-east4, 30 дней", s: "spec", ref: "spec 16 · R57, R65 · E2" }
     ]},
     { id: "quality", name: "Качество кода", path: "CI · .githooks/", note: "блокируют: патч Codecov, CodeQL, Trivy", rows: [
       { n: "golangci-lint", v: "2.14.0", r: "Конфиг v2: depguard, forbidigo, gocognit, interfacebloat", s: "repo", ref: "T04" },
@@ -551,9 +552,9 @@
       { n: "gopter", p: "github.com/leanovate/gopter", v: "v0.2.11", r: "Property-тесты сравнения ответа и перевода рамки", s: "sample", ref: "spec 17 · E2" },
       { n: "httptest", p: "net/http/httptest", v: "stdlib", r: "Подделки Firebase, Gemini, Centrifugo и OTLP — без сети", s: "spec", ref: "spec 17" },
       { n: "testify", p: "только mock.Anything", v: "", r: "В сгенерированных моках; утверждения — стандартной библиотекой", s: "spec", ref: "CLAUDE.md" },
-      { n: "Интеграционные тесты", p: "docker compose: Postgres + OpenFGA", v: "по digest", r: "Сценарии 9.1–9.8 через HTTP под своей меткой сборки", s: "spec", ref: "E2" },
-      { n: "vegeta", p: "github.com/tsenart/vegeta/v12", v: "v12.13.0", r: "Темп и перцентили нагрузочного инструмента tools/load", s: "sample", ref: "E2" },
-      { n: "Playwright", p: "из образа по digest", v: "", r: "e2e на синтетических штрихах: ответ, Check, вердикт; обрыв сети и перезагрузка", s: "spec", ref: "spec 17 · E2" }
+      { n: "Интеграционные тесты", p: "docker compose: Postgres + OpenFGA", v: "по digest", r: "Сценарии 9.1–9.8 через HTTP под своей меткой сборки", s: "spec", ref: "E15" },
+      { n: "vegeta", p: "github.com/tsenart/vegeta/v12", v: "v12.13.0", r: "Темп и перцентили нагрузочного инструмента tools/load", s: "sample", ref: "E15" },
+      { n: "Playwright", p: "из образа по digest", v: "", r: "e2e на синтетических штрихах: лист, Send Answer, вердикт; обрыв сети и перезагрузка", s: "spec", ref: "spec 17 · E15" }
     ]},
     { id: "dev", name: "Среда разработки", path: ".devcontainer/ · justfile", note: "только внутри контейнера", foot: "Terraform, gcloud, firebase-tools, golangci-lint и mockery ставятся отсюда же — они в разделах «Облако и поставка» и «Качество кода».", rows: [
       { n: "Go", v: "1.27.2", r: "Тулчейн сервиса; та же версия в go.mod", s: "repo", ref: "Dockerfile · go.mod" },
@@ -563,7 +564,7 @@
       { n: "gopls · Delve", v: "0.23.0 · 1.27.2", r: "Язык Go и отладчик в VS Code", s: "repo", ref: "Dockerfile" },
       { n: "Docker-in-Docker", p: "devcontainer feature 4.1.1", v: "Docker 29.8.1", r: "Образы, compose и интеграционные тесты внутри контейнера", s: "repo", ref: "devcontainer.json" },
       { n: "Docker Compose", v: "5.5.1", r: "Postgres, OpenFGA, Centrifugo и Redis для локального запуска", s: "repo", ref: "Dockerfile" },
-      { n: "cloudflared", v: "2026.9.1", r: "Туннель: SPA из контейнера на настоящем планшете", s: "repo", ref: "Dockerfile · E2" },
+      { n: "cloudflared", v: "2026.9.1", r: "Туннель: SPA из контейнера на настоящем планшете", s: "repo", ref: "Dockerfile · E15" },
       { n: "gh", v: "2.101.0", r: "Алерты сканеров и статус доставки с github.com", s: "repo", ref: "Dockerfile" },
       { n: "Claude Code", v: "2.1.280", r: "CLI и расширение одной версии; автообновление выключено", s: "repo", ref: "Dockerfile · devcontainer.json" }
     ]}
