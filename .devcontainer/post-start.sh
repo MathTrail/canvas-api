@@ -7,6 +7,22 @@ if [[ -d .githooks ]]; then
     git config core.hooksPath .githooks
 fi
 
+# A pull or a checkout that moves the sample's pin moves the sample with it. Otherwise it
+# stays at the old commit, reads as the pinned one, and the next "commit all" takes the
+# pin back.
+git config submodule.recurse true
+
+# The sample this repository follows is a submodule, and a fresh clone leaves it empty.
+# Checked out only when it is missing: once it is there, it may sit at a commit somebody
+# has just raised it to and not committed yet, and a restart must not take that back.
+# Without the network the container still starts; the next start tries again. A clone
+# that hangs, or a remote that asks for credentials, is cut short rather than holding
+# the start.
+if [[ ! -e reference/mathtrail-standalone/.git ]]; then
+    GIT_TERMINAL_PROMPT=0 timeout 120 git submodule update --init reference/mathtrail-standalone \
+        || echo "reference/mathtrail-standalone: not checked out; run git submodule update --init" >&2
+fi
+
 # The docker inside this container hands its networks an MTU of 1500. When this container's
 # own interface is smaller — a tunnel on the host is the usual reason — everything that
 # crosses both stalls: a packet that fits here is too large for the tunnel, and nothing

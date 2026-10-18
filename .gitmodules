@@ -1,0 +1,4 @@
+[submodule "reference/mathtrail-standalone"]
+	path = reference/mathtrail-standalone
+	url = https://github.com/MathTrail/mathtrail-standalone.git
+	branch = main

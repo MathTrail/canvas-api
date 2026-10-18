@@ -76,8 +76,8 @@ DATE := `date -u +%Y-%m-%dT%H:%M:%SZ`
 SYMBOLS := MODULE + "/internal/version"
 LDFLAGS := "-X " + SYMBOLS + ".Version=" + VERSION + " -X " + SYMBOLS + ".Commit=" + COMMIT + " -X " + SYMBOLS + ".Date=" + DATE
 
-# The repository's own Go files, as a NUL-separated list. The copy of the
-# sample under reference/ is read-only and not this repository's to format, so
+# The repository's own Go files, as a NUL-separated list. The sample under
+# reference/ is read-only and not this repository's to format, so
 # gofmt never walks into it, nor into installed packages and providers. The
 # pre-commit hook keeps the same list in go_files.
 GO_FILES := "find . -path ./reference -prune -o -path ./.git -prune -o -name node_modules -prune -o -name .terraform -prune -o -type f -name '*.go' -print0"

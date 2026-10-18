@@ -60,8 +60,10 @@ firebase-debug.*.log*
 # permission of a live run, which is deleted once the run is over.
 .claude/settings.local.json
 
-# Reference copies of other repositories: read-only material, never committed.
-/reference/
+# Other repositories' material for reading. The sample is a submodule and is tracked as
+# one; anything else put here stays out of this public repository.
+/reference/*
+!/reference/mathtrail-standalone
 
 # The one deployment this repository delivers to is described in the repository,
 # not in somebody's console: these two are committed on purpose.

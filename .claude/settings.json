@@ -1,0 +1,6 @@
+{
+    "claudeMdExcludes": [
+        "**/reference/mathtrail-standalone/**/CLAUDE.md",
+        "**/reference/mathtrail-standalone/**/CLAUDE.local.md"
+    ]
+}

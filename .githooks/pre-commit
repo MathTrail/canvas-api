@@ -5,7 +5,7 @@
 # not become a wait.
 set -euo pipefail
 
-# The repository's own Go files: the copy of the sample under reference/ is
+# The repository's own Go files: the sample under reference/ is
 # read-only and not this repository's to answer for, and installed packages and
 # providers are not its own either. The same list as GO_FILES in the justfile,
 # which this hook does not read, since a commit may be made where there is no

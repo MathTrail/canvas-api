@@ -1,0 +1,5 @@
+# Search tools that read this file — ripgrep, and the editors and agents built on it —
+# skip the sample under reference/: git tracks it as a submodule, but its files are
+# another repository's, and a search here is about this one. An explicit path still
+# reads them.
+/reference/
