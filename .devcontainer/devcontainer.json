@@ -52,6 +52,9 @@
                 // gopls and dlv come pinned from the image; the Go extension must not fetch its own.
                 "go.toolsManagement.autoUpdate": false,
                 "go.toolsManagement.checkForUpdates": "off",
+                // The sample under reference/ is a read-only submodule: Source Control does
+                // not offer it as a second repository to commit in.
+                "git.detectSubmodules": false,
                 "files.eol": "\n",
                 "files.insertFinalNewline": true,
                 // SonarQube for IDE sends nothing about how it is used.
