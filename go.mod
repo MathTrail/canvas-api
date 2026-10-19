@@ -13,7 +13,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/spf13/viper v1.21.0
 	go.uber.org/zap v1.28.0
-	golang.org/x/sync v0.23.0
+	golang.org/x/sync v0.24.0
 )
 
 require (
