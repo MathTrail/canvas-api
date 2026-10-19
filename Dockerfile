@@ -3,7 +3,7 @@
 # alone. The builder's Go version is the one go.mod names and the tests run on,
 # so the shipped binary is built by the same toolchain that proved it works.
 
-FROM golang:1.27.2-trixie@sha256:e58d6f83b3416618d8bcac2b3dde1b7f7e3c4a77d25e88637f8bbae81536c48d AS build
+FROM golang:1.27.2-trixie@sha256:47667934874913a449b96faa7ef4777fa285d9ec29126ee80ed61c45b7cccf0e AS build
 
 WORKDIR /src
 
