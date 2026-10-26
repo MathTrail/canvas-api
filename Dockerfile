@@ -35,7 +35,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 # The runtime holds the binary and a certificate bundle, and nothing else: no
 # shell, no package manager, and a non-root user (uid 65532). It is written
 # once, for both images below.
-FROM gcr.io/distroless/static-debian13@sha256:58133991db06659feaabe0f4e97a35cebf15ef4ea08f8a4c6d2ee5f75e4aa6a0 AS runtime
+FROM gcr.io/distroless/static-debian13@sha256:15f8637509792e05b97d83451b0b6ccfa4abd548f997e406ac1e72c87fe1fa78 AS runtime
 
 USER nonroot:nonroot
 EXPOSE 8080
